@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@kf/core": ["packages/core/src/index.ts"],
+      "@kf/db": ["packages/db/src/index.ts"],
+      "@kf/ai": ["packages/ai/src/index.ts"],
+      "@kf/pka": ["packages/pka/src/index.ts"],
+      "@kf/ui": ["packages/ui/src/index.ts"],
+      "@kf/config": ["packages/config/src/index.ts"]
+    }
+  }
+}

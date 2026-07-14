@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LifecycleState {
+  draft
+  ai_generated
+  under_review
+  changes_requested
+  expert_validated
+  approved
+  published
+  deprecated
+  archived
+  rejected
+}
+
+enum MissionType {
+  discovery
+  acquisition
+  manufacturing
+  validation
+  publishing
+  intelligence
+  maintenance
+}
+
+enum MissionStatus {
+  created
+  queued
+  assigned
+  ready
+  running
+  paused
+  completed
+  verified
+  closed
+  failed
+  cancelled
+  retried
+  expired
+}
+
+enum Role {
+  platform_admin
+  knowledge_architect
+  knowledge_engineer
+  domain_expert
+  reviewer
+  publisher
+  runtime_consumer
+}
+
+model Organization {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  workspaces  Workspace[]
+  users       User[]
+}
+
+model Workspace {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  projects       Project[]
+  missions       Mission[]
+  users          User[]
+
+  @@unique([organizationId, slug])
+}
+
+model User {
+  id             String        @id @default(cuid())
+  organizationId String
+  workspaceId    String?
+  email          String        @unique
+  displayName    String
+  role           Role
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  workspace      Workspace?    @relation(fields: [workspaceId], references: [id])
+  createdProjects Project[]    @relation("ProjectCreator")
+  createdMissions Mission[]    @relation("MissionCreator")
+  assignedMissions Mission[]   @relation("MissionAssignee")
+  reviews        Review[]
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  createdById    String
+  name           String
+  domain         String
+  description    String?
+  status         LifecycleState @default(draft)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id])
+  createdBy      User         @relation("ProjectCreator", fields: [createdById], references: [id])
+  missions       Mission[]
+  sources        Source[]
+  knowledgeObjects KnowledgeObject[]
+  packages       PkaPackage[]
+}
+
+model Mission {
+  id          String        @id @default(cuid())
+  projectId   String?
+  workspaceId String
+  createdById String
+  assignedToId String?
+  type        MissionType
+  status      MissionStatus @default(created)
+  objective   String
+  stage       String?
+  priority    Int           @default(3)
+  inputs      Json?
+  outputs     Json?
+  error       String?
+  auditTrail  Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project?      @relation(fields: [projectId], references: [id])
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  createdBy   User          @relation("MissionCreator", fields: [createdById], references: [id])
+  assignedTo  User?         @relation("MissionAssignee", fields: [assignedToId], references: [id])
+  sources     Source[]
+}
+
+model Source {
+  id             String         @id @default(cuid())
+  projectId      String
+  missionId      String?
+  title          String
+  sourceType     String
+  owner          String
+  version        String?
+  domain         String
+  reliability    String?
+  reviewStatus   LifecycleState @default(draft)
+  license        String?
+  usagePolicy    String?
+  storagePath    String?
+  processingStatus String       @default("registered")
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  project        Project        @relation(fields: [projectId], references: [id])
+  mission        Mission?       @relation(fields: [missionId], references: [id])
+  evidenceLinks  SourceEvidence[]
+}
+
+model KnowledgeObject {
+  id             String         @id @default(cuid())
+  projectId      String
+  title          String
+  objectType     String
+  domain         String
+  description    String
+  status         LifecycleState @default(draft)
+  version        String         @default("0.1.0")
+  confidence     Decimal?       @db.Decimal(5, 2)
+  approvalStatus LifecycleState @default(draft)
+  owner          String?
+  author         String?
+  contributor    String?
+  reviewer       String?
+  approvedAt     DateTime?
+  tags           String[]       @default([])
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  project        Project        @relation(fields: [projectId], references: [id])
+  evidenceLinks  SourceEvidence[]
+  outgoingRelationships KnowledgeRelationship[] @relation("RelationshipFrom")
+  incomingRelationships KnowledgeRelationship[] @relation("RelationshipTo")
+  reviews        Review[]
+}
+
+model SourceEvidence {
+  id                String          @id @default(cuid())
+  sourceId          String
+  knowledgeObjectId String
+  excerpt           String?
+  locator           String?
+  confidence        Decimal?        @db.Decimal(5, 2)
+  createdAt         DateTime        @default(now())
+  source            Source          @relation(fields: [sourceId], references: [id])
+  knowledgeObject   KnowledgeObject @relation(fields: [knowledgeObjectId], references: [id])
+}
+
+model KnowledgeRelationship {
+  id        String          @id @default(cuid())
+  projectId String
+  fromId    String
+  toId      String
+  type      String
+  status    LifecycleState @default(draft)
+  provenance Json?
+  confidence Decimal?      @db.Decimal(5, 2)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  from      KnowledgeObject @relation("RelationshipFrom", fields: [fromId], references: [id])
+  to        KnowledgeObject @relation("RelationshipTo", fields: [toId], references: [id])
+}
+
+model Review {
+  id                String          @id @default(cuid())
+  knowledgeObjectId String
+  reviewerId        String
+  decision          LifecycleState
+  notes             String?
+  createdAt         DateTime        @default(now())
+  knowledgeObject   KnowledgeObject @relation(fields: [knowledgeObjectId], references: [id])
+  reviewer          User            @relation(fields: [reviewerId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String
+  subjectType String
+  subjectId   String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model PkaPackage {
+  id          String         @id @default(cuid())
+  projectId   String
+  packageId   String
+  name        String
+  version     String
+  domain      String
+  status      LifecycleState @default(draft)
+  manifest    Json?
+  exportPath  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  project     Project        @relation(fields: [projectId], references: [id])
+}

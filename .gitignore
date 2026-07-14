@@ -1,0 +1,43 @@
+﻿# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Temporary captured external discussions
+docs/implementation/shared-discussion-*.html
+.extracted-chat/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Graphify generated graph output
+graphify-out/
+.graphify-work/
+
+# Local KF storage
+storage/*
+!storage/.gitkeep
+!storage/sources/
+!storage/sources/.gitkeep
+!storage/exports/
+!storage/exports/.gitkeep

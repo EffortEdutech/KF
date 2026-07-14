@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: kf-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KF_POSTGRES_USER:-kf_app}
+      POSTGRES_PASSWORD: ${KF_POSTGRES_PASSWORD:-kf_dev_password}
+      POSTGRES_DB: ${KF_POSTGRES_DB:-kf_dev}
+    ports:
+      - "${KF_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - kf_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KF_POSTGRES_USER:-kf_app} -d ${KF_POSTGRES_DB:-kf_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kf_postgres_data:

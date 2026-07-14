@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@kf/core": ["../../packages/core/src/index.ts"],
+      "@kf/db": ["../../packages/db/src/index.ts"],
+      "@kf/ai": ["../../packages/ai/src/index.ts"],
+      "@kf/pka": ["../../packages/pka/src/index.ts"],
+      "@kf/ui": ["../../packages/ui/src/index.ts"],
+      "@kf/config": ["../../packages/config/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
