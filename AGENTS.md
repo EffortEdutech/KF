@@ -49,6 +49,7 @@ The frozen architecture source of truth remains `docs/v1`. The active implementa
 
 - `docs/implementation/KF Build Sprint Plan and Checklist.md`
 - `docs/implementation/Pre-Sprint Architecture Audit.md`
+- `docs/implementation/PKA Anatomy and Runtime Boundary.md`
 - `docs/implementation/setup/Local Development Setup.md`
 
 The current implementation is a standalone-first Next.js Studio app with LADOS-compatible package/module boundaries.
@@ -71,6 +72,8 @@ Do not introduce implementation structure that conflicts with the approved Knowl
 - Knowledge Factory is a knowledge manufacturing platform, not a chatbot, search engine, document manager, or computer OS.
 - Knowledge Objects are the core unit.
 - Professional Knowledge Assets are the primary governed output.
+- A PKA is a package-level governed asset composed of smaller knowledge components.
+- Distinguish Base PKAs from client-adapted PKA instances and runtime vault state.
 - AI assists the manufacturing process; humans govern professional approval.
 - Governance, provenance, traceability, validation, review status, and versioning are mandatory.
 - Knowledge Factory manufactures PKAs; LADOS is a runtime target that can execute or host PKAs.

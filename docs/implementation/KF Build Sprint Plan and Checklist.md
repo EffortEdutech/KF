@@ -32,6 +32,8 @@ All sprint work must preserve these rules from the frozen baseline:
 - Sources, provenance, validation, review status, versioning, and audit history are mandatory design concerns.
 - Knowledge Factory manufactures PKAs; LADOS or another runtime executes or hosts them.
 - Knowledge Factory may later expose a Runtime Knowledge Service for approved knowledge, but it must not duplicate the LADOS runtime layer.
+- A PKA is a package-level governed asset composed of smaller Knowledge Objects and Knowledge Asset Components.
+- Base PKAs must be distinguished from client-adapted PKA instances and runtime vault state.
 - AI providers must remain abstracted, including local Ollama-style deployment.
 - Sensitive organizational knowledge must not be sent to external AI providers unless explicitly configured.
 
@@ -95,6 +97,7 @@ Checklist:
 - [x] Initialize or repair Git repository state.
 - [x] Update this sprint checklist after decisions are accepted.
 - [x] Review shared CFO/LADOS architecture discussion and capture implementation implications.
+- [x] Add PKA Anatomy and Runtime Boundary note after AIFA alignment review.
 
 Acceptance checks:
 
@@ -139,6 +142,7 @@ Checklist:
 - [x] Update `AGENTS.md` command list after commands exist.
 - [x] Refresh Graphify after meaningful structure changes.
 - [x] Capture PKA package/component and Runtime Knowledge Service planning implications.
+- [x] Document Base PKA, client-adapted PKA instance, runtime vault, and runtime boundary vocabulary.
 
 Acceptance checks:
 
@@ -185,6 +189,7 @@ Checklist:
 - [ ] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
 - [ ] Add source licensing or usage policy metadata.
 - [ ] Add source category support for standards, SOPs, company documents, expert interviews, historical cases, analytical models, templates, and external data references.
+- [ ] Preserve source metadata needed to separate Base PKA inputs from client/runtime-local adaptation inputs.
 - [ ] Add local file upload or documented placeholder if deferred.
 - [ ] Store source file or artifact reference.
 - [ ] Track processing status.
@@ -213,6 +218,7 @@ Acceptance checks:
 Checklist:
 
 - [ ] Add Knowledge Object data model.
+- [ ] Decide which package components are Knowledge Objects and which need dedicated component records.
 - [ ] Apply canonical MVP lifecycle states.
 - [ ] Add KO fields: ID, type, title/name, description, domain, tags, status, version, confidence, approval status.
 - [ ] Add owner, author, contributor, reviewer, and approval metadata where practical.
@@ -348,6 +354,7 @@ Checklist:
 
 - [ ] Add PKA package record model.
 - [ ] Define PKA package/component vocabulary in implementation terms.
+- [ ] Implement Base PKA vs client-adapted PKA instance distinction in package/export design.
 - [ ] Add PKA Builder view.
 - [ ] Select approved KOs for package.
 - [ ] Include ontology.
@@ -369,10 +376,12 @@ Checklist:
   - [ ] `prompts/`
   - [ ] `rules/`
   - [ ] `workflows/`
+  - [ ] `templates/`
   - [ ] `runtime/`
   - [ ] `governance/`
 - [ ] Add package validation report.
 - [ ] Add incremental package update strategy notes.
+- [ ] Document what is excluded from a Base PKA and belongs to runtime vault/client state.
 - [ ] Add tests for manifest generation and validation.
 - [ ] Update docs for PKA export format.
 
@@ -427,6 +436,7 @@ Checklist:
 
 - [ ] Define minimal runtime import contract.
 - [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
+- [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
 - [ ] Build local PKA loader/test harness.
 - [ ] Validate manifest.
 - [ ] Load ontology.
@@ -532,6 +542,7 @@ Apply these checks to every sprint:
 - [ ] AI Provider Service
 - [ ] Runtime Integration Service
 - [ ] Runtime Knowledge Service boundary
+- [ ] PKA Anatomy and Runtime Boundary
 
 ### Data
 
@@ -548,6 +559,8 @@ Apply these checks to every sprint:
 - [ ] Audit logs
 - [ ] Mission-backed pipeline jobs
 - [ ] PKA packages
+- [ ] PKA component manifest entries
+- [ ] Client-adapted PKA instance records
 - [ ] Provider settings without secrets
 
 ### Local Infrastructure
@@ -591,6 +604,7 @@ Apply these checks to every sprint:
 | 2026-07-14 | Docker CLI unavailable in current shell | Blocked | `docker compose config` could not run because `docker` is not on PATH. Compose file still added for KF. |
 | 2026-07-14 | Sprint 0 verification passed | Accepted | `corepack pnpm install`, `corepack pnpm check`, `corepack pnpm db:generate`, HTTP smoke test, and Graphify code refresh completed. |
 | 2026-07-14 | Shared CFO/LADOS discussion reviewed | Accepted | Adds planning emphasis for two KF modes: Factory Mode and future Runtime Knowledge Service. Also clarifies PKA as a package-level asset composed of smaller governed components. |
+| 2026-07-15 | PKA Anatomy and Runtime Boundary added | Accepted | Clarifies Base PKA vs client-adapted PKA instance, Local PKA Vault boundary, runtime ownership, and AIFA/LADOS alignment. |
 
 ---
 
@@ -609,13 +623,14 @@ Apply these checks to every sprint:
 - [x] Minimal organisation/workspace/project/identity/role model: single local org/workspace with seeded roles and ownership fields.
 - [x] First local AI integration depth behind provider/model router: deterministic fake provider in Sprint 0, Ollama adapter in Sprint 3.
 - [x] First pilot domain for Sprint 9: Quantity Surveying / RFQ from BOQ PKA proof of concept.
+- [x] PKA anatomy and runtime boundary: Base PKA is manufactured by KF; runtime products own client data, runtime state, and client-adapted PKA instances.
 
 ---
 
 ## 10. Current Next Actions
 
 1. Verify Docker Compose once Docker CLI is available.
-2. Refresh Graphify after this planning update if needed.
+2. Review and commit the PKA Anatomy and Runtime Boundary update.
 3. Start Sprint 1 Studio workspace, source management, and Mission Centre foundation.
 
 ---
