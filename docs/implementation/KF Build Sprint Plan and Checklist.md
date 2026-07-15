@@ -2,7 +2,7 @@
 
 **Status:** Active planning baseline  
 **Created:** 2026-07-14  
-**Current phase:** Sprint 1 - Core Workspace and Source Management  
+**Current phase:** Sprint 2 - Knowledge Object Repository MVP
 **Source baseline:** `docs/v1` Version 1.0 frozen architecture and `docs/v1/TRY 1`
 
 ---
@@ -234,26 +234,26 @@ Acceptance checks:
 
 Checklist:
 
-- [ ] Add Knowledge Object data model.
-- [ ] Decide which package components are Knowledge Objects and which need dedicated component records.
-- [ ] Apply canonical MVP lifecycle states.
-- [ ] Add KO fields: ID, type, title/name, description, domain, tags, status, version, confidence, approval status.
-- [ ] Add owner, author, contributor, reviewer, and approval metadata where practical.
-- [ ] Add source evidence link model.
+- [x] Add Knowledge Object data model.
+- [~] Decide which package components are Knowledge Objects and which need dedicated component records.
+- [x] Apply canonical MVP lifecycle states.
+- [x] Add KO fields: ID, type, title/name, description, domain, tags, status, version, confidence, approval status.
+- [x] Add owner, author, contributor, reviewer, and approval metadata where practical.
+- [x] Add source evidence link model.
 - [ ] Add relationship model for simple KO-to-KO links.
-- [ ] Add KO list view.
-- [ ] Add KO filters by type, status, domain, and tag.
-- [ ] Add KO search.
-- [ ] Add KO detail view.
-- [ ] Add source evidence panel.
+- [x] Add KO list view.
+- [~] Add KO filters by type, status, domain, and tag.
+- [x] Add KO search.
+- [x] Add KO detail view.
+- [x] Add source evidence panel.
 - [ ] Add relationship panel.
 - [ ] Add governance history placeholder or first audit log.
-- [ ] Add manual KO creation.
+- [x] Add manual KO creation.
 - [ ] Add KO editing while draft or under review.
 - [ ] Prevent direct editing of approved/published objects unless versioning behavior is defined.
 - [ ] Add object status transitions: draft, under review, approved, deprecated.
-- [ ] Add tests for KO CRUD, evidence links, and status rules.
-- [ ] Update docs for KO schema and governance behavior.
+- [~] Add tests for KO CRUD, evidence links, and status rules.
+- [x] Update docs for KO schema and governance behavior.
 
 Acceptance checks:
 
@@ -638,6 +638,7 @@ Apply these checks to every sprint:
 | 2026-07-15 | Initial Prisma migration applied | Accepted | Migration `20260715094912_init` was created/applied and `prisma migrate status` reports the KF database schema is up to date. |
 | 2026-07-15 | Project/source/mission mutations moved to Prisma | Accepted | Studio workspace service uses Prisma when `DATABASE_URL` is configured, with an in-memory fallback for environments without database configuration. Browser verified DB-backed project/source creation and automatic Mission traces. |
 | 2026-07-15 | Sprint 1 hardening and Sprint 2 runway added | Accepted | Projects, Sources, and Mission Centre now expose empty/error states. Project/source readiness hints flag missing source intake, pending governance review, usage policy gaps, client-adaptation boundaries, and missing Knowledge Objects. `/knowledge-objects` now exists as the Sprint 2 preparation route. |
+| 2026-07-15 | Sprint 2 Knowledge Object repository started | Accepted | The initial Prisma migration already contains `KnowledgeObject` and `SourceEvidence`; `prisma migrate status` confirms the database is up to date. Studio now supports first draft KO creation, list/detail/search/filter, source evidence display, and Mission tracing for manual KO creation. |
 
 ---
 
@@ -664,10 +665,10 @@ Apply these checks to every sprint:
 
 ## 10. Current Next Actions
 
-1. Add stronger runtime/browser tests once a test runner is approved or introduced.
-2. Begin Sprint 2 Knowledge Object Repository MVP with the Prisma KO model and migration.
-3. Add source evidence link model and first manual KO creation flow.
-4. Add KO list/detail/search/filter controls on top of the new `/knowledge-objects` route.
+1. Complete Sprint 2 KO editing for draft/under-review records.
+2. Add status transition controls for draft, under review, approved, and deprecated.
+3. Add relationship panel and first KO-to-KO link creation flow.
+4. Add stronger runtime/browser tests once a test runner is approved or introduced.
 
 ---
 

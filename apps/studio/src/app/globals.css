@@ -298,6 +298,33 @@ textarea {
   color: var(--accent-strong);
 }
 
+.filter-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.filter-search {
+  min-width: min(320px, 100%);
+}
+
+.filter-field input,
+.filter-field select,
+.filter-button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #101310;
+  color: var(--foreground);
+  padding: 9px 10px;
+}
+
+.filter-button {
+  align-self: end;
+  background: var(--panel-strong);
+  color: var(--accent-strong);
+}
+
 .summary-row,
 .card-meta {
   display: flex;

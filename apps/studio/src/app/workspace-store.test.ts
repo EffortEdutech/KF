@@ -1,10 +1,13 @@
 import {
   createProject,
+  createKnowledgeObject,
   createMission,
   createSource,
+  getKnowledgeObject,
   getProjectReadinessHints,
   getProjectSourceCount,
   getSourceReadinessHints,
+  listKnowledgeObjects,
   listMissions,
   listProjects,
   listSources,
@@ -62,6 +65,29 @@ async function runWorkspaceStoreContractTest() {
   expect(
     (await listMissions()).length === initialMissionCount + 2,
     "source creation should create one mission trace"
+  );
+
+  const knowledgeObject = await createKnowledgeObject({
+    projectId: project.id,
+    title: "Contract Test Knowledge Object",
+    objectType: "rule",
+    domain: "Quantity Surveying",
+    description: "A test rule should keep source evidence attached to the draft Knowledge Object.",
+    owner: "knowledge_engineer",
+    author: "knowledge_engineer",
+    tags: ["contract-test", "evidence"],
+    confidence: 75,
+    sourceId: source.id,
+    evidenceExcerpt: "Evidence excerpt fixture",
+    evidenceLocator: "fixture:1",
+    evidenceConfidence: 80
+  });
+
+  expect((await listKnowledgeObjects({ projectId: project.id }))[0]?.id === knowledgeObject.id, "new KO should be returned first");
+  expect((await getKnowledgeObject(knowledgeObject.id))?.evidenceLinks.length === 1, "KO should keep one source evidence link");
+  expect(
+    (await listProjects()).find((item) => item.id === project.id)?.knowledgeObjectCount === 1,
+    "project KO count should reflect created Knowledge Object"
   );
 
   const mission = await createMission({

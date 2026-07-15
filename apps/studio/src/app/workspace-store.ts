@@ -1,6 +1,12 @@
 import type { MissionStatus, MissionType } from "@kf/core";
 import { getPrismaClient } from "@kf/db";
-import type { MissionSummary, ProjectSummary, SourceSummary } from "./studio-data";
+import type {
+  KnowledgeObjectSummary,
+  MissionSummary,
+  ProjectSummary,
+  SourceEvidenceSummary,
+  SourceSummary
+} from "./studio-data";
 import {
   missions as seedMissions,
   projects as seedProjects,
@@ -38,6 +44,29 @@ export type MissionInput = {
   status?: MissionStatus;
 };
 
+export type KnowledgeObjectInput = {
+  projectId: string;
+  title: string;
+  objectType: KnowledgeObjectSummary["objectType"];
+  domain: string;
+  description: string;
+  owner: string;
+  author: string;
+  tags: string[];
+  confidence?: number;
+  sourceId?: string;
+  evidenceExcerpt?: string;
+  evidenceLocator?: string;
+  evidenceConfidence?: number;
+};
+
+export type KnowledgeObjectFilter = {
+  projectId?: string;
+  status?: KnowledgeObjectSummary["status"] | "all";
+  objectType?: KnowledgeObjectSummary["objectType"] | "all";
+  query?: string;
+};
+
 export type ReadinessHint = {
   id: string;
   level: "ready" | "warning" | "info";
@@ -49,6 +78,7 @@ type WorkspaceStore = {
   projects: ProjectSummary[];
   sources: SourceSummary[];
   missions: MissionSummary[];
+  knowledgeObjects: KnowledgeObjectSummary[];
 };
 
 type PrismaProject = {
@@ -97,6 +127,37 @@ type PrismaMission = {
   } | null;
   stage: string | null;
   priority: number;
+};
+
+type PrismaKnowledgeObject = {
+  id: string;
+  projectId: string;
+  title: string;
+  objectType: string;
+  domain: string;
+  description: string;
+  status: string;
+  version: string;
+  confidence: { toNumber(): number } | number | string | null;
+  approvalStatus: string;
+  owner: string | null;
+  author: string | null;
+  contributor: string | null;
+  reviewer: string | null;
+  tags: string[];
+  createdAt: Date;
+  evidenceLinks: PrismaSourceEvidence[];
+};
+
+type PrismaSourceEvidence = {
+  id: string;
+  sourceId: string;
+  excerpt: string | null;
+  locator: string | null;
+  confidence: { toNumber(): number } | number | string | null;
+  source: {
+    title: string;
+  };
 };
 
 declare global {
@@ -163,6 +224,34 @@ function metadataBoundary(metadata: unknown): SourceSummary["boundary"] {
     return "client_adaptation_input";
   }
   return "base_pka_input";
+}
+
+function decimalToNumber(value: PrismaKnowledgeObject["confidence"]) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return Number(value);
+  }
+
+  return value.toNumber();
+}
+
+function normaliseConfidence(value?: number) {
+  if (value === undefined || Number.isNaN(value)) {
+    return undefined;
+  }
+
+  return Math.min(100, Math.max(0, value));
+}
+
+function parseTags(tags: string[]) {
+  return tags.map((tag) => tag.trim()).filter(Boolean);
 }
 
 async function ensureLocalWorkspace(): Promise<LocalWorkspaceContext> {
@@ -329,12 +418,14 @@ function workspaceStore() {
   globalThis.kfWorkspaceStore ??= {
     projects: seedProjects.map((project) => ({ ...project })),
     sources: seedSources.map((source) => ({ ...source })),
-    missions: seedMissions.map((mission) => ({ ...mission }))
+    missions: seedMissions.map((mission) => ({ ...mission })),
+    knowledgeObjects: []
   };
 
   globalThis.kfWorkspaceStore.missions ??= seedMissions.map((mission) => ({ ...mission }));
   globalThis.kfWorkspaceStore.projects ??= seedProjects.map((project) => ({ ...project }));
   globalThis.kfWorkspaceStore.sources ??= seedSources.map((source) => ({ ...source }));
+  globalThis.kfWorkspaceStore.knowledgeObjects ??= [];
 
   return globalThis.kfWorkspaceStore;
 }
@@ -388,6 +479,79 @@ function mapMission(mission: PrismaMission): MissionSummary {
     stage: mission.stage ?? "",
     priority: numberToPriority(mission.priority)
   };
+}
+
+function mapEvidenceLink(evidence: PrismaSourceEvidence): SourceEvidenceSummary {
+  return {
+    id: evidence.id,
+    sourceId: evidence.sourceId,
+    sourceTitle: evidence.source.title,
+    excerpt: evidence.excerpt ?? undefined,
+    locator: evidence.locator ?? undefined,
+    confidence: decimalToNumber(evidence.confidence)
+  };
+}
+
+function mapKnowledgeObject(knowledgeObject: PrismaKnowledgeObject): KnowledgeObjectSummary {
+  return {
+    id: knowledgeObject.id,
+    projectId: knowledgeObject.projectId,
+    title: knowledgeObject.title,
+    objectType: knowledgeObject.objectType as KnowledgeObjectSummary["objectType"],
+    domain: knowledgeObject.domain,
+    description: knowledgeObject.description,
+    status: knowledgeObject.status as KnowledgeObjectSummary["status"],
+    version: knowledgeObject.version,
+    confidence: decimalToNumber(knowledgeObject.confidence),
+    approvalStatus: knowledgeObject.approvalStatus as KnowledgeObjectSummary["approvalStatus"],
+    owner: knowledgeObject.owner ?? undefined,
+    author: knowledgeObject.author ?? undefined,
+    contributor: knowledgeObject.contributor ?? undefined,
+    reviewer: knowledgeObject.reviewer ?? undefined,
+    tags: knowledgeObject.tags,
+    evidenceLinks: knowledgeObject.evidenceLinks.map(mapEvidenceLink),
+    createdAt: knowledgeObject.createdAt.toISOString().slice(0, 10)
+  };
+}
+
+function filterKnowledgeObjects(
+  knowledgeObjects: KnowledgeObjectSummary[],
+  filters: KnowledgeObjectFilter = {}
+) {
+  const query = filters.query?.trim().toLowerCase();
+
+  return knowledgeObjects.filter((knowledgeObject) => {
+    if (filters.projectId && knowledgeObject.projectId !== filters.projectId) {
+      return false;
+    }
+
+    if (filters.status && filters.status !== "all" && knowledgeObject.status !== filters.status) {
+      return false;
+    }
+
+    if (
+      filters.objectType &&
+      filters.objectType !== "all" &&
+      knowledgeObject.objectType !== filters.objectType
+    ) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      knowledgeObject.title,
+      knowledgeObject.description,
+      knowledgeObject.domain,
+      knowledgeObject.objectType,
+      knowledgeObject.tags.join(" ")
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
 }
 
 function approvedSource(source: SourceSummary) {
@@ -545,6 +709,62 @@ export async function listMissions() {
   return [...workspaceStore().missions];
 }
 
+export async function listKnowledgeObjects(filters: KnowledgeObjectFilter = {}) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const query = filters.query?.trim();
+    const knowledgeObjects = await getPrismaClient().knowledgeObject.findMany({
+      where: {
+        projectId: filters.projectId,
+        status: filters.status && filters.status !== "all" ? filters.status : undefined,
+        objectType: filters.objectType && filters.objectType !== "all" ? filters.objectType : undefined,
+        OR: query
+          ? [
+              { title: { contains: query, mode: "insensitive" } },
+              { description: { contains: query, mode: "insensitive" } },
+              { domain: { contains: query, mode: "insensitive" } },
+              { tags: { has: query } }
+            ]
+          : undefined
+      },
+      include: {
+        evidenceLinks: {
+          include: {
+            source: { select: { title: true } }
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    return knowledgeObjects.map(mapKnowledgeObject);
+  }
+
+  return filterKnowledgeObjects([...workspaceStore().knowledgeObjects], filters);
+}
+
+export async function getKnowledgeObject(id: string) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const knowledgeObject = await getPrismaClient().knowledgeObject.findUnique({
+      where: { id },
+      include: {
+        evidenceLinks: {
+          include: {
+            source: { select: { title: true } }
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+
+    return knowledgeObject ? mapKnowledgeObject(knowledgeObject) : undefined;
+  }
+
+  return workspaceStore().knowledgeObjects.find((knowledgeObject) => knowledgeObject.id === id);
+}
+
 export async function getActiveProject() {
   const projects = await listProjects();
   return projects.find((project) => project.id === workspace.activeProjectId) ?? projects[0];
@@ -687,6 +907,115 @@ export async function createSource(input: SourceInput) {
   });
 
   return source;
+}
+
+export async function createKnowledgeObject(input: KnowledgeObjectInput) {
+  const confidence = normaliseConfidence(input.confidence);
+  const evidenceConfidence = normaliseConfidence(input.evidenceConfidence);
+  const tags = parseTags(input.tags);
+
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const knowledgeObject = await getPrismaClient().knowledgeObject.create({
+      data: {
+        projectId: input.projectId,
+        title: input.title,
+        objectType: input.objectType,
+        domain: input.domain,
+        description: input.description,
+        status: "draft",
+        approvalStatus: "draft",
+        version: "0.1.0",
+        confidence,
+        owner: input.owner,
+        author: input.author,
+        tags,
+        metadata: {
+          evidenceMode: input.sourceId ? "source_linked" : "expert_manual_input"
+        },
+        evidenceLinks: input.sourceId
+          ? {
+              create: {
+                sourceId: input.sourceId,
+                excerpt: input.evidenceExcerpt,
+                locator: input.evidenceLocator,
+                confidence: evidenceConfidence
+              }
+            }
+          : undefined
+      },
+      include: {
+        evidenceLinks: {
+          include: {
+            source: { select: { title: true } }
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+
+    await createMission({
+      type: "manufacturing",
+      title: `Create Knowledge Object: ${knowledgeObject.title}`,
+      projectId: knowledgeObject.projectId,
+      assignedTo: input.owner,
+      stage: "knowledge-object-repository",
+      priority: "normal",
+      status: "completed"
+    });
+
+    return mapKnowledgeObject(knowledgeObject);
+  }
+
+  const source = input.sourceId
+    ? workspaceStore().sources.find((item) => item.id === input.sourceId)
+    : undefined;
+  const id = `ko-${slugify(input.title)}-${Date.now().toString(36)}`;
+  const knowledgeObject: KnowledgeObjectSummary = {
+    id,
+    projectId: input.projectId,
+    title: input.title,
+    objectType: input.objectType,
+    domain: input.domain,
+    description: input.description,
+    status: "draft",
+    version: "0.1.0",
+    confidence,
+    approvalStatus: "draft",
+    owner: input.owner,
+    author: input.author,
+    tags,
+    evidenceLinks: source
+      ? [
+          {
+            id: `ev-${slugify(input.title)}-${Date.now().toString(36)}`,
+            sourceId: source.id,
+            sourceTitle: source.title,
+            excerpt: input.evidenceExcerpt,
+            locator: input.evidenceLocator,
+            confidence: evidenceConfidence
+          }
+        ]
+      : [],
+    createdAt: new Date().toISOString().slice(0, 10)
+  };
+
+  workspaceStore().knowledgeObjects.unshift(knowledgeObject);
+  const project = workspaceStore().projects.find((item) => item.id === knowledgeObject.projectId);
+  if (project) {
+    project.knowledgeObjectCount += 1;
+  }
+  await createMission({
+    type: "manufacturing",
+    title: `Create Knowledge Object: ${knowledgeObject.title}`,
+    projectId: knowledgeObject.projectId,
+    assignedTo: input.owner,
+    stage: "knowledge-object-repository",
+    priority: "normal",
+    status: "completed"
+  });
+
+  return knowledgeObject;
 }
 
 export async function createMission(input: MissionInput) {

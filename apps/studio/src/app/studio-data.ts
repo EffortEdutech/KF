@@ -37,6 +37,19 @@ export const sourceCategories = [
 
 export type SourceCategory = (typeof sourceCategories)[number];
 
+export const knowledgeObjectTypes = [
+  "concept",
+  "rule",
+  "procedure",
+  "formula",
+  "template",
+  "case_reference",
+  "checklist_item",
+  "definition"
+] as const;
+
+export type KnowledgeObjectType = (typeof knowledgeObjectTypes)[number];
+
 export type ProjectSummary = {
   id: string;
   name: string;
@@ -154,6 +167,35 @@ export type MissionSummary = {
   assignedTo: string;
   stage: string;
   priority: "low" | "normal" | "high";
+};
+
+export type SourceEvidenceSummary = {
+  id: string;
+  sourceId: string;
+  sourceTitle: string;
+  excerpt?: string;
+  locator?: string;
+  confidence?: number;
+};
+
+export type KnowledgeObjectSummary = {
+  id: string;
+  projectId: string;
+  title: string;
+  objectType: KnowledgeObjectType;
+  domain: string;
+  description: string;
+  status: LifecycleState;
+  version: string;
+  confidence?: number;
+  approvalStatus: LifecycleState;
+  owner?: string;
+  author?: string;
+  contributor?: string;
+  reviewer?: string;
+  tags: string[];
+  evidenceLinks: SourceEvidenceSummary[];
+  createdAt: string;
 };
 
 export const missions: MissionSummary[] = [

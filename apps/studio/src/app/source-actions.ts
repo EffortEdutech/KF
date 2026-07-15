@@ -2,9 +2,15 @@
 
 import { missionStatuses, missionTypes } from "@kf/core";
 import { revalidatePath } from "next/cache";
-import { createMission, createProject, createSource, updateMissionStatus } from "./workspace-store";
-import { sourceCategories } from "./studio-data";
-import type { MissionSummary, SourceSummary } from "./studio-data";
+import {
+  createKnowledgeObject,
+  createMission,
+  createProject,
+  createSource,
+  updateMissionStatus
+} from "./workspace-store";
+import { knowledgeObjectTypes, sourceCategories } from "./studio-data";
+import type { KnowledgeObjectSummary, MissionSummary, SourceSummary } from "./studio-data";
 import type { MissionStatus, MissionType } from "@kf/core";
 
 function readRequired(formData: FormData, key: string) {
@@ -47,6 +53,40 @@ function readPriority(value: string): MissionSummary["priority"] {
   return "normal";
 }
 
+function readKnowledgeObjectType(value: string): KnowledgeObjectSummary["objectType"] {
+  if (knowledgeObjectTypes.includes(value as KnowledgeObjectSummary["objectType"])) {
+    return value as KnowledgeObjectSummary["objectType"];
+  }
+  return "concept";
+}
+
+function readOptionalString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function readOptionalNumber(formData: FormData, key: string) {
+  const value = readOptionalString(formData, key);
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function readTags(formData: FormData) {
+  return (readOptionalString(formData, "tags") ?? "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
 export async function createSourceAction(formData: FormData) {
   await createSource({
     projectId: readRequired(formData, "projectId"),
@@ -66,6 +106,30 @@ export async function createSourceAction(formData: FormData) {
   revalidatePath("/missions");
   revalidatePath("/projects");
   revalidatePath("/sources");
+  revalidatePath("/knowledge-objects");
+}
+
+export async function createKnowledgeObjectAction(formData: FormData) {
+  await createKnowledgeObject({
+    projectId: readRequired(formData, "projectId"),
+    title: readRequired(formData, "title"),
+    objectType: readKnowledgeObjectType(readRequired(formData, "objectType")),
+    domain: readRequired(formData, "domain"),
+    description: readRequired(formData, "description"),
+    owner: readRequired(formData, "owner"),
+    author: readRequired(formData, "author"),
+    tags: readTags(formData),
+    confidence: readOptionalNumber(formData, "confidence"),
+    sourceId: readOptionalString(formData, "sourceId"),
+    evidenceExcerpt: readOptionalString(formData, "evidenceExcerpt"),
+    evidenceLocator: readOptionalString(formData, "evidenceLocator"),
+    evidenceConfidence: readOptionalNumber(formData, "evidenceConfidence")
+  });
+
+  revalidatePath("/");
+  revalidatePath("/dashboard");
+  revalidatePath("/missions");
+  revalidatePath("/projects");
   revalidatePath("/knowledge-objects");
 }
 

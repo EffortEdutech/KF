@@ -43,7 +43,7 @@ Before making changes:
 
 ## Current Project State
 
-Knowledge Factory is in Sprint 1 implementation.
+Knowledge Factory is in Sprint 2 implementation.
 
 The frozen architecture source of truth remains `docs/v1`. The active implementation plan is:
 
@@ -59,7 +59,7 @@ Current structure:
 
 - `apps/studio` - Next.js App Router Studio shell.
 - `packages/core` - lifecycle, mission, role, and relationship contracts.
-- `packages/db` - Prisma schema and database boundary.
+- `packages/db` - Prisma schema and database boundary, including initial Knowledge Object and source evidence tables.
 - `packages/ai` - provider/model-router contracts.
 - `packages/pka` - PKA manifest, retrieval context, and package structure contracts.
 - `packages/ui` - shared UI contracts/components.
