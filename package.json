@@ -12,9 +12,9 @@
     "db:generate": "pnpm --filter @kf/db db:generate",
     "db:migrate": "pnpm --filter @kf/db db:migrate",
     "db:studio": "pnpm --filter @kf/db db:studio",
-    "infra:up": "docker compose up -d postgres",
-    "infra:down": "docker compose down",
-    "infra:logs": "docker compose logs -f postgres",
+    "infra:up": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/docker-compose.ps1 up postgres",
+    "infra:down": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/docker-compose.ps1 down",
+    "infra:logs": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File scripts/docker-compose.ps1 logs -f postgres",
     "graph:update": "powershell -ExecutionPolicy Bypass -File scripts/graphify.ps1 update ."
   },
   "devDependencies": {

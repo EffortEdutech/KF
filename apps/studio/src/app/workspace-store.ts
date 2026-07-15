@@ -1,4 +1,5 @@
 import type { MissionStatus, MissionType } from "@kf/core";
+import { getPrismaClient } from "@kf/db";
 import type { MissionSummary, ProjectSummary, SourceSummary } from "./studio-data";
 import {
   missions as seedMissions,
@@ -43,9 +44,75 @@ type WorkspaceStore = {
   missions: MissionSummary[];
 };
 
+type PrismaProject = {
+  id: string;
+  name: string;
+  domain: string;
+  description: string | null;
+  status: string;
+  createdBy: {
+    role: string;
+  };
+  workspace: {
+    name: string;
+  };
+  _count: {
+    sources: number;
+    knowledgeObjects: number;
+  };
+};
+
+type PrismaSource = {
+  id: string;
+  projectId: string;
+  title: string;
+  sourceType: string;
+  owner: string;
+  version: string | null;
+  domain: string;
+  reliability: string | null;
+  reviewStatus: string;
+  usagePolicy: string | null;
+  storagePath: string | null;
+  processingStatus: string;
+  metadata: unknown;
+  createdAt: Date;
+};
+
+type PrismaMission = {
+  id: string;
+  projectId: string | null;
+  type: string;
+  status: string;
+  objective: string;
+  assignedTo: {
+    role: string;
+  } | null;
+  stage: string | null;
+  priority: number;
+};
+
 declare global {
   var kfWorkspaceStore: WorkspaceStore | undefined;
 }
+
+const localOrgId = "org-kf-local";
+const localWorkspaceId = "ws-foundation";
+const userIdsByRole = {
+  platform_admin: "user-platform-admin",
+  knowledge_architect: "user-knowledge-architect",
+  knowledge_engineer: "user-knowledge-engineer",
+  domain_expert: "user-domain-expert",
+  reviewer: "user-reviewer",
+  publisher: "user-publisher",
+  runtime_consumer: "user-runtime-consumer"
+} as const;
+
+type LocalWorkspaceContext = {
+  organizationId: string;
+  workspaceId: string;
+  userIdByRole: Record<string, string>;
+};
 
 function slugify(value: string) {
   return value
@@ -53,6 +120,202 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 42);
+}
+
+function usePrismaStore() {
+  return Boolean(process.env.DATABASE_URL);
+}
+
+function priorityToNumber(priority: MissionSummary["priority"]) {
+  if (priority === "high") {
+    return 1;
+  }
+  if (priority === "low") {
+    return 5;
+  }
+  return 3;
+}
+
+function numberToPriority(priority: number): MissionSummary["priority"] {
+  if (priority <= 1) {
+    return "high";
+  }
+  if (priority >= 5) {
+    return "low";
+  }
+  return "normal";
+}
+
+function metadataBoundary(metadata: unknown): SourceSummary["boundary"] {
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    "boundary" in metadata &&
+    metadata.boundary === "client_adaptation_input"
+  ) {
+    return "client_adaptation_input";
+  }
+  return "base_pka_input";
+}
+
+async function ensureLocalWorkspace(): Promise<LocalWorkspaceContext> {
+  if (!usePrismaStore()) {
+    return {
+      organizationId: localOrgId,
+      workspaceId: localWorkspaceId,
+      userIdByRole: userIdsByRole
+    };
+  }
+
+  const prisma = getPrismaClient();
+
+  const organization = await prisma.organization.upsert({
+    where: { slug: "kf-local" },
+    create: {
+      id: localOrgId,
+      name: workspace.organisation,
+      slug: "kf-local"
+    },
+    update: {
+      name: workspace.organisation
+    },
+    select: { id: true }
+  });
+
+  const workspaceRecord = await prisma.workspace.upsert({
+    where: {
+      organizationId_slug: {
+        organizationId: organization.id,
+        slug: "foundation"
+      }
+    },
+    create: {
+      id: localWorkspaceId,
+      organizationId: organization.id,
+      name: workspace.workspace,
+      slug: "foundation"
+    },
+    update: {
+      name: workspace.workspace
+    },
+    select: { id: true }
+  });
+
+  const userIdByRole: Record<string, string> = {};
+
+  for (const [role, id] of Object.entries(userIdsByRole)) {
+    const user = await prisma.user.upsert({
+      where: { email: `${role.replaceAll("_", ".")}@kf.local` },
+      create: {
+        id,
+        organizationId: organization.id,
+        workspaceId: workspaceRecord.id,
+        email: `${role.replaceAll("_", ".")}@kf.local`,
+        displayName: role,
+        role: role as keyof typeof userIdsByRole
+      },
+      update: {
+        organizationId: organization.id,
+        workspaceId: workspaceRecord.id,
+        displayName: role,
+        role: role as keyof typeof userIdsByRole
+      },
+      select: { id: true }
+    });
+
+    userIdByRole[role] = user.id;
+  }
+
+  for (const project of seedProjects) {
+    await prisma.project.upsert({
+      where: { id: project.id },
+      create: {
+        id: project.id,
+        workspaceId: workspaceRecord.id,
+        createdById: userIdByRole[project.owner] ?? userIdByRole.platform_admin,
+        name: project.name,
+        domain: project.domain,
+        description: project.objective,
+        status: project.status
+      },
+      update: {
+        name: project.name,
+        domain: project.domain,
+        description: project.objective,
+        status: project.status
+      }
+    });
+  }
+
+  for (const mission of seedMissions) {
+    await prisma.mission.upsert({
+      where: { id: mission.id },
+      create: {
+        id: mission.id,
+        workspaceId: workspaceRecord.id,
+        projectId: mission.projectId,
+        createdById: userIdByRole.platform_admin,
+        assignedToId: userIdByRole[mission.assignedTo] ?? userIdByRole.platform_admin,
+        type: mission.type,
+        status: mission.status,
+        objective: mission.title,
+        stage: mission.stage,
+        priority: priorityToNumber(mission.priority)
+      },
+      update: {
+        projectId: mission.projectId,
+        assignedToId: userIdByRole[mission.assignedTo] ?? userIdByRole.platform_admin,
+        status: mission.status,
+        objective: mission.title,
+        stage: mission.stage,
+        priority: priorityToNumber(mission.priority)
+      }
+    });
+  }
+
+  for (const source of seedSources) {
+    await prisma.source.upsert({
+      where: { id: source.id },
+      create: {
+        id: source.id,
+        projectId: source.projectId,
+        title: source.title,
+        sourceType: source.category,
+        owner: source.owner,
+        version: source.version,
+        domain: source.domain,
+        reliability: source.reliability,
+        reviewStatus: source.reviewStatus,
+        usagePolicy: source.usagePolicy,
+        storagePath: source.storagePath,
+        processingStatus: source.processingStatus,
+        metadata: {
+          boundary: source.boundary
+        }
+      },
+      update: {
+        title: source.title,
+        sourceType: source.category,
+        owner: source.owner,
+        version: source.version,
+        domain: source.domain,
+        reliability: source.reliability,
+        reviewStatus: source.reviewStatus,
+        usagePolicy: source.usagePolicy,
+        storagePath: source.storagePath,
+        processingStatus: source.processingStatus,
+        metadata: {
+          boundary: source.boundary
+        }
+      }
+    });
+  }
+
+  return {
+    organizationId: organization.id,
+    workspaceId: workspaceRecord.id,
+    userIdByRole
+  };
 }
 
 function workspaceStore() {
@@ -73,27 +336,157 @@ export function resetWorkspaceStoreForTests() {
   globalThis.kfWorkspaceStore = undefined;
 }
 
-export function listProjects() {
+function mapProject(project: PrismaProject): ProjectSummary {
+  return {
+    id: project.id,
+    name: project.name,
+    domain: project.domain,
+    status: project.status as ProjectSummary["status"],
+    owner: project.createdBy.role,
+    workspace: project.workspace.name,
+    objective: project.description ?? "",
+    sourceCount: project._count.sources,
+    knowledgeObjectCount: project._count.knowledgeObjects,
+    readiness: "Foundation"
+  };
+}
+
+function mapSource(source: PrismaSource): SourceSummary {
+  return {
+    id: source.id,
+    projectId: source.projectId,
+    title: source.title,
+    category: source.sourceType as SourceSummary["category"],
+    domain: source.domain,
+    owner: source.owner,
+    version: source.version ?? "0.1",
+    reliability: source.reliability ?? "",
+    reviewStatus: source.reviewStatus as SourceSummary["reviewStatus"],
+    usagePolicy: source.usagePolicy ?? "",
+    processingStatus: source.processingStatus as SourceSummary["processingStatus"],
+    boundary: metadataBoundary(source.metadata),
+    storagePath: source.storagePath ?? undefined,
+    createdAt: source.createdAt.toISOString().slice(0, 10)
+  };
+}
+
+function mapMission(mission: PrismaMission): MissionSummary {
+  return {
+    id: mission.id,
+    type: mission.type as MissionSummary["type"],
+    title: mission.objective,
+    status: mission.status as MissionSummary["status"],
+    projectId: mission.projectId ?? workspace.activeProjectId,
+    assignedTo: mission.assignedTo?.role ?? "platform_admin",
+    stage: mission.stage ?? "",
+    priority: numberToPriority(mission.priority)
+  };
+}
+
+export async function listProjects() {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const projects = await getPrismaClient().project.findMany({
+      include: {
+        createdBy: { select: { role: true } },
+        workspace: { select: { name: true } },
+        _count: { select: { sources: true, knowledgeObjects: true } }
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+    return projects.map(mapProject);
+  }
+
   return [...workspaceStore().projects];
 }
 
-export function listSources() {
+export async function listSources() {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const sources = await getPrismaClient().source.findMany({
+      orderBy: { updatedAt: "desc" }
+    });
+    return sources.map(mapSource);
+  }
+
   return [...workspaceStore().sources];
 }
 
-export function listMissions() {
+export async function listSourcesByProject(projectId: string) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const sources = await getPrismaClient().source.findMany({
+      where: { projectId },
+      orderBy: { updatedAt: "desc" }
+    });
+    return sources.map(mapSource);
+  }
+
+  return workspaceStore().sources.filter((source) => source.projectId === projectId);
+}
+
+export async function listMissions() {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const missions = await getPrismaClient().mission.findMany({
+      include: {
+        assignedTo: { select: { role: true } }
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+    return missions.map(mapMission);
+  }
+
   return [...workspaceStore().missions];
 }
 
-export function getActiveProject() {
-  return listProjects().find((project) => project.id === workspace.activeProjectId) ?? listProjects()[0];
+export async function getActiveProject() {
+  const projects = await listProjects();
+  return projects.find((project) => project.id === workspace.activeProjectId) ?? projects[0];
 }
 
-export function getProjectSourceCount(projectId: string) {
+export async function getProjectSourceCount(projectId: string) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    return getPrismaClient().source.count({ where: { projectId } });
+  }
+
   return workspaceStore().sources.filter((source) => source.projectId === projectId).length;
 }
 
-export function createProject(input: ProjectInput) {
+export async function createProject(input: ProjectInput) {
+  if (usePrismaStore()) {
+    const context = await ensureLocalWorkspace();
+    const prisma = getPrismaClient();
+    const project = await prisma.project.create({
+      data: {
+        workspaceId: context.workspaceId,
+        createdById: context.userIdByRole[input.owner] ?? context.userIdByRole.platform_admin,
+        name: input.name,
+        domain: input.domain,
+        description: input.objective,
+        status: "draft"
+      },
+      include: {
+        createdBy: { select: { role: true } },
+        workspace: { select: { name: true } },
+        _count: { select: { sources: true, knowledgeObjects: true } }
+      }
+    });
+
+    await createMission({
+      type: "discovery",
+      title: `Create project: ${project.name}`,
+      projectId: project.id,
+      assignedTo: input.owner,
+      stage: "workspace",
+      priority: "normal",
+      status: "completed"
+    });
+
+    return mapProject(project);
+  }
+
   const id = `kf-${slugify(input.name)}-${Date.now().toString(36)}`;
 
   const project: ProjectSummary = {
@@ -123,7 +516,41 @@ export function createProject(input: ProjectInput) {
   return project;
 }
 
-export function createSource(input: SourceInput) {
+export async function createSource(input: SourceInput) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const source = await getPrismaClient().source.create({
+      data: {
+        projectId: input.projectId,
+        title: input.title,
+        sourceType: input.category,
+        owner: input.owner,
+        version: input.version,
+        domain: input.domain,
+        reliability: input.reliability,
+        reviewStatus: "draft",
+        usagePolicy: input.usagePolicy,
+        storagePath: input.storagePath,
+        processingStatus: "created",
+        metadata: {
+          boundary: input.boundary
+        }
+      }
+    });
+
+    await createMission({
+      type: "acquisition",
+      title: `Register source: ${source.title}`,
+      projectId: source.projectId,
+      assignedTo: input.owner,
+      stage: "source-management",
+      priority: "normal",
+      status: "completed"
+    });
+
+    return mapSource(source);
+  }
+
   const id = `src-${slugify(input.title)}-${Date.now().toString(36)}`;
 
   const source: SourceSummary = {
@@ -157,7 +584,29 @@ export function createSource(input: SourceInput) {
   return source;
 }
 
-export function createMission(input: MissionInput) {
+export async function createMission(input: MissionInput) {
+  if (usePrismaStore()) {
+    const context = await ensureLocalWorkspace();
+    const mission = await getPrismaClient().mission.create({
+      data: {
+        workspaceId: context.workspaceId,
+        projectId: input.projectId,
+        createdById: context.userIdByRole.platform_admin,
+        assignedToId: context.userIdByRole[input.assignedTo] ?? context.userIdByRole.platform_admin,
+        type: input.type,
+        status: input.status ?? "created",
+        objective: input.title,
+        stage: input.stage,
+        priority: priorityToNumber(input.priority)
+      },
+      include: {
+        assignedTo: { select: { role: true } }
+      }
+    });
+
+    return mapMission(mission);
+  }
+
   const mission: MissionSummary = {
     id: `mis-${slugify(input.title)}-${Date.now().toString(36)}`,
     type: input.type,
@@ -174,7 +623,20 @@ export function createMission(input: MissionInput) {
   return mission;
 }
 
-export function updateMissionStatus(id: string, status: MissionStatus) {
+export async function updateMissionStatus(id: string, status: MissionStatus) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const mission = await getPrismaClient().mission.update({
+      where: { id },
+      data: { status },
+      include: {
+        assignedTo: { select: { role: true } }
+      }
+    });
+
+    return mapMission(mission);
+  }
+
   const mission = workspaceStore().missions.find((item) => item.id === id);
 
   if (!mission) {

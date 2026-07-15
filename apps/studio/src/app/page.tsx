@@ -3,11 +3,11 @@ import { lifecycleStates, missionStatuses, missionTypes, roles } from "@kf/core"
 import { recentActivity, workspace } from "./studio-data";
 import { getActiveProject, listMissions, listProjects, listSources } from "./workspace-store";
 
-export default function DashboardPage() {
-  const projects = listProjects();
-  const sources = listSources();
-  const missions = listMissions();
-  const activeProject = getActiveProject();
+export default async function DashboardPage() {
+  const projects = await listProjects();
+  const sources = await listSources();
+  const missions = await listMissions();
+  const activeProject = await getActiveProject();
   const metrics = [
     { label: "Projects", value: projects.length.toString() },
     { label: "Sources", value: sources.length.toString() },

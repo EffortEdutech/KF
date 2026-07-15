@@ -48,7 +48,7 @@ function readPriority(value: string): MissionSummary["priority"] {
 }
 
 export async function createSourceAction(formData: FormData) {
-  createSource({
+  await createSource({
     projectId: readRequired(formData, "projectId"),
     title: readRequired(formData, "title"),
     category: readCategory(readRequired(formData, "category")),
@@ -69,7 +69,7 @@ export async function createSourceAction(formData: FormData) {
 }
 
 export async function createProjectAction(formData: FormData) {
-  createProject({
+  await createProject({
     name: readRequired(formData, "name"),
     domain: readRequired(formData, "domain"),
     owner: readRequired(formData, "owner"),
@@ -84,7 +84,7 @@ export async function createProjectAction(formData: FormData) {
 }
 
 export async function createMissionAction(formData: FormData) {
-  createMission({
+  await createMission({
     type: readMissionType(readRequired(formData, "type")),
     title: readRequired(formData, "title"),
     projectId: readRequired(formData, "projectId"),
@@ -100,7 +100,7 @@ export async function createMissionAction(formData: FormData) {
 }
 
 export async function updateMissionStatusAction(formData: FormData) {
-  updateMissionStatus(
+  await updateMissionStatus(
     readRequired(formData, "missionId"),
     readMissionStatus(readRequired(formData, "status"))
   );

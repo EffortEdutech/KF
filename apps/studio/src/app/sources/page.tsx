@@ -1,11 +1,26 @@
+import Link from "next/link";
 import { createSourceAction } from "../source-actions";
 import { sourceCategories } from "../studio-data";
-import { listProjects, listSources } from "../workspace-store";
+import { listProjects, listSources, listSourcesByProject } from "../workspace-store";
 
-export default function SourcesPage() {
-  const projects = listProjects();
-  const sources = listSources();
-  const selectedSource = sources[0];
+type SourcesPageProps = {
+  searchParams?: Promise<{
+    projectId?: string;
+    sourceId?: string;
+  }>;
+};
+
+export default async function SourcesPage({ searchParams }: SourcesPageProps) {
+  const params = await searchParams;
+  const projects = await listProjects();
+  const selectedProject = projects.find((project) => project.id === params?.projectId);
+  const allSources = await listSources();
+  const sources = selectedProject ? await listSourcesByProject(selectedProject.id) : allSources;
+  const selectedSource =
+    sources.find((source) => source.id === params?.sourceId) ??
+    (params?.sourceId ? allSources.find((source) => source.id === params.sourceId) : undefined) ??
+    sources[0];
+  const selectedProjectId = selectedProject?.id ?? selectedSource?.projectId ?? projects[0]?.id;
 
   return (
     <>
@@ -17,8 +32,25 @@ export default function SourcesPage() {
             Register trusted material before extracting draft Knowledge Objects.
           </p>
         </div>
-        <span className="status">{sources.length} registered</span>
+        <span className="status">
+          {sources.length} {selectedProject ? "project sources" : "registered"}
+        </span>
       </header>
+
+      <section className="filter-bar" aria-label="Project source filters">
+        <Link className={!selectedProject ? "filter-chip active" : "filter-chip"} href="/sources">
+          All sources
+        </Link>
+        {projects.map((project) => (
+          <Link
+            className={project.id === selectedProject?.id ? "filter-chip active" : "filter-chip"}
+            href={`/sources?projectId=${project.id}`}
+            key={project.id}
+          >
+            {project.name}
+          </Link>
+        ))}
+      </section>
 
       <section className="board board-two">
         <article className="panel panel-strong">
@@ -27,7 +59,7 @@ export default function SourcesPage() {
           <form action={createSourceAction} className="source-form">
             <label className="field-wide">
               Project
-              <select name="projectId" defaultValue={projects[0]?.id}>
+              <select name="projectId" defaultValue={selectedProjectId}>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
@@ -99,7 +131,12 @@ export default function SourcesPage() {
               </div>
               <div>
                 <dt>Project</dt>
-                <dd>{selectedSource.projectId}</dd>
+                <dd>
+                  <Link className="inline-link" href={`/projects?projectId=${selectedSource.projectId}`}>
+                    {projects.find((project) => project.id === selectedSource.projectId)?.name ??
+                      selectedSource.projectId}
+                  </Link>
+                </dd>
               </div>
               <div>
                 <dt>Review status</dt>
@@ -118,6 +155,11 @@ export default function SourcesPage() {
                 <dd>{selectedSource.boundary}</dd>
               </div>
             </dl>
+            <div className="action-row">
+              <Link className="text-link" href={`/sources?projectId=${selectedSource.projectId}`}>
+                Filter to project
+              </Link>
+            </div>
           </article>
         ) : null}
       </section>
@@ -131,8 +173,15 @@ export default function SourcesPage() {
           <span>Processing</span>
         </div>
         {sources.map((source) => (
-          <div className="table-row" key={source.id}>
-            <strong>{source.title}</strong>
+          <div className={`table-row ${source.id === selectedSource?.id ? "row-selected" : ""}`} key={source.id}>
+            <strong>
+              <Link
+                className="inline-link"
+                href={`/sources?projectId=${source.projectId}&sourceId=${source.id}`}
+              >
+                {source.title}
+              </Link>
+            </strong>
             <span>{source.category}</span>
             <span>{source.domain}</span>
             <span className="pill">{source.reviewStatus}</span>

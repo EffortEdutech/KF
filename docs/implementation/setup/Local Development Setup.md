@@ -41,6 +41,14 @@ corepack pnpm infra:up
 
 This starts a dedicated `kf-postgres` container with its own `kf_postgres_data` volume.
 
+Current verification note, 2026-07-15:
+
+- `corepack pnpm db:generate` succeeds.
+- `corepack pnpm infra:up` succeeds through `scripts/docker-compose.ps1`, which
+  resolves Docker from PATH or Docker Desktop's default Windows install path.
+- `kf-postgres` is healthy on port `55432`.
+- Initial Prisma migration `20260715094912_init` has been applied.
+
 ---
 
 ## 5. Database Commands
@@ -76,10 +84,10 @@ The default KF Studio URL is:
 http://localhost:4700
 ```
 
-Sprint 1 project creation, source registration, and Mission Centre controls
-currently use local in-memory session storage behind the Studio service layer.
-The Prisma schema remains the persistence contract, but PostgreSQL-backed
-mutations are deferred until Docker/Postgres verification is available.
+Sprint 1 project creation, source registration, and Mission Centre controls use
+Prisma/PostgreSQL when `DATABASE_URL` is configured. The Studio service layer
+keeps an in-memory fallback for environments where the database is not
+configured, but the KF local development path is now PostgreSQL-backed.
 
 ---
 

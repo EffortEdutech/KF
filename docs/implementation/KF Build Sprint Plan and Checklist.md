@@ -183,9 +183,11 @@ Checklist:
 - [x] Add minimal Mission records for project/source actions where practical.
 - [x] Add Projects list view.
 - [x] Add Project detail/workspace context.
+- [x] Add URL-based Project detail selection.
 - [x] Add Sources data model.
 - [x] Add Sources list view.
 - [x] Add Source detail view.
+- [x] Add URL-based Source detail selection and project-scoped source filtering.
 - [x] Add manual source registration.
 - [x] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
 - [x] Add source licensing or usage policy metadata.
@@ -207,13 +209,14 @@ Checklist:
 - [x] Add manual Mission creation control.
 - [x] Add Mission status update control.
 - [x] Add automatic Mission traces for project creation and source registration.
+- [x] Move project/source/mission reads and mutations to Prisma when `DATABASE_URL` is configured.
 - [x] Update docs for local usage and data model decisions.
 
 Acceptance checks:
 
 - [x] User can create a project.
 - [x] User can register a source under a project.
-- [~] Source metadata persists.
+- [x] Source metadata persists.
 - [x] Dashboard reflects source/project counts.
 - [x] UI is an operational control panel, not a landing page.
 - [x] Mission Centre exists as the future operational heart of the Studio.
@@ -627,6 +630,10 @@ Apply these checks to every sprint:
 | 2026-07-15 | PKA context bundle contract added early in Sprint 1 | Accepted | `packages/pka` now exports retrieval capability, governance mode, and context bundle types. The manifest declares retrieval capabilities and context bundle schema version. |
 | 2026-07-15 | Sprint 1 project/source workspace store added | Accepted | Projects and sources now share an in-memory workspace store with project creation, source-to-project assignment, and a lightweight TypeScript store contract test. |
 | 2026-07-15 | Sprint 1 Mission Centre controls added | Accepted | Mission Centre now has queue metrics, manual Mission creation, status updates, and automatic Mission traces for project/source creation. |
+| 2026-07-15 | Sprint 1 project/source scoped navigation added | Accepted | Projects support URL-selected detail views; Sources support project-scoped filters and URL-selected source details. |
+| 2026-07-15 | Docker/Postgres verification completed | Accepted | Docker Desktop CLI was resolved through `scripts/docker-compose.ps1`; `kf-postgres` is healthy on `55432`. |
+| 2026-07-15 | Initial Prisma migration applied | Accepted | Migration `20260715094912_init` was created/applied and `prisma migrate status` reports the KF database schema is up to date. |
+| 2026-07-15 | Project/source/mission mutations moved to Prisma | Accepted | Studio workspace service uses Prisma when `DATABASE_URL` is configured, with an in-memory fallback for environments without database configuration. Browser verified DB-backed project/source creation and automatic Mission traces. |
 
 ---
 
@@ -654,9 +661,9 @@ Apply these checks to every sprint:
 ## 10. Current Next Actions
 
 1. Verify Docker Compose once Docker CLI is available.
-2. Add a small source/project detail navigation pattern or scoped filtering.
-3. Move project/source/mission mutations from local session storage to Prisma once Docker/Postgres is verified.
-4. Add stronger runtime tests once a test runner is approved or introduced.
+2. Add stronger runtime tests once a test runner is approved or introduced.
+3. Continue Sprint 1 hardening: project/source empty states, error states, and first readiness hints.
+4. Prepare Sprint 2 Knowledge Object Repository slice.
 
 ---
 

@@ -240,6 +240,45 @@ textarea {
   white-space: nowrap;
 }
 
+.inline-link {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.action-row,
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-row {
+  margin-top: 16px;
+}
+
+.filter-bar {
+  align-items: center;
+}
+
+.filter-chip {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 8px 10px;
+}
+
+.filter-chip.active,
+.panel-selected,
+.row-selected {
+  border-color: var(--accent);
+}
+
+.filter-chip.active {
+  background: #17231d;
+  color: var(--accent-strong);
+}
+
 .summary-row,
 .card-meta {
   display: flex;

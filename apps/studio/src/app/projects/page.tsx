@@ -1,9 +1,29 @@
+import Link from "next/link";
 import { createProjectAction } from "../source-actions";
-import { getActiveProject, getProjectSourceCount, listProjects } from "../workspace-store";
+import {
+  getActiveProject,
+  getProjectSourceCount,
+  listProjects,
+  listSourcesByProject
+} from "../workspace-store";
 
-export default function ProjectsPage() {
-  const projects = listProjects();
-  const activeProject = getActiveProject();
+type ProjectsPageProps = {
+  searchParams?: Promise<{
+    projectId?: string;
+  }>;
+};
+
+export default async function ProjectsPage({ searchParams }: ProjectsPageProps) {
+  const params = await searchParams;
+  const projects = await listProjects();
+  const requestedProject = projects.find((project) => project.id === params?.projectId);
+  const activeProject = requestedProject ?? (await getActiveProject());
+  const activeProjectSources = await listSourcesByProject(activeProject.id);
+  const projectSourceCounts = new Map(
+    await Promise.all(
+      projects.map(async (project) => [project.id, await getProjectSourceCount(project.id)] as const)
+    )
+  );
 
   return (
     <>
@@ -68,20 +88,40 @@ export default function ProjectsPage() {
               <dt>Knowledge Objects</dt>
               <dd>{activeProject.knowledgeObjectCount}</dd>
             </div>
+            <div>
+              <dt>Sources</dt>
+              <dd>{activeProjectSources.length}</dd>
+            </div>
           </dl>
+          <div className="action-row">
+            <Link className="text-link" href={`/sources?projectId=${activeProject.id}`}>
+              View project sources
+            </Link>
+          </div>
         </article>
       </section>
 
       <section className="board">
         <div className="stack">
           {projects.map((project) => (
-            <article className="panel project-card" key={project.id}>
+            <article
+              className={`panel project-card ${project.id === activeProject.id ? "panel-selected" : ""}`}
+              key={project.id}
+            >
               <p className="eyebrow">{project.domain}</p>
               <h3>{project.name}</h3>
               <p>{project.objective}</p>
+              <div className="action-row">
+                <Link className="text-link" href={`/projects?projectId=${project.id}`}>
+                  Open detail
+                </Link>
+                <Link className="text-link" href={`/sources?projectId=${project.id}`}>
+                  Sources
+                </Link>
+              </div>
               <div className="card-meta">
                 <span>{project.status}</span>
-                <span>{getProjectSourceCount(project.id)} sources</span>
+                <span>{projectSourceCounts.get(project.id) ?? 0} sources</span>
                 <span>{project.readiness}</span>
               </div>
             </article>

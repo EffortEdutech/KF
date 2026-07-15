@@ -16,25 +16,25 @@ function expect(condition: boolean, message: string) {
   }
 }
 
-function runWorkspaceStoreContractTest() {
+async function runWorkspaceStoreContractTest() {
   resetWorkspaceStoreForTests();
 
-  const initialProjectCount = listProjects().length;
-  const initialMissionCount = listMissions().length;
-  const project = createProject({
+  const initialProjectCount = (await listProjects()).length;
+  const initialMissionCount = (await listMissions()).length;
+  const project = await createProject({
     name: "Contract Test PKA",
     domain: "Quantity Surveying",
     owner: "knowledge_architect",
     objective: "Verify project creation stays connected to the local workspace store."
   });
 
-  expect(listProjects().length === initialProjectCount + 1, "project creation should append one project");
+  expect((await listProjects()).length === initialProjectCount + 1, "project creation should append one project");
   expect(
-    listMissions().length === initialMissionCount + 1,
+    (await listMissions()).length === initialMissionCount + 1,
     "project creation should create one mission trace"
   );
 
-  const source = createSource({
+  const source = await createSource({
     projectId: project.id,
     title: "Contract Test Source",
     category: "company_document",
@@ -47,14 +47,14 @@ function runWorkspaceStoreContractTest() {
   });
 
   expect(source.projectId === project.id, "source should be attached to the created project");
-  expect(listSources()[0]?.id === source.id, "new source should be returned first");
-  expect(getProjectSourceCount(project.id) === 1, "project source count should reflect created source");
+  expect((await listSources())[0]?.id === source.id, "new source should be returned first");
+  expect((await getProjectSourceCount(project.id)) === 1, "project source count should reflect created source");
   expect(
-    listMissions().length === initialMissionCount + 2,
+    (await listMissions()).length === initialMissionCount + 2,
     "source creation should create one mission trace"
   );
 
-  const mission = createMission({
+  const mission = await createMission({
     type: "validation",
     title: "Contract Test Mission",
     projectId: project.id,
@@ -64,8 +64,8 @@ function runWorkspaceStoreContractTest() {
     status: "queued"
   });
 
-  expect(listMissions()[0]?.id === mission.id, "new mission should be returned first");
-  expect(updateMissionStatus(mission.id, "running").status === "running", "mission status should update");
+  expect((await listMissions())[0]?.id === mission.id, "new mission should be returned first");
+  expect((await updateMissionStatus(mission.id, "running")).status === "running", "mission status should update");
 }
 
-runWorkspaceStoreContractTest();
+await runWorkspaceStoreContractTest();

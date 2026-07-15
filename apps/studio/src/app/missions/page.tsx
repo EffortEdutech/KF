@@ -2,9 +2,9 @@ import { missionStatuses, missionTypes } from "@kf/core";
 import { createMissionAction, updateMissionStatusAction } from "../source-actions";
 import { listMissions, listProjects } from "../workspace-store";
 
-export default function MissionsPage() {
-  const missions = listMissions();
-  const projects = listProjects();
+export default async function MissionsPage() {
+  const missions = await listMissions();
+  const projects = await listProjects();
   const runningCount = missions.filter((mission) => mission.status === "running").length;
   const queueCount = missions.filter((mission) => ["created", "queued", "assigned", "ready"].includes(mission.status)).length;
 
