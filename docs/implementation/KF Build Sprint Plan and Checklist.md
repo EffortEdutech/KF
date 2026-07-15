@@ -2,7 +2,7 @@
 
 **Status:** Active planning baseline  
 **Created:** 2026-07-14  
-**Current phase:** Pre-sprint architecture correction, then Phase 0 and Phase 1  
+**Current phase:** Sprint 1 - Core Workspace and Source Management  
 **Source baseline:** `docs/v1` Version 1.0 frozen architecture and `docs/v1/TRY 1`
 
 ---
@@ -173,28 +173,28 @@ Key decisions to make:
 
 Checklist:
 
-- [ ] Create Studio shell with primary navigation.
-- [ ] Add Dashboard route.
-- [ ] Add Mission Centre placeholder route.
-- [ ] Add Projects data model.
-- [ ] Add Workspace data model or workspace field strategy.
-- [ ] Add minimal Organisation/Owner fields.
-- [ ] Add minimal Mission records for project/source actions where practical.
-- [ ] Add Projects list view.
-- [ ] Add Project detail/workspace context.
-- [ ] Add Sources data model.
-- [ ] Add Sources list view.
-- [ ] Add Source detail view.
-- [ ] Add manual source registration.
-- [ ] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
-- [ ] Add source licensing or usage policy metadata.
-- [ ] Add source category support for standards, SOPs, company documents, expert interviews, historical cases, analytical models, templates, and external data references.
-- [ ] Preserve source metadata needed to separate Base PKA inputs from client/runtime-local adaptation inputs.
+- [x] Create Studio shell with primary navigation.
+- [x] Add Dashboard route.
+- [x] Add Mission Centre placeholder route.
+- [~] Add Projects data model.
+- [~] Add Workspace data model or workspace field strategy.
+- [~] Add minimal Organisation/Owner fields.
+- [~] Add minimal Mission records for project/source actions where practical.
+- [x] Add Projects list view.
+- [x] Add Project detail/workspace context.
+- [~] Add Sources data model.
+- [x] Add Sources list view.
+- [x] Add Source detail view.
+- [~] Add manual source registration.
+- [~] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
+- [~] Add source licensing or usage policy metadata.
+- [x] Add source category support for standards, SOPs, company documents, expert interviews, historical cases, analytical models, templates, and external data references.
+- [x] Preserve source metadata needed to separate Base PKA inputs from client/runtime-local adaptation inputs.
 - [ ] Add local file upload or documented placeholder if deferred.
 - [ ] Store source file or artifact reference.
-- [ ] Track processing status.
-- [ ] Add recent activity entries for project/source actions.
-- [ ] Add basic dashboard metrics: source count, KO count, draft count, approved count, readiness placeholder.
+- [~] Track processing status.
+- [x] Add recent activity entries for project/source actions.
+- [x] Add basic dashboard metrics: source count, KO count, draft count, approved count, readiness placeholder.
 - [ ] Add tests for project/source creation and retrieval.
 - [ ] Update docs for local usage and data model decisions.
 
@@ -605,6 +605,7 @@ Apply these checks to every sprint:
 | 2026-07-14 | Sprint 0 verification passed | Accepted | `corepack pnpm install`, `corepack pnpm check`, `corepack pnpm db:generate`, HTTP smoke test, and Graphify code refresh completed. |
 | 2026-07-14 | Shared CFO/LADOS discussion reviewed | Accepted | Adds planning emphasis for two KF modes: Factory Mode and future Runtime Knowledge Service. Also clarifies PKA as a package-level asset composed of smaller governed components. |
 | 2026-07-15 | PKA Anatomy and Runtime Boundary added | Accepted | Clarifies Base PKA vs client-adapted PKA instance, Local PKA Vault boundary, runtime ownership, and AIFA/LADOS alignment. |
+| 2026-07-15 | Sprint 1 started with visible Studio routes | Accepted | Added Dashboard, Mission Centre, Projects, and Sources routes using typed local seed data before persistence. |
 
 ---
 
@@ -630,8 +631,8 @@ Apply these checks to every sprint:
 ## 10. Current Next Actions
 
 1. Verify Docker Compose once Docker CLI is available.
-2. Review and commit the PKA Anatomy and Runtime Boundary update.
-3. Start Sprint 1 Studio workspace, source management, and Mission Centre foundation.
+2. Verify Sprint 1 Studio routes in browser and run workspace checks.
+3. Add persistent project/source models and first source registration behavior.
 
 ---
 

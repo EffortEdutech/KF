@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { StudioShell } from "./studio-shell";
 
 export const metadata: Metadata = {
   title: "Knowledge Factory Studio",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <StudioShell>{children}</StudioShell>
+      </body>
     </html>
   );
 }
