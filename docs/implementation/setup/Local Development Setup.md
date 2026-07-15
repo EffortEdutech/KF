@@ -76,10 +76,10 @@ The default KF Studio URL is:
 http://localhost:4700
 ```
 
-Sprint 1 source registration currently uses local in-memory session storage behind
-the Studio service layer. The Prisma schema remains the persistence contract, but
-PostgreSQL-backed mutations are deferred until Docker/Postgres verification is
-available.
+Sprint 1 project creation, source registration, and Mission Centre controls
+currently use local in-memory session storage behind the Studio service layer.
+The Prisma schema remains the persistence contract, but PostgreSQL-backed
+mutations are deferred until Docker/Postgres verification is available.
 
 ---
 
@@ -113,7 +113,7 @@ After meaningful structure changes:
 - `packages/core` - shared lifecycle, mission, role, and relationship contracts.
 - `packages/db` - Prisma schema and database access boundary.
 - `packages/ai` - provider/model-router contracts with fake provider first.
-- `packages/pka` - PKA manifest and package structure contracts.
+- `packages/pka` - PKA manifest, retrieval context, and package structure contracts.
 - `packages/ui` - shared UI contracts/components.
 - `packages/config` - runtime configuration boundary.
 

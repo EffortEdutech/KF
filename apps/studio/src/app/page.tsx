@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { lifecycleStates, missionStatuses, missionTypes, roles } from "@kf/core";
-import { missions, projects, recentActivity, workspace } from "./studio-data";
-import { listSources } from "./source-store";
+import { recentActivity, workspace } from "./studio-data";
+import { getActiveProject, listMissions, listProjects, listSources } from "./workspace-store";
 
 export default function DashboardPage() {
+  const projects = listProjects();
   const sources = listSources();
+  const missions = listMissions();
+  const activeProject = getActiveProject();
   const metrics = [
     { label: "Projects", value: projects.length.toString() },
     { label: "Sources", value: sources.length.toString() },
@@ -39,7 +42,7 @@ export default function DashboardPage() {
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Active project</p>
-              <h3>{workspace.activeProjectName}</h3>
+              <h3>{activeProject.name}</h3>
             </div>
             <Link className="text-link" href="/projects">
               Open projects
@@ -55,7 +58,7 @@ export default function DashboardPage() {
           </div>
           <div className="summary-row">
             <span>Owner role</span>
-            <strong>{workspace.owner}</strong>
+            <strong>{activeProject.owner}</strong>
           </div>
         </article>
 

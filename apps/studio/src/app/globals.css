@@ -310,6 +310,10 @@ textarea {
   padding: 13px 16px;
 }
 
+.mission-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(110px, 0.65fr) minmax(120px, 0.7fr) minmax(120px, 0.75fr) minmax(120px, 0.7fr) minmax(220px, 1fr);
+}
+
 .table-row:first-child {
   border-top: 0;
 }
@@ -352,13 +356,19 @@ textarea {
 }
 
 .source-form input,
-.source-form select {
+.source-form select,
+.source-form textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #101310;
   color: var(--foreground);
   padding: 10px 11px;
+}
+
+.source-form textarea {
+  min-height: 112px;
+  resize: vertical;
 }
 
 .source-form button {
@@ -373,10 +383,28 @@ textarea {
 }
 
 .source-form button,
-.source-form label:first-child,
-.source-form label:nth-child(7),
-.source-form label:nth-child(8) {
+.source-form .field-wide {
   grid-column: 1 / -1;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inline-form select,
+.inline-form button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #101310;
+  color: var(--foreground);
+  padding: 8px 9px;
+}
+
+.inline-form button {
+  background: var(--panel-strong);
+  color: var(--accent-strong);
 }
 
 .tags {

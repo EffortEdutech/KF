@@ -176,14 +176,14 @@ Checklist:
 
 - [x] Create Studio shell with primary navigation.
 - [x] Add Dashboard route.
-- [x] Add Mission Centre placeholder route.
-- [~] Add Projects data model.
-- [~] Add Workspace data model or workspace field strategy.
-- [~] Add minimal Organisation/Owner fields.
-- [~] Add minimal Mission records for project/source actions where practical.
+- [x] Add Mission Centre route.
+- [x] Add Projects data model.
+- [x] Add Workspace data model or workspace field strategy.
+- [x] Add minimal Organisation/Owner fields.
+- [x] Add minimal Mission records for project/source actions where practical.
 - [x] Add Projects list view.
 - [x] Add Project detail/workspace context.
-- [~] Add Sources data model.
+- [x] Add Sources data model.
 - [x] Add Sources list view.
 - [x] Add Source detail view.
 - [x] Add manual source registration.
@@ -191,22 +191,32 @@ Checklist:
 - [x] Add source licensing or usage policy metadata.
 - [x] Add source category support for standards, SOPs, company documents, expert interviews, historical cases, analytical models, templates, and external data references.
 - [x] Preserve source metadata needed to separate Base PKA inputs from client/runtime-local adaptation inputs.
+- [x] Add Sprint 1 architecture track for PKA retrieval/context contracts.
+- [x] Add `PkaContextBundle` and related retrieval context types to `packages/pka`.
+- [x] Add retrieval capability fields to the `PkaManifest` contract.
+- [x] Add app-developer context bundle examples for AIFA and LADOS.
 - [x] Add local file upload or documented placeholder if deferred.
 - [x] Store source file or artifact reference.
 - [x] Track processing status.
 - [x] Add recent activity entries for project/source actions.
 - [x] Add basic dashboard metrics: source count, KO count, draft count, approved count, readiness placeholder.
-- [ ] Add tests for project/source creation and retrieval.
-- [ ] Update docs for local usage and data model decisions.
+- [x] Add project creation form.
+- [x] Add source-to-project assignment during source registration.
+- [x] Add lightweight store contract test for project/source creation and retrieval.
+- [x] Add Mission Centre operational queue metrics.
+- [x] Add manual Mission creation control.
+- [x] Add Mission status update control.
+- [x] Add automatic Mission traces for project creation and source registration.
+- [x] Update docs for local usage and data model decisions.
 
 Acceptance checks:
 
-- [ ] User can create a project.
+- [x] User can create a project.
 - [x] User can register a source under a project.
 - [~] Source metadata persists.
-- [ ] Dashboard reflects source/project counts.
-- [ ] UI is an operational control panel, not a landing page.
-- [ ] Mission Centre exists as the future operational heart of the Studio.
+- [x] Dashboard reflects source/project counts.
+- [x] UI is an operational control panel, not a landing page.
+- [x] Mission Centre exists as the future operational heart of the Studio.
 
 ---
 
@@ -409,7 +419,7 @@ Checklist:
 - [ ] Retrieve approved KOs.
 - [ ] Retrieve source evidence.
 - [ ] Retrieve related graph context.
-- [ ] Define first PKA context bundle shape for model-ready retrieval results.
+- [x] Define first PKA context bundle shape for model-ready retrieval results.
 - [ ] Generate grounded answer through provider abstraction.
 - [ ] Show evidence used.
 - [ ] Show uncertainty or unsupported-answer warning.
@@ -439,8 +449,8 @@ Checklist:
 - [ ] Define minimal runtime import contract.
 - [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
 - [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
-- [ ] Define app-developer retrieval boundary: selected governed context only, not whole PKA or graph upload.
-- [ ] Add MCP-style retrieval tool examples for PKA context bundles.
+- [x] Define app-developer retrieval boundary: selected governed context only, not whole PKA or graph upload.
+- [x] Document MCP-style retrieval tool examples for PKA context bundles.
 - [ ] Build local PKA loader/test harness.
 - [ ] Validate manifest.
 - [ ] Load ontology.
@@ -614,6 +624,9 @@ Apply these checks to every sprint:
 | 2026-07-15 | Sprint 1 started with visible Studio routes | Accepted | Added Dashboard, Mission Centre, Projects, and Sources routes using typed local seed data before persistence. |
 | 2026-07-15 | Source registration uses local session storage first | Accepted | Server Action creates source records in local session storage until Docker/Postgres verification is available. Prisma remains the persistence contract. |
 | 2026-07-15 | PKA retrieval/context engine developer guidance added | Accepted | Apps should retrieve selected governed context from PKAs and send only that context to AI models. This mirrors local Graphify/Codex retrieval and supports MCP-style tools. |
+| 2026-07-15 | PKA context bundle contract added early in Sprint 1 | Accepted | `packages/pka` now exports retrieval capability, governance mode, and context bundle types. The manifest declares retrieval capabilities and context bundle schema version. |
+| 2026-07-15 | Sprint 1 project/source workspace store added | Accepted | Projects and sources now share an in-memory workspace store with project creation, source-to-project assignment, and a lightweight TypeScript store contract test. |
+| 2026-07-15 | Sprint 1 Mission Centre controls added | Accepted | Mission Centre now has queue metrics, manual Mission creation, status updates, and automatic Mission traces for project/source creation. |
 
 ---
 
@@ -634,14 +647,16 @@ Apply these checks to every sprint:
 - [x] First pilot domain for Sprint 9: Quantity Surveying / RFQ from BOQ PKA proof of concept.
 - [x] PKA anatomy and runtime boundary: Base PKA is manufactured by KF; runtime products own client data, runtime state, and client-adapted PKA instances.
 - [x] App developer retrieval posture: cloud AI receives selected governed context, not whole PKAs, graphs, source libraries, or client vaults.
+- [x] Initial PKA context bundle contract: exported from `packages/pka` with AIFA and LADOS examples documented.
 
 ---
 
 ## 10. Current Next Actions
 
 1. Verify Docker Compose once Docker CLI is available.
-2. Add source creation tests or a lightweight service test harness.
-3. Move source/project mutations from local session storage to Prisma once Docker/Postgres is verified.
+2. Add a small source/project detail navigation pattern or scoped filtering.
+3. Move project/source/mission mutations from local session storage to Prisma once Docker/Postgres is verified.
+4. Add stronger runtime tests once a test runner is approved or introduced.
 
 ---
 

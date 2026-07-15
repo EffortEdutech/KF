@@ -43,7 +43,7 @@ Before making changes:
 
 ## Current Project State
 
-Knowledge Factory has entered Sprint 0 implementation.
+Knowledge Factory is in Sprint 1 implementation.
 
 The frozen architecture source of truth remains `docs/v1`. The active implementation plan is:
 
@@ -61,7 +61,7 @@ Current structure:
 - `packages/core` - lifecycle, mission, role, and relationship contracts.
 - `packages/db` - Prisma schema and database boundary.
 - `packages/ai` - provider/model-router contracts.
-- `packages/pka` - PKA manifest and package structure contracts.
+- `packages/pka` - PKA manifest, retrieval context, and package structure contracts.
 - `packages/ui` - shared UI contracts/components.
 - `packages/config` - runtime configuration boundary.
 - `storage` - local development storage root, with source and export folders.

@@ -352,7 +352,146 @@ The important design is not the exact JSON. The important design is that the con
 
 ---
 
-## 12. Retrieval Pipeline
+## 12. Manifest Retrieval Capabilities
+
+Each PKA manifest should declare what retrieval features a runtime can expect.
+
+Minimum fields added to the PKA manifest contract:
+
+```json
+{
+  "requiredRuntimeCapabilities": ["pka_loader", "governed_context_retrieval"],
+  "retrievalCapabilities": [
+    "knowledge_object_search",
+    "graph_traversal",
+    "source_evidence_retrieval",
+    "rule_retrieval",
+    "workflow_retrieval",
+    "template_retrieval",
+    "context_bundle_generation",
+    "approved_only_filtering"
+  ],
+  "contextBundleSchemaVersion": "0.1.0"
+}
+```
+
+This allows AIFA, LADOS, or another runtime to reject a PKA gracefully when the app cannot support the PKA's retrieval needs.
+
+The initial TypeScript contract is exported from `packages/pka` as:
+
+- `PkaRetrievalCapability`
+- `PkaGovernanceMode`
+- `PkaContextBundle`
+- `PkaContextKnowledgeObject`
+- `PkaContextRelationship`
+- `PkaContextComponentRef`
+- `PkaContextSourceEvidence`
+
+---
+
+## 13. AIFA Context Bundle Example
+
+AIFA should combine runtime bookkeeping facts with selected PKA guidance, while keeping those two sources clearly separated.
+
+Example tool request:
+
+```text
+build_context_bundle({
+  pkaPackageId: "pka-finance-bookkeeping",
+  query: "How should I categorize this supplier payment?",
+  governanceMode: "approved_only",
+  runtimeFactsRef: "aifa-ledger-entry-2026-07-15-001"
+})
+```
+
+Example model-ready bundle:
+
+```json
+{
+  "query": "How should I categorize this supplier payment?",
+  "pka": {
+    "packageId": "pka-finance-bookkeeping",
+    "name": "AIFA Bookkeeping PKA",
+    "version": "0.1.0",
+    "domain": "Bookkeeping"
+  },
+  "retrievedAt": "2026-07-15T00:00:00.000Z",
+  "governanceMode": "approved_only",
+  "knowledgeObjects": [
+    {
+      "id": "ko-expense-classification",
+      "title": "Supplier payment expense classification",
+      "type": "classification_rule",
+      "status": "approved",
+      "summary": "Classify supplier payments by purpose, invoice evidence, and tax treatment.",
+      "confidence": 0.91,
+      "sourceRefs": ["src-bookkeeping-policy-001"]
+    }
+  ],
+  "relationships": [],
+  "rules": [
+    {
+      "id": "rule-invoice-required",
+      "kind": "rule",
+      "title": "Invoice evidence required",
+      "status": "approved",
+      "summary": "A supplier payment should be linked to invoice or receipt evidence before final posting.",
+      "sourceRefs": ["src-bookkeeping-policy-001"]
+    }
+  ],
+  "workflows": [],
+  "templates": [],
+  "sourceEvidence": [
+    {
+      "sourceId": "src-bookkeeping-policy-001",
+      "title": "Bookkeeping policy source",
+      "locator": "section: expense evidence",
+      "usagePolicy": "internal-runtime-use"
+    }
+  ],
+  "runtimeInstructions": [
+    "Use PKA guidance for professional reasoning.",
+    "Use runtime ledger facts only for this user's transaction."
+  ],
+  "limitations": [
+    "Do not treat the user's ledger record as Base PKA content."
+  ]
+}
+```
+
+---
+
+## 14. LADOS Context Bundle Example
+
+LADOS should expose PKA retrieval through runtime tools so agents and workflows can ask for bounded governed context.
+
+Example MCP-style tools:
+
+```text
+search_pka_knowledge
+get_knowledge_object
+find_workflow
+get_applicable_rules
+get_source_evidence
+build_context_bundle
+```
+
+Example tool request:
+
+```text
+build_context_bundle({
+  pkaPackageId: "pka-qs-rfq-boq",
+  query: "Prepare an RFQ checklist from this BOQ trade package",
+  governanceMode: "approved_only",
+  includeKinds: ["knowledge_object", "rule", "workflow", "template", "source_reference_index"]
+})
+```
+
+The LADOS runtime may add project facts, user permissions, workflow state, or client adaptations before calling the model. Those runtime additions should remain separate from Base PKA records in the audit trail.
+
+---
+
+## 15. Retrieval Pipeline
 
 A minimal retrieval pipeline:
 
@@ -391,7 +530,7 @@ Later versions may add vector retrieval, hybrid graph/vector ranking, reranking,
 
 ---
 
-## 13. MCP Integration
+## 16. MCP Integration
 
 For cloud AI or external agents, apps may expose PKA retrieval through MCP tools.
 
@@ -410,7 +549,7 @@ This is the same design pattern as local Graphify use in Codex or Claude Code.
 
 ---
 
-## 14. Developer Do and Do Not
+## 17. Developer Do and Do Not
 
 Do:
 
@@ -432,24 +571,24 @@ Do not:
 
 ---
 
-## 15. Impact on KF Roadmap
+## 18. Impact on KF Roadmap
 
 This architecture should be reflected in future KF work.
 
 Recommended additions:
 
-- define a formal PKA context bundle contract,
+- evolve the formal PKA context bundle contract as runtime needs mature,
 - define retrieval APIs for exported PKAs,
-- add retrieval capability requirements to PKA manifests,
+- validate retrieval capability requirements in PKA manifests,
 - include graph traversal and ranking in the runtime harness,
-- add MCP-style tool examples for LADOS and AIFA,
+- expand MCP-style tool examples for LADOS and AIFA,
 - add tests that ensure unapproved knowledge is excluded from production context.
 
 This belongs primarily in future runtime integration and AI Workbench work, but the vocabulary should be introduced early so app developers build against the right mental model.
 
 ---
 
-## 16. Decision
+## 19. Decision
 
 Accepted for app-developer alignment:
 
