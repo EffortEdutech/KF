@@ -23,6 +23,20 @@ export const workspace = {
   owner: "platform_admin"
 };
 
+export const sourceCategories = [
+  "standard",
+  "SOP",
+  "company_document",
+  "expert_interview",
+  "historical_case",
+  "analytical_model",
+  "template",
+  "external_data_reference",
+  "architecture_note"
+] as const;
+
+export type SourceCategory = (typeof sourceCategories)[number];
+
 export type ProjectSummary = {
   id: string;
   name: string;
@@ -65,8 +79,9 @@ export const projects: ProjectSummary[] = [
 
 export type SourceSummary = {
   id: string;
+  projectId: string;
   title: string;
-  category: string;
+  category: SourceCategory;
   domain: string;
   owner: string;
   version: string;
@@ -75,11 +90,14 @@ export type SourceSummary = {
   usagePolicy: string;
   processingStatus: MissionStatus;
   boundary: "base_pka_input" | "client_adaptation_input";
+  storagePath?: string;
+  createdAt: string;
 };
 
 export const sources: SourceSummary[] = [
   {
     id: "src-boq-sample",
+    projectId: "kf-qs-rfq-pilot",
     title: "Sample Bill of Quantity",
     category: "company_document",
     domain: "Quantity Surveying",
@@ -89,10 +107,13 @@ export const sources: SourceSummary[] = [
     reviewStatus: "draft",
     usagePolicy: "Local development only",
     processingStatus: "created",
-    boundary: "base_pka_input"
+    boundary: "base_pka_input",
+    storagePath: "storage/sources/src-boq-sample",
+    createdAt: "2026-07-15"
   },
   {
     id: "src-rfq-template",
+    projectId: "kf-qs-rfq-pilot",
     title: "RFQ Template Structure",
     category: "template",
     domain: "Procurement",
@@ -102,10 +123,13 @@ export const sources: SourceSummary[] = [
     reviewStatus: "draft",
     usagePolicy: "Reusable PKA component candidate",
     processingStatus: "queued",
-    boundary: "base_pka_input"
+    boundary: "base_pka_input",
+    storagePath: "storage/sources/src-rfq-template",
+    createdAt: "2026-07-15"
   },
   {
     id: "src-aifa-pka-runtime",
+    projectId: "kf-finance-reference",
     title: "AIFA PKA Runtime Alignment Notes",
     category: "architecture_note",
     domain: "Finance",
@@ -115,7 +139,9 @@ export const sources: SourceSummary[] = [
     reviewStatus: "under_review",
     usagePolicy: "Architecture reference only",
     processingStatus: "ready",
-    boundary: "client_adaptation_input"
+    boundary: "client_adaptation_input",
+    storagePath: "docs/implementation/PKA Anatomy and Runtime Boundary.md",
+    createdAt: "2026-07-15"
   }
 ];
 
@@ -169,4 +195,3 @@ export const recentActivity = [
   "QS/RFQ from BOQ remains the first Base PKA pilot target.",
   "AIFA alignment captured as runtime-product guidance, not KF runtime logic."
 ];
-

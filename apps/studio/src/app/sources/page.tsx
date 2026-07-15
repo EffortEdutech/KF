@@ -1,17 +1,9 @@
-import { sources } from "../studio-data";
-
-const sourceCategories = [
-  "standard",
-  "SOP",
-  "company_document",
-  "expert_interview",
-  "historical_case",
-  "analytical_model",
-  "template",
-  "external_data_reference"
-];
+import { createSourceAction } from "../source-actions";
+import { listSources } from "../source-store";
+import { sourceCategories } from "../studio-data";
 
 export default function SourcesPage() {
+  const sources = listSources();
   const selectedSource = sources[0];
 
   return (
@@ -30,54 +22,89 @@ export default function SourcesPage() {
       <section className="board board-two">
         <article className="panel panel-strong">
           <p className="eyebrow">Manual registration</p>
-          <h3>Source intake placeholder</h3>
-          <form className="source-form">
+          <h3>Source intake</h3>
+          <form action={createSourceAction} className="source-form">
             <label>
               Title
-              <input value="New QS source" readOnly />
+              <input name="title" defaultValue="New QS source" required />
             </label>
             <label>
               Category
-              <select value="company_document" disabled>
+              <select name="category" defaultValue="company_document">
                 {sourceCategories.map((category) => (
-                  <option key={category}>{category}</option>
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
-              Usage policy
-              <input value="Local development only" readOnly />
+              Domain
+              <input name="domain" defaultValue="Quantity Surveying" required />
             </label>
-            <button type="button">Register source</button>
+            <label>
+              Owner
+              <input name="owner" defaultValue="knowledge_engineer" required />
+            </label>
+            <label>
+              Version
+              <input name="version" defaultValue="0.1" required />
+            </label>
+            <label>
+              Reliability
+              <input name="reliability" defaultValue="internal draft" required />
+            </label>
+            <label>
+              Usage policy
+              <input name="usagePolicy" defaultValue="Local development only" required />
+            </label>
+            <label>
+              Storage or artifact reference
+              <input name="storagePath" defaultValue="storage/sources/new-qs-source" />
+            </label>
+            <label>
+              Boundary
+              <select name="boundary" defaultValue="base_pka_input">
+                <option value="base_pka_input">base_pka_input</option>
+                <option value="client_adaptation_input">client_adaptation_input</option>
+              </select>
+            </label>
+            <button type="submit">Register source</button>
           </form>
         </article>
 
-        <article className="panel">
-          <p className="eyebrow">Source detail</p>
-          <h3>{selectedSource.title}</h3>
-          <p>
-            Source detail keeps provenance, usage policy, reliability, and Base PKA boundary
-            visible before manufacturing begins.
-          </p>
-          <dl className="detail-list">
-            <div>
-              <dt>Source ID</dt>
-              <dd>{selectedSource.id}</dd>
-            </div>
-            <div>
-              <dt>Review status</dt>
-              <dd>{selectedSource.reviewStatus}</dd>
-            </div>
-            <div>
-              <dt>Usage policy</dt>
-              <dd>{selectedSource.usagePolicy}</dd>
-            </div>
-            <div>
-              <dt>Boundary</dt>
-              <dd>{selectedSource.boundary}</dd>
-            </div>
-          </dl>
-        </article>
+        {selectedSource ? (
+          <article className="panel">
+            <p className="eyebrow">Source detail</p>
+            <h3>{selectedSource.title}</h3>
+            <p>
+              Source detail keeps provenance, usage policy, reliability, and Base PKA
+              boundary visible before manufacturing begins.
+            </p>
+            <dl className="detail-list">
+              <div>
+                <dt>Source ID</dt>
+                <dd>{selectedSource.id}</dd>
+              </div>
+              <div>
+                <dt>Review status</dt>
+                <dd>{selectedSource.reviewStatus}</dd>
+              </div>
+              <div>
+                <dt>Usage policy</dt>
+                <dd>{selectedSource.usagePolicy}</dd>
+              </div>
+              <div>
+                <dt>Storage reference</dt>
+                <dd>{selectedSource.storagePath}</dd>
+              </div>
+              <div>
+                <dt>Boundary</dt>
+                <dd>{selectedSource.boundary}</dd>
+              </div>
+            </dl>
+          </article>
+        ) : null}
       </section>
 
       <section className="table-panel" aria-label="Source list">
@@ -101,4 +128,3 @@ export default function SourcesPage() {
     </>
   );
 }
-

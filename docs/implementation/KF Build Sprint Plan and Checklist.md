@@ -34,6 +34,7 @@ All sprint work must preserve these rules from the frozen baseline:
 - Knowledge Factory may later expose a Runtime Knowledge Service for approved knowledge, but it must not duplicate the LADOS runtime layer.
 - A PKA is a package-level governed asset composed of smaller Knowledge Objects and Knowledge Asset Components.
 - Base PKAs must be distinguished from client-adapted PKA instances and runtime vault state.
+- Runtime apps must retrieve focused governed context from PKAs instead of sending whole PKAs, graphs, source libraries, or client vaults to AI models.
 - AI providers must remain abstracted, including local Ollama-style deployment.
 - Sensitive organizational knowledge must not be sent to external AI providers unless explicitly configured.
 
@@ -185,14 +186,14 @@ Checklist:
 - [~] Add Sources data model.
 - [x] Add Sources list view.
 - [x] Add Source detail view.
-- [~] Add manual source registration.
-- [~] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
-- [~] Add source licensing or usage policy metadata.
+- [x] Add manual source registration.
+- [x] Add source metadata fields: title, type, owner, version, date added, domain, reliability, review status.
+- [x] Add source licensing or usage policy metadata.
 - [x] Add source category support for standards, SOPs, company documents, expert interviews, historical cases, analytical models, templates, and external data references.
 - [x] Preserve source metadata needed to separate Base PKA inputs from client/runtime-local adaptation inputs.
-- [ ] Add local file upload or documented placeholder if deferred.
-- [ ] Store source file or artifact reference.
-- [~] Track processing status.
+- [x] Add local file upload or documented placeholder if deferred.
+- [x] Store source file or artifact reference.
+- [x] Track processing status.
 - [x] Add recent activity entries for project/source actions.
 - [x] Add basic dashboard metrics: source count, KO count, draft count, approved count, readiness placeholder.
 - [ ] Add tests for project/source creation and retrieval.
@@ -201,8 +202,8 @@ Checklist:
 Acceptance checks:
 
 - [ ] User can create a project.
-- [ ] User can register a source under a project.
-- [ ] Source metadata persists.
+- [x] User can register a source under a project.
+- [~] Source metadata persists.
 - [ ] Dashboard reflects source/project counts.
 - [ ] UI is an operational control panel, not a landing page.
 - [ ] Mission Centre exists as the future operational heart of the Studio.
@@ -408,6 +409,7 @@ Checklist:
 - [ ] Retrieve approved KOs.
 - [ ] Retrieve source evidence.
 - [ ] Retrieve related graph context.
+- [ ] Define first PKA context bundle shape for model-ready retrieval results.
 - [ ] Generate grounded answer through provider abstraction.
 - [ ] Show evidence used.
 - [ ] Show uncertainty or unsupported-answer warning.
@@ -437,6 +439,8 @@ Checklist:
 - [ ] Define minimal runtime import contract.
 - [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
 - [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
+- [ ] Define app-developer retrieval boundary: selected governed context only, not whole PKA or graph upload.
+- [ ] Add MCP-style retrieval tool examples for PKA context bundles.
 - [ ] Build local PKA loader/test harness.
 - [ ] Validate manifest.
 - [ ] Load ontology.
@@ -543,6 +547,7 @@ Apply these checks to every sprint:
 - [ ] Runtime Integration Service
 - [ ] Runtime Knowledge Service boundary
 - [ ] PKA Anatomy and Runtime Boundary
+- [ ] PKA Retrieval and Context Engine
 
 ### Data
 
@@ -561,6 +566,7 @@ Apply these checks to every sprint:
 - [ ] PKA packages
 - [ ] PKA component manifest entries
 - [ ] Client-adapted PKA instance records
+- [ ] PKA context bundle records or fixtures
 - [ ] Provider settings without secrets
 
 ### Local Infrastructure
@@ -606,6 +612,8 @@ Apply these checks to every sprint:
 | 2026-07-14 | Shared CFO/LADOS discussion reviewed | Accepted | Adds planning emphasis for two KF modes: Factory Mode and future Runtime Knowledge Service. Also clarifies PKA as a package-level asset composed of smaller governed components. |
 | 2026-07-15 | PKA Anatomy and Runtime Boundary added | Accepted | Clarifies Base PKA vs client-adapted PKA instance, Local PKA Vault boundary, runtime ownership, and AIFA/LADOS alignment. |
 | 2026-07-15 | Sprint 1 started with visible Studio routes | Accepted | Added Dashboard, Mission Centre, Projects, and Sources routes using typed local seed data before persistence. |
+| 2026-07-15 | Source registration uses local session storage first | Accepted | Server Action creates source records in local session storage until Docker/Postgres verification is available. Prisma remains the persistence contract. |
+| 2026-07-15 | PKA retrieval/context engine developer guidance added | Accepted | Apps should retrieve selected governed context from PKAs and send only that context to AI models. This mirrors local Graphify/Codex retrieval and supports MCP-style tools. |
 
 ---
 
@@ -625,14 +633,15 @@ Apply these checks to every sprint:
 - [x] First local AI integration depth behind provider/model router: deterministic fake provider in Sprint 0, Ollama adapter in Sprint 3.
 - [x] First pilot domain for Sprint 9: Quantity Surveying / RFQ from BOQ PKA proof of concept.
 - [x] PKA anatomy and runtime boundary: Base PKA is manufactured by KF; runtime products own client data, runtime state, and client-adapted PKA instances.
+- [x] App developer retrieval posture: cloud AI receives selected governed context, not whole PKAs, graphs, source libraries, or client vaults.
 
 ---
 
 ## 10. Current Next Actions
 
 1. Verify Docker Compose once Docker CLI is available.
-2. Verify Sprint 1 Studio routes in browser and run workspace checks.
-3. Add persistent project/source models and first source registration behavior.
+2. Add source creation tests or a lightweight service test harness.
+3. Move source/project mutations from local session storage to Prisma once Docker/Postgres is verified.
 
 ---
 

@@ -50,6 +50,7 @@ The frozen architecture source of truth remains `docs/v1`. The active implementa
 - `docs/implementation/KF Build Sprint Plan and Checklist.md`
 - `docs/implementation/Pre-Sprint Architecture Audit.md`
 - `docs/implementation/PKA Anatomy and Runtime Boundary.md`
+- `docs/implementation/PKA Retrieval and Context Engine for App Developers.md`
 - `docs/implementation/setup/Local Development Setup.md`
 
 The current implementation is a standalone-first Next.js Studio app with LADOS-compatible package/module boundaries.
@@ -74,6 +75,7 @@ Do not introduce implementation structure that conflicts with the approved Knowl
 - Professional Knowledge Assets are the primary governed output.
 - A PKA is a package-level governed asset composed of smaller knowledge components.
 - Distinguish Base PKAs from client-adapted PKA instances and runtime vault state.
+- Runtime apps should retrieve focused governed context from PKAs rather than sending whole PKAs or graphs to AI models.
 - AI assists the manufacturing process; humans govern professional approval.
 - Governance, provenance, traceability, validation, review status, and versioning are mandatory.
 - Knowledge Factory manufactures PKAs; LADOS is a runtime target that can execute or host PKAs.
@@ -122,6 +124,12 @@ Run the Studio app:
 
 ~~~powershell
 corepack pnpm dev
+~~~
+
+The Studio uses the KF development port:
+
+~~~text
+http://localhost:4700
 ~~~
 
 Build:

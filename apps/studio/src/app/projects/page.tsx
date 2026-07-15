@@ -1,6 +1,8 @@
 import { projects, workspace } from "../studio-data";
+import { listSources } from "../source-store";
 
 export default function ProjectsPage() {
+  const sources = listSources();
   const activeProject = projects.find((project) => project.id === workspace.activeProjectId) ?? projects[0];
 
   return (
@@ -25,7 +27,7 @@ export default function ProjectsPage() {
               <p>{project.objective}</p>
               <div className="card-meta">
                 <span>{project.status}</span>
-                <span>{project.sourceCount} sources</span>
+                <span>{sources.filter((source) => source.projectId === project.id).length} sources</span>
                 <span>{project.readiness}</span>
               </div>
             </article>
@@ -59,4 +61,3 @@ export default function ProjectsPage() {
     </>
   );
 }
-

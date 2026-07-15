@@ -1,6 +1,6 @@
 # Knowledge Factory Local Development Setup
 
-**Status:** Sprint 0 scaffold  
+**Status:** Sprint 1 active  
 **Host strategy:** standalone-first with LADOS-compatible boundaries
 
 ---
@@ -69,6 +69,17 @@ The Studio app lives at:
 ```text
 apps/studio
 ```
+
+The default KF Studio URL is:
+
+```text
+http://localhost:4700
+```
+
+Sprint 1 source registration currently uses local in-memory session storage behind
+the Studio service layer. The Prisma schema remains the persistence contract, but
+PostgreSQL-backed mutations are deferred until Docker/Postgres verification is
+available.
 
 ---
 

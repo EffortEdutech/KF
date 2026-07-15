@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { lifecycleStates, missionStatuses, missionTypes, roles } from "@kf/core";
-import { missions, projects, recentActivity, sources, workspace } from "./studio-data";
-
-const metrics = [
-  { label: "Projects", value: projects.length.toString() },
-  { label: "Sources", value: sources.length.toString() },
-  { label: "Missions", value: missions.length.toString() },
-  { label: "Approved KOs", value: "0" }
-];
+import { missions, projects, recentActivity, workspace } from "./studio-data";
+import { listSources } from "./source-store";
 
 export default function DashboardPage() {
+  const sources = listSources();
+  const metrics = [
+    { label: "Projects", value: projects.length.toString() },
+    { label: "Sources", value: sources.length.toString() },
+    { label: "Missions", value: missions.length.toString() },
+    { label: "Approved KOs", value: "0" }
+  ];
+
   return (
     <>
       <header className="topbar">
@@ -123,4 +125,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
