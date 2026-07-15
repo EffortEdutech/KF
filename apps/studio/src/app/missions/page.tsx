@@ -44,59 +44,66 @@ export default async function MissionsPage() {
         <article className="panel panel-strong">
           <p className="eyebrow">Manual mission</p>
           <h3>Create operational trace</h3>
-          <form action={createMissionAction} className="source-form">
-            <label className="field-wide">
-              Title
-              <input name="title" defaultValue="Review registered source readiness" required />
-            </label>
-            <label>
-              Type
-              <select name="type" defaultValue="validation">
-                {missionTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Status
-              <select name="status" defaultValue="queued">
-                {missionStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Project
-              <select name="projectId" defaultValue={projects[0]?.id}>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Assigned to
-              <input name="assignedTo" defaultValue="reviewer" required />
-            </label>
-            <label>
-              Stage
-              <input name="stage" defaultValue="review" required />
-            </label>
-            <label>
-              Priority
-              <select name="priority" defaultValue="normal">
-                <option value="low">low</option>
-                <option value="normal">normal</option>
-                <option value="high">high</option>
-              </select>
-            </label>
-            <button type="submit">Create mission</button>
-          </form>
+          {projects.length > 0 ? (
+            <form action={createMissionAction} className="source-form">
+              <label className="field-wide">
+                Title
+                <input name="title" defaultValue="Review registered source readiness" required />
+              </label>
+              <label>
+                Type
+                <select name="type" defaultValue="validation">
+                  {missionTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Status
+                <select name="status" defaultValue="queued">
+                  {missionStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Project
+                <select name="projectId" defaultValue={projects[0]?.id}>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Assigned to
+                <input name="assignedTo" defaultValue="reviewer" required />
+              </label>
+              <label>
+                Stage
+                <input name="stage" defaultValue="review" required />
+              </label>
+              <label>
+                Priority
+                <select name="priority" defaultValue="normal">
+                  <option value="low">low</option>
+                  <option value="normal">normal</option>
+                  <option value="high">high</option>
+                </select>
+              </label>
+              <button type="submit">Create mission</button>
+            </form>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No project anchor available</strong>
+              <span>Create a project before adding manual mission traces.</span>
+            </div>
+          )}
         </article>
 
         <article className="panel">
@@ -117,7 +124,7 @@ export default async function MissionsPage() {
             </div>
             <div>
               <dt>Persistence</dt>
-              <dd>Local session store until Prisma mutation wiring is verified</dd>
+              <dd>Prisma-backed when `DATABASE_URL` is configured, with local in-memory fallback</dd>
             </div>
           </dl>
         </article>
@@ -157,6 +164,12 @@ export default async function MissionsPage() {
             </form>
           </div>
         ))}
+        {missions.length === 0 ? (
+          <div className="table-empty">
+            <strong>No missions yet</strong>
+            <span>Create a project, register a source, or add a manual mission to start the operational queue.</span>
+          </div>
+        ) : null}
       </section>
     </>
   );

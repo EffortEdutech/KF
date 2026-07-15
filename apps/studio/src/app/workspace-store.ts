@@ -38,6 +38,13 @@ export type MissionInput = {
   status?: MissionStatus;
 };
 
+export type ReadinessHint = {
+  id: string;
+  level: "ready" | "warning" | "info";
+  title: string;
+  detail: string;
+};
+
 type WorkspaceStore = {
   projects: ProjectSummary[];
   sources: SourceSummary[];
@@ -381,6 +388,104 @@ function mapMission(mission: PrismaMission): MissionSummary {
     stage: mission.stage ?? "",
     priority: numberToPriority(mission.priority)
   };
+}
+
+function approvedSource(source: SourceSummary) {
+  return ["expert_validated", "approved", "published"].includes(source.reviewStatus);
+}
+
+export function getSourceReadinessHints(source: SourceSummary): ReadinessHint[] {
+  const hints: ReadinessHint[] = [];
+
+  if (!source.storagePath) {
+    hints.push({
+      id: "missing-storage-reference",
+      level: "warning",
+      title: "Storage reference missing",
+      detail: "Add a source artifact path before extraction or evidence linking begins."
+    });
+  }
+
+  if (!approvedSource(source)) {
+    hints.push({
+      id: "source-not-approved",
+      level: "warning",
+      title: "Governance review pending",
+      detail: "This source can support draft work, but approved PKA release should wait for review."
+    });
+  }
+
+  if (!source.usagePolicy.trim()) {
+    hints.push({
+      id: "missing-usage-policy",
+      level: "warning",
+      title: "Usage policy missing",
+      detail: "Confirm licensing and reuse limits before manufacturing reusable knowledge."
+    });
+  }
+
+  if (source.boundary === "client_adaptation_input") {
+    hints.push({
+      id: "client-adaptation-boundary",
+      level: "info",
+      title: "Runtime/client adaptation input",
+      detail: "Keep this separate from Base PKA manufacturing unless it is promoted by governance."
+    });
+  }
+
+  if (hints.length === 0) {
+    hints.push({
+      id: "source-ready",
+      level: "ready",
+      title: "Source intake ready",
+      detail: "Metadata, usage policy, artifact reference, and review status are ready for Sprint 2 evidence work."
+    });
+  }
+
+  return hints;
+}
+
+export async function getProjectReadinessHints(project: ProjectSummary): Promise<ReadinessHint[]> {
+  const projectSources = await listSourcesByProject(project.id);
+  const hints: ReadinessHint[] = [];
+
+  if (projectSources.length === 0) {
+    hints.push({
+      id: "no-sources",
+      level: "warning",
+      title: "No sources registered",
+      detail: "Register at least one trusted source before creating governed Knowledge Objects."
+    });
+  }
+
+  if (projectSources.length > 0 && !projectSources.some(approvedSource)) {
+    hints.push({
+      id: "no-approved-sources",
+      level: "warning",
+      title: "Source approval pending",
+      detail: "Draft Knowledge Objects can start, but release readiness needs approved or expert-validated sources."
+    });
+  }
+
+  if (project.knowledgeObjectCount === 0) {
+    hints.push({
+      id: "no-knowledge-objects",
+      level: "info",
+      title: "Knowledge Objects not started",
+      detail: "Sprint 2 will add the repository for creating source-backed Knowledge Object drafts."
+    });
+  }
+
+  if (hints.length === 0) {
+    hints.push({
+      id: "project-ready",
+      level: "ready",
+      title: "Project ready for repository work",
+      detail: "Source intake and first Knowledge Objects are present for the next governance checks."
+    });
+  }
+
+  return hints;
 }
 
 export async function listProjects() {

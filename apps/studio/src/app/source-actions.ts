@@ -66,6 +66,7 @@ export async function createSourceAction(formData: FormData) {
   revalidatePath("/missions");
   revalidatePath("/projects");
   revalidatePath("/sources");
+  revalidatePath("/knowledge-objects");
 }
 
 export async function createProjectAction(formData: FormData) {
@@ -81,6 +82,7 @@ export async function createProjectAction(formData: FormData) {
   revalidatePath("/missions");
   revalidatePath("/projects");
   revalidatePath("/sources");
+  revalidatePath("/knowledge-objects");
 }
 
 export async function createMissionAction(formData: FormData) {

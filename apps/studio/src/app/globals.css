@@ -158,7 +158,8 @@ textarea {
 
 .metric,
 .panel,
-.table-panel {
+.table-panel,
+.notice-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
@@ -214,6 +215,24 @@ textarea {
 
 .panel p {
   line-height: 1.55;
+}
+
+.notice-panel {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.notice-panel span,
+.empty-state span,
+.table-empty span,
+.readiness-item span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.notice-warning {
+  border-color: rgba(224, 181, 95, 0.6);
 }
 
 .panel dl {
@@ -353,6 +372,10 @@ textarea {
   grid-template-columns: minmax(220px, 1.4fr) minmax(110px, 0.65fr) minmax(120px, 0.7fr) minmax(120px, 0.75fr) minmax(120px, 0.7fr) minmax(220px, 1fr);
 }
 
+.ko-row {
+  grid-template-columns: minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(120px, 0.75fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
+}
+
 .table-row:first-child {
   border-top: 0;
 }
@@ -368,6 +391,46 @@ textarea {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.table-empty,
+.empty-state {
+  display: grid;
+  gap: 8px;
+}
+
+.table-empty {
+  border-top: 1px solid var(--border);
+  padding: 18px 16px;
+}
+
+.compact-empty {
+  margin-top: 18px;
+}
+
+.readiness-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.readiness-item {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid var(--border);
+  padding: 2px 0 2px 10px;
+}
+
+.readiness-warning {
+  border-color: var(--warning);
+}
+
+.readiness-info {
+  border-color: var(--accent);
+}
+
+.readiness-ready {
+  border-color: var(--accent-strong);
 }
 
 .pill {

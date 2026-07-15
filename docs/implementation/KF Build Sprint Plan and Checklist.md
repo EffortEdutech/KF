@@ -210,6 +210,9 @@ Checklist:
 - [x] Add Mission status update control.
 - [x] Add automatic Mission traces for project creation and source registration.
 - [x] Move project/source/mission reads and mutations to Prisma when `DATABASE_URL` is configured.
+- [x] Add stronger project/source/mission empty and missing-selection states.
+- [x] Add first project/source readiness hints for source intake, governance review, usage policy, and Sprint 2 KO preparation.
+- [x] Add Knowledge Objects repository preparation route as the Sprint 2 entry surface.
 - [x] Update docs for local usage and data model decisions.
 
 Acceptance checks:
@@ -634,6 +637,7 @@ Apply these checks to every sprint:
 | 2026-07-15 | Docker/Postgres verification completed | Accepted | Docker Desktop CLI was resolved through `scripts/docker-compose.ps1`; `kf-postgres` is healthy on `55432`. |
 | 2026-07-15 | Initial Prisma migration applied | Accepted | Migration `20260715094912_init` was created/applied and `prisma migrate status` reports the KF database schema is up to date. |
 | 2026-07-15 | Project/source/mission mutations moved to Prisma | Accepted | Studio workspace service uses Prisma when `DATABASE_URL` is configured, with an in-memory fallback for environments without database configuration. Browser verified DB-backed project/source creation and automatic Mission traces. |
+| 2026-07-15 | Sprint 1 hardening and Sprint 2 runway added | Accepted | Projects, Sources, and Mission Centre now expose empty/error states. Project/source readiness hints flag missing source intake, pending governance review, usage policy gaps, client-adaptation boundaries, and missing Knowledge Objects. `/knowledge-objects` now exists as the Sprint 2 preparation route. |
 
 ---
 
@@ -660,10 +664,10 @@ Apply these checks to every sprint:
 
 ## 10. Current Next Actions
 
-1. Verify Docker Compose once Docker CLI is available.
-2. Add stronger runtime tests once a test runner is approved or introduced.
-3. Continue Sprint 1 hardening: project/source empty states, error states, and first readiness hints.
-4. Prepare Sprint 2 Knowledge Object Repository slice.
+1. Add stronger runtime/browser tests once a test runner is approved or introduced.
+2. Begin Sprint 2 Knowledge Object Repository MVP with the Prisma KO model and migration.
+3. Add source evidence link model and first manual KO creation flow.
+4. Add KO list/detail/search/filter controls on top of the new `/knowledge-objects` route.
 
 ---
 

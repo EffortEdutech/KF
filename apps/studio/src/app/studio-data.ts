@@ -5,7 +5,7 @@ export const navigationItems = [
   { label: "Mission Centre", href: "/missions" },
   { label: "Projects", href: "/projects" },
   { label: "Sources", href: "/sources" },
-  { label: "Knowledge Objects", href: "#knowledge-objects" },
+  { label: "Knowledge Objects", href: "/knowledge-objects" },
   { label: "Ontology", href: "#ontology" },
   { label: "Graph", href: "#graph" },
   { label: "Pipeline", href: "#pipeline" },

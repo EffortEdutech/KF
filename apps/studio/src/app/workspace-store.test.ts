@@ -2,7 +2,9 @@ import {
   createProject,
   createMission,
   createSource,
+  getProjectReadinessHints,
   getProjectSourceCount,
+  getSourceReadinessHints,
   listMissions,
   listProjects,
   listSources,
@@ -49,6 +51,14 @@ async function runWorkspaceStoreContractTest() {
   expect(source.projectId === project.id, "source should be attached to the created project");
   expect((await listSources())[0]?.id === source.id, "new source should be returned first");
   expect((await getProjectSourceCount(project.id)) === 1, "project source count should reflect created source");
+  expect(
+    getSourceReadinessHints(source).some((hint) => hint.id === "source-not-approved"),
+    "draft source should report governance review readiness hint"
+  );
+  expect(
+    (await getProjectReadinessHints(project)).some((hint) => hint.id === "no-knowledge-objects"),
+    "project with no KOs should report repository readiness hint"
+  );
   expect(
     (await listMissions()).length === initialMissionCount + 2,
     "source creation should create one mission trace"
