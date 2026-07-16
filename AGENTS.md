@@ -43,14 +43,17 @@ Before making changes:
 
 ## Current Project State
 
-Knowledge Factory is in Sprint 2 implementation.
+Knowledge Factory is actively filling Sprint 3 pipeline implementation after Sprint 4-6 governance, graph quality, and PKA export hardening.
 
 The frozen architecture source of truth remains `docs/v1`. The active implementation plan is:
 
 - `docs/implementation/KF Build Sprint Plan and Checklist.md`
 - `docs/implementation/Pre-Sprint Architecture Audit.md`
 - `docs/implementation/PKA Anatomy and Runtime Boundary.md`
+- `docs/implementation/PKA Component Boundary Decision.md`
 - `docs/implementation/PKA Retrieval and Context Engine for App Developers.md`
+- `docs/implementation/PKA Export Strategy.md`
+- `docs/implementation/Sprint 4 Review Queue Planning Slice.md`
 - `docs/implementation/setup/Local Development Setup.md`
 
 The current implementation is a standalone-first Next.js Studio app with LADOS-compatible package/module boundaries.
@@ -59,12 +62,14 @@ Current structure:
 
 - `apps/studio` - Next.js App Router Studio shell.
 - `packages/core` - lifecycle, mission, role, and relationship contracts.
-- `packages/db` - Prisma schema and database boundary, including initial Knowledge Object and source evidence tables.
+- `packages/db` - Prisma schema and database boundary, including Knowledge Objects, source evidence, source chunks, KO suggestions, governance, graph, and package records.
 - `packages/ai` - provider/model-router contracts.
 - `packages/pka` - PKA manifest, retrieval context, and package structure contracts.
 - `packages/ui` - shared UI contracts/components.
 - `packages/config` - runtime configuration boundary.
 - `storage` - local development storage root, with source and export folders.
+
+Sprint 3 pipeline currently supports deterministic source ingestion, Markdown/plain-text artifact extraction, source chunks, KO suggestions, relationship suggestions, retry controls, and suggestion acceptance into draft governed records. Ollama integration is intentionally deferred until the deterministic review flow is stronger.
 
 Do not introduce implementation structure that conflicts with the approved Knowledge Factory documentation or the active sprint plan.
 
@@ -156,6 +161,22 @@ Full check:
 corepack pnpm check
 ~~~
 
+Runtime smoke test:
+
+~~~powershell
+corepack pnpm test:runtime
+~~~
+
+Full local check with runtime smoke test:
+
+~~~powershell
+corepack pnpm check:runtime
+~~~
+
+`test:runtime` starts or reuses the local Studio through Playwright and resets the runtime workspace before each test through `/api/test/reset`. The reset route requires a local request and the `x-kf-test-reset-token` header.
+
+Keep `test:runtime` separate from default `check` until KF has stronger package-state fixtures and database-backed reset safeguards for non-local environments.
+
 Start dedicated KF PostgreSQL infrastructure:
 
 ~~~powershell
@@ -201,3 +222,21 @@ A task is complete when:
 - documentation is updated if needed,
 - Graphify is refreshed after meaningful structural changes when possible,
 - the final response explains what changed and how it was verified.
+
+<!-- AI-WORKSPACE-CONTEXT-FALLBACK -->
+
+## Obsidian Fallback Context
+
+The central Obsidian vault lives at:
+
+~~~text
+C:\Users\user\Documents\00 AI agent\AI-Knowledge
+~~~
+
+Some Codex or Claude sessions mount only this project folder. If the live vault is outside the current sandbox, read this local bridge instead:
+
+~~~text
+docs\AI_WORKSPACE_CONTEXT.md
+~~~
+
+Use the bridge only for architecture rationale, ADRs, roadmap context, cross-project standards, and workspace operating context. Do not use it as a replacement for project docs, Graphify, or source inspection.

@@ -112,6 +112,9 @@ model Project {
   createdBy      User         @relation("ProjectCreator", fields: [createdById], references: [id])
   missions       Mission[]
   sources        Source[]
+  sourceChunks   SourceChunk[]
+  knowledgeSuggestions KnowledgeSuggestion[]
+  relationshipSuggestions RelationshipSuggestion[]
   knowledgeObjects KnowledgeObject[]
   packages       PkaPackage[]
 }
@@ -161,6 +164,84 @@ model Source {
   project        Project        @relation(fields: [projectId], references: [id])
   mission        Mission?       @relation(fields: [missionId], references: [id])
   evidenceLinks  SourceEvidence[]
+  chunks         SourceChunk[]
+  knowledgeSuggestions KnowledgeSuggestion[]
+  relationshipSuggestions RelationshipSuggestion[]
+}
+
+model SourceChunk {
+  id             String      @id @default(cuid())
+  projectId      String
+  sourceId       String
+  chunkIndex     Int
+  locator        String?
+  content        String
+  tokenEstimate  Int?
+  createdAt      DateTime    @default(now())
+  project        Project     @relation(fields: [projectId], references: [id])
+  source         Source      @relation(fields: [sourceId], references: [id])
+  suggestions    KnowledgeSuggestion[]
+  relationshipSuggestions RelationshipSuggestion[]
+
+  @@index([projectId, sourceId])
+  @@unique([sourceId, chunkIndex])
+}
+
+model KnowledgeSuggestion {
+  id                        String           @id @default(cuid())
+  projectId                 String
+  sourceId                  String?
+  sourceChunkId             String?
+  title                     String
+  objectType                String
+  domain                    String
+  description               String
+  confidence                Decimal?         @db.Decimal(5, 2)
+  suggestedTags             String[]         @default([])
+  evidenceExcerpt           String?
+  evidenceLocator           String?
+  reviewNotes               String?
+  status                    String           @default("pending")
+  acceptedKnowledgeObjectId String?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  project                   Project          @relation(fields: [projectId], references: [id])
+  source                    Source?          @relation(fields: [sourceId], references: [id])
+  sourceChunk               SourceChunk?     @relation(fields: [sourceChunkId], references: [id])
+  acceptedKnowledgeObject   KnowledgeObject? @relation(fields: [acceptedKnowledgeObjectId], references: [id])
+  outgoingRelationshipSuggestions RelationshipSuggestion[] @relation("RelationshipSuggestionFrom")
+  incomingRelationshipSuggestions RelationshipSuggestion[] @relation("RelationshipSuggestionTo")
+
+  @@index([projectId, status])
+  @@index([sourceId, status])
+}
+
+model RelationshipSuggestion {
+  id                     String                @id @default(cuid())
+  projectId              String
+  sourceId               String?
+  sourceChunkId          String?
+  fromSuggestionId       String
+  toSuggestionId         String
+  type                   String
+  rationale              String
+  confidence             Decimal?              @db.Decimal(5, 2)
+  evidenceExcerpt        String?
+  evidenceLocator        String?
+  reviewNotes            String?
+  status                 String                @default("pending")
+  acceptedRelationshipId String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  project                Project               @relation(fields: [projectId], references: [id])
+  source                 Source?               @relation(fields: [sourceId], references: [id])
+  sourceChunk            SourceChunk?          @relation(fields: [sourceChunkId], references: [id])
+  fromSuggestion         KnowledgeSuggestion    @relation("RelationshipSuggestionFrom", fields: [fromSuggestionId], references: [id])
+  toSuggestion           KnowledgeSuggestion    @relation("RelationshipSuggestionTo", fields: [toSuggestionId], references: [id])
+  acceptedRelationship   KnowledgeRelationship? @relation(fields: [acceptedRelationshipId], references: [id])
+
+  @@index([projectId, status])
+  @@index([sourceId, status])
 }
 
 model KnowledgeObject {
@@ -188,6 +269,27 @@ model KnowledgeObject {
   outgoingRelationships KnowledgeRelationship[] @relation("RelationshipFrom")
   incomingRelationships KnowledgeRelationship[] @relation("RelationshipTo")
   reviews        Review[]
+  versions       KnowledgeObjectVersion[]
+  acceptedSuggestions KnowledgeSuggestion[]
+}
+
+model KnowledgeObjectVersion {
+  id                String          @id @default(cuid())
+  knowledgeObjectId String
+  version           String
+  title             String
+  objectType        String
+  domain            String
+  description       String
+  status            LifecycleState
+  confidence        Decimal?        @db.Decimal(5, 2)
+  tags              String[]        @default([])
+  actorId           String?
+  snapshotReason    String
+  createdAt         DateTime        @default(now())
+  knowledgeObject   KnowledgeObject @relation(fields: [knowledgeObjectId], references: [id])
+
+  @@index([knowledgeObjectId, createdAt])
 }
 
 model SourceEvidence {
@@ -215,6 +317,7 @@ model KnowledgeRelationship {
   updatedAt DateTime       @updatedAt
   from      KnowledgeObject @relation("RelationshipFrom", fields: [fromId], references: [id])
   to        KnowledgeObject @relation("RelationshipTo", fields: [toId], references: [id])
+  acceptedRelationshipSuggestions RelationshipSuggestion[]
 }
 
 model Review {
@@ -248,6 +351,9 @@ model PkaPackage {
   status      LifecycleState @default(draft)
   manifest    Json?
   exportPath  String?
+  replacementOfPackageId String?
+  replacementSequence Int @default(0)
+  publishedAt DateTime?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   project     Project        @relation(fields: [projectId], references: [id])

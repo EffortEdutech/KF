@@ -8,6 +8,8 @@ build/
 .next/
 out/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # Environment files
@@ -40,4 +42,5 @@ storage/*
 !storage/sources/
 !storage/sources/.gitkeep
 !storage/exports/
+storage/exports/*
 !storage/exports/.gitkeep

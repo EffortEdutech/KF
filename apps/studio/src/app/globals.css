@@ -171,6 +171,11 @@ textarea {
   padding: 16px;
 }
 
+.metric-link:hover {
+  border-color: var(--accent);
+  background: var(--panel-strong);
+}
+
 .metric span,
 .panel p,
 .panel dt {
@@ -448,6 +453,15 @@ textarea {
   padding: 2px 0 2px 10px;
 }
 
+a.readiness-item {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.readiness-item:hover {
+  background: var(--panel-strong);
+}
+
 .readiness-warning {
   border-color: var(--warning);
 }
@@ -458,6 +472,82 @@ textarea {
 
 .readiness-ready {
   border-color: var(--accent-strong);
+}
+
+.timeline-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.timeline-item {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.timeline-item span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.code-panel {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #151713;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 14px;
+  white-space: pre;
+}
+
+.graph-map {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.graph-node {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.35fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel-strong);
+}
+
+.graph-node span,
+.graph-edge small {
+  color: var(--muted);
+}
+
+.graph-edge-list {
+  display: grid;
+  gap: 8px;
+}
+
+.graph-edge {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-left: 3px solid var(--accent);
+  color: inherit;
+  text-decoration: none;
+  padding-left: 10px;
+}
+
+.graph-edge-incoming {
+  border-color: var(--warning);
+}
+
+.graph-edge-empty {
+  color: var(--muted);
 }
 
 .pill {
@@ -484,6 +574,18 @@ textarea {
   font-size: 13px;
 }
 
+.form-static {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form-static strong {
+  color: var(--foreground);
+  line-height: 1.35;
+}
+
 .source-form input,
 .source-form select,
 .source-form textarea {
@@ -500,6 +602,10 @@ textarea {
   resize: vertical;
 }
 
+.compact-form {
+  margin-top: 16px;
+}
+
 .source-form button {
   width: fit-content;
   border: 0;
@@ -514,6 +620,16 @@ textarea {
 .source-form button,
 .source-form .field-wide {
   grid-column: 1 / -1;
+}
+
+.source-form .checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-form .checkbox-field input {
+  width: auto;
 }
 
 .inline-form {
@@ -534,6 +650,15 @@ textarea {
 .inline-form button {
   background: var(--panel-strong);
   color: var(--accent-strong);
+}
+
+.inline-action {
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  color: var(--accent-strong);
+  padding: 8px 9px;
 }
 
 .tags {

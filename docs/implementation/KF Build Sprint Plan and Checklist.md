@@ -2,7 +2,7 @@
 
 **Status:** Active planning baseline  
 **Created:** 2026-07-14  
-**Current phase:** Sprint 2 - Knowledge Object Repository MVP
+**Current phase:** Sprint 3 - Pipeline and AI-Assisted Drafting
 **Source baseline:** `docs/v1` Version 1.0 frozen architecture and `docs/v1/TRY 1`
 
 ---
@@ -235,32 +235,35 @@ Acceptance checks:
 Checklist:
 
 - [x] Add Knowledge Object data model.
-- [~] Decide which package components are Knowledge Objects and which need dedicated component records.
+- [x] Decide which package components are Knowledge Objects and which need dedicated component records.
 - [x] Apply canonical MVP lifecycle states.
 - [x] Add KO fields: ID, type, title/name, description, domain, tags, status, version, confidence, approval status.
 - [x] Add owner, author, contributor, reviewer, and approval metadata where practical.
 - [x] Add source evidence link model.
-- [ ] Add relationship model for simple KO-to-KO links.
+- [x] Add relationship model for simple KO-to-KO links.
 - [x] Add KO list view.
 - [~] Add KO filters by type, status, domain, and tag.
 - [x] Add KO search.
 - [x] Add KO detail view.
 - [x] Add source evidence panel.
-- [ ] Add relationship panel.
-- [ ] Add governance history placeholder or first audit log.
+- [x] Add relationship panel.
+- [x] Add first relationship quality/readiness hints.
+- [x] Add governance history placeholder or first audit log.
+- [x] Add relationship filtering controls by relationship type and quality state.
+- [x] Add first audit-backed version snapshot placeholder for edited KOs.
 - [x] Add manual KO creation.
-- [ ] Add KO editing while draft or under review.
-- [ ] Prevent direct editing of approved/published objects unless versioning behavior is defined.
-- [ ] Add object status transitions: draft, under review, approved, deprecated.
-- [~] Add tests for KO CRUD, evidence links, and status rules.
+- [x] Add KO editing while draft or under review.
+- [x] Prevent direct editing of approved/published objects unless versioning behavior is defined.
+- [x] Add object status transitions: draft, under review, approved, deprecated.
+- [~] Add tests for KO CRUD, evidence links, status rules, version snapshots, and relationship filters.
 - [x] Update docs for KO schema and governance behavior.
 
 Acceptance checks:
 
-- [ ] Every KO can be traced to source evidence or marked as expert/manual input.
-- [ ] KO status is visible.
-- [ ] Approved knowledge is treated differently from draft knowledge.
-- [ ] Search/filter supports practical repository browsing.
+- [x] Every KO can be traced to source evidence or marked as expert/manual input.
+- [x] KO status is visible.
+- [x] Approved knowledge is treated differently from draft knowledge.
+- [x] Search/filter supports practical repository browsing.
 
 ---
 
@@ -272,31 +275,40 @@ Acceptance checks:
 
 Checklist:
 
-- [ ] Add Mission-backed pipeline job model.
-- [ ] Add pipeline stage tracking.
-- [ ] Implement ingestion job for registered sources.
-- [ ] Implement text extraction for at least Markdown/plain text.
+- [x] Add Mission-backed pipeline job model.
+- [x] Add pipeline stage tracking.
+- [x] Implement ingestion job for registered sources.
+- [x] Implement deterministic text extraction placeholder for registered sources.
+- [x] Implement Markdown/plain-text extraction from stored source artifacts.
 - [ ] Add PDF extraction if feasible in this sprint.
-- [ ] Add source chunking.
-- [ ] Add AI provider/model router abstraction.
-- [ ] Add Ollama provider adapter or documented local stub.
-- [ ] Add KO suggestion output schema.
-- [ ] Add relationship suggestion output schema.
-- [ ] Add confidence and review notes to suggestions.
-- [ ] Add Pipeline view with stage/status tracking.
-- [ ] Add action to create draft KOs from suggestions.
-- [ ] Add error states and retry behavior.
-- [ ] Add tests for pipeline state transitions.
-- [ ] Add tests for provider abstraction using a deterministic fake provider.
-- [ ] Update docs for pipeline flow and AI provider configuration.
+- [x] Add source chunking.
+- [x] Add AI provider/model router abstraction.
+- [x] Add deterministic local fake provider stub.
+- [x] Add KO suggestion output schema.
+- [x] Add relationship suggestion output schema.
+- [x] Add confidence and review notes to suggestions.
+- [x] Add Pipeline view with stage/status tracking.
+- [x] Add action to create draft KOs from suggestions.
+- [x] Add visible retry behavior and failed pipeline job surfacing.
+- [x] Add relationship suggestion reject/defer controls.
+- [x] Add KO suggestion reject/defer controls.
+- [x] Add explicit failed-ingestion fixture for runtime recovery tests.
+- [x] Add deterministic pipeline quality metrics for chunks, suggestions, decision ratios, failures, and retries.
+- [x] Add pipeline metrics drilldowns by source and status.
+- [x] Add source-ingestion fixture coverage for unsupported file types and empty artifact content.
+- [x] Add runtime verification for persisted package governance exports.
+- [x] Add tests for pipeline state transitions.
+- [x] Add tests for provider abstraction using a deterministic fake provider.
+- [x] Update docs for pipeline flow and AI provider configuration.
 
 Acceptance checks:
 
-- [ ] AI outputs remain draft.
-- [ ] Suggested KOs preserve source references.
-- [ ] Pipeline failures are visible and recoverable.
-- [ ] Provider-specific details do not leak into application services.
-- [ ] Pipeline work is traceable through Missions.
+- [x] AI outputs remain draft.
+- [x] Suggested KOs preserve source references.
+- [x] Pipeline failures are visible and recoverable.
+- [x] Pipeline quality metrics are visible in Studio.
+- [x] Provider-specific details do not leak into application services.
+- [x] Pipeline work is traceable through Missions.
 
 ---
 
@@ -308,25 +320,34 @@ Acceptance checks:
 
 Checklist:
 
-- [ ] Add Review queue.
-- [ ] Add reviewer notes.
-- [ ] Add approve/reject/request-changes actions.
-- [ ] Add governance event log.
-- [ ] Add version history model or first minimal version snapshots.
-- [ ] Add readiness checks for missing source evidence.
-- [ ] Add readiness checks for unapproved KOs.
-- [ ] Add readiness checks for weak or missing relationships.
-- [ ] Add readiness checks for missing required metadata.
-- [ ] Add dashboard review metrics.
-- [ ] Add tests for governance transitions.
-- [ ] Add tests preventing release of unapproved required KOs.
-- [ ] Update docs for review rules and readiness checks.
+- [x] Add Review queue.
+- [x] Add reviewer notes.
+- [x] Add approve/reject/request-changes actions.
+- [~] Add governance event log.
+- [x] Add version history model or first minimal version snapshots.
+- [x] Add readiness checks for missing source evidence.
+- [x] Add readiness checks for unapproved KOs.
+- [x] Add readiness checks for weak or missing relationships.
+- [x] Add readiness checks for missing required metadata.
+- [x] Add dashboard review metrics.
+- [~] Add tests for governance transitions.
+- [x] Add tests preventing release of unapproved required KOs.
+- [x] Update docs for review rules and readiness checks.
+- [x] Add Review route filtering for decision history and reviewer ownership.
+- [x] Add dashboard drilldowns into filtered Review views.
+- [x] Add PKA Builder release-blocking integration.
+- [x] Decide when `test:runtime` joins default `pnpm check`.
+- [x] Add Review route filtering by queue status and blocker type.
+- [x] Add dashboard links/drilldowns from release blockers to KO-specific review issues.
+- [x] Add KO-specific release blocker remediation actions from Review.
+- [x] Add deterministic runtime-test server orchestration and database reset/seed.
+- [x] Add deeper browser coverage for actual review decisions and PKA Builder filtered drilldowns.
 
 Acceptance checks:
 
-- [ ] No PKA can be marked ready if required governance checks fail.
-- [ ] Reviewer accountability is recorded.
-- [ ] Evidence remains visible during review.
+- [x] No PKA can be marked ready if required governance checks fail.
+- [x] Reviewer accountability is recorded.
+- [x] Evidence remains visible during review.
 - [ ] AI suggestions are never treated as approved by default.
 
 ---
@@ -340,24 +361,28 @@ Acceptance checks:
 Checklist:
 
 - [ ] Add ontology/category model.
-- [ ] Add object type configuration or documented fixed MVP types.
-- [ ] Add relationship type configuration or documented fixed MVP types.
-- [ ] Add Ontology view.
-- [ ] Add Graph view.
-- [ ] Add node search.
-- [ ] Add filters by object type.
-- [ ] Add filters by relationship type.
-- [ ] Add source-backed relationship indicator.
-- [ ] Add isolated object detection.
-- [ ] Add missing relationship warnings.
-- [ ] Add tests for graph retrieval and relationship filtering.
-- [ ] Update docs for ontology and graph implementation decisions.
+- [x] Add object type configuration or documented fixed MVP types.
+- [x] Add relationship type configuration or documented fixed MVP types.
+- [x] Add Ontology view.
+- [x] Add Graph view.
+- [x] Add node search.
+- [x] Add filters by object type.
+- [x] Add filters by relationship type.
+- [x] Add source-backed relationship indicator.
+- [x] Add relationship source-evidence attachment beyond provenance notes.
+- [x] Add adjacency map for graph inspection.
+- [x] Add isolated object detection.
+- [x] Add missing relationship warnings.
+- [x] Add relationship provenance detail.
+- [x] Add relationship-level review/governance history.
+- [~] Add tests for graph retrieval and relationship filtering.
+- [x] Update docs for ontology and graph implementation decisions.
 
 Acceptance checks:
 
-- [ ] Graph view supports quality control, not decoration.
-- [ ] Relationships can be traced to source or review evidence.
-- [ ] Isolated or weakly linked objects are visible.
+- [x] Graph view supports quality control, not decoration.
+- [x] Relationships can be traced to source or review evidence.
+- [x] Isolated or weakly linked objects are visible.
 
 ---
 
@@ -369,45 +394,67 @@ Acceptance checks:
 
 Checklist:
 
-- [ ] Add PKA package record model.
-- [ ] Define PKA package/component vocabulary in implementation terms.
+- [~] Add PKA package record model.
+- [x] Define PKA package/component vocabulary in implementation terms.
 - [ ] Implement Base PKA vs client-adapted PKA instance distinction in package/export design.
-- [ ] Add PKA Builder view.
-- [ ] Select approved KOs for package.
-- [ ] Include ontology.
-- [ ] Include graph relationships.
-- [ ] Include source reference index.
-- [ ] Include prompt/instruction library placeholder.
-- [ ] Include runtime configuration.
-- [ ] Include package component index for rules, templates, formulas, cases, prompts, workflows, or KO collections where present.
-- [ ] Include governance metadata.
-- [ ] Include licensing and usage policy metadata.
-- [ ] Generate `manifest.json`.
-- [ ] Validate required manifest fields.
-- [ ] Export package structure:
-  - [ ] `manifest.json`
-  - [ ] `ontology/`
-  - [ ] `knowledge-objects/`
-  - [ ] `graph/`
-  - [ ] `sources/`
-  - [ ] `prompts/`
-  - [ ] `rules/`
-  - [ ] `workflows/`
-  - [ ] `templates/`
-  - [ ] `runtime/`
-  - [ ] `governance/`
-- [ ] Add package validation report.
-- [ ] Add incremental package update strategy notes.
-- [ ] Document what is excluded from a Base PKA and belongs to runtime vault/client state.
-- [ ] Add tests for manifest generation and validation.
-- [ ] Update docs for PKA export format.
+- [~] Add PKA Builder view.
+- [~] Select approved KOs for package.
+- [~] Include ontology.
+- [~] Include graph relationships.
+- [~] Include source reference index.
+- [x] Include prompt/instruction library placeholder.
+- [x] Include runtime configuration placeholder.
+- [x] Include package component index for rules, templates, prompts, workflows, formulas, cases, and runtime config placeholders.
+- [x] Include governance metadata.
+- [x] Include licensing and usage policy metadata.
+- [~] Generate `manifest.json`.
+- [x] Add manifest JSON export/inspection view.
+- [x] Validate required manifest fields.
+- [~] Export package structure:
+  - [x] `manifest.json`
+  - [x] `ontology/`
+  - [x] `knowledge-objects/`
+  - [x] `graph/`
+  - [x] `sources/`
+  - [x] `prompts/`
+- [x] `rules/`
+- [x] `formulas/`
+- [x] `cases/`
+- [x] `workflows/`
+  - [x] `templates/`
+  - [x] `runtime/`
+  - [x] `governance/`
+- [x] Add package validation report.
+- [x] Add manifest detail preview.
+- [x] Add package validation fixtures for invalid manifests.
+- [x] Persist export preview as JSON files under `storage/exports/<packageId>`.
+- [x] Add JSON archive download support.
+- [x] Add true ZIP archive generation and download support.
+- [x] Add formula and case-library component placeholders.
+- [x] Add incremental package update strategy notes.
+- [x] Add package replacement confirmation before overwriting the same version.
+- [x] Add package diff summary between current and previous export files.
+- [x] Add release/published semantics for immutable package exports.
+- [x] Add package version lineage fields for replacement sequencing and previous package IDs.
+- [x] Add package release approval workflow separate from draft assembly.
+- [x] Add package release rejection/request-changes actions.
+- [x] Add reviewer/publisher notes and audit history for package release decisions.
+- [x] Add package release gate UI in PKA Builder.
+- [x] Add release decision summaries to exported `governance/index.json`.
+- [x] Add package version lineage visualization.
+- [x] Add published export retention policy surface.
+- [x] Decide relationship source evidence remains in structured provenance for the pilot.
+- [x] Document what is excluded from a Base PKA and belongs to runtime vault/client state.
+- [x] Add tests for manifest generation and validation.
+- [x] Add runtime/browser coverage proving draft assembly is separate from release approval and publish.
+- [~] Update docs for PKA export format.
 
 Acceptance checks:
 
-- [ ] Exported PKA can be inspected without the app.
-- [ ] Manifest declares runtime capability requirements.
-- [ ] Package includes governance status and source traceability.
-- [ ] Package preserves licensing and usage policy metadata.
+- [x] Exported PKA can be inspected without the app.
+- [x] Manifest declares runtime capability requirements.
+- [x] Package includes governance status and source traceability.
+- [x] Package preserves licensing and usage policy metadata.
 - [ ] Unapproved required KOs cannot be released as approved.
 
 ---
@@ -639,6 +686,32 @@ Apply these checks to every sprint:
 | 2026-07-15 | Project/source/mission mutations moved to Prisma | Accepted | Studio workspace service uses Prisma when `DATABASE_URL` is configured, with an in-memory fallback for environments without database configuration. Browser verified DB-backed project/source creation and automatic Mission traces. |
 | 2026-07-15 | Sprint 1 hardening and Sprint 2 runway added | Accepted | Projects, Sources, and Mission Centre now expose empty/error states. Project/source readiness hints flag missing source intake, pending governance review, usage policy gaps, client-adaptation boundaries, and missing Knowledge Objects. `/knowledge-objects` now exists as the Sprint 2 preparation route. |
 | 2026-07-15 | Sprint 2 Knowledge Object repository started | Accepted | The initial Prisma migration already contains `KnowledgeObject` and `SourceEvidence`; `prisma migrate status` confirms the database is up to date. Studio now supports first draft KO creation, list/detail/search/filter, source evidence display, and Mission tracing for manual KO creation. |
+| 2026-07-16 | Sprint 2 KO governance and relationship slice added | Accepted | Draft and under-review KOs can now be edited, approved/deprecated KOs are locked from direct editing, lifecycle controls support draft/under_review/approved/deprecated, and a first KO-to-KO relationship creation/list panel is available. |
+| 2026-07-16 | PKA component boundary decided | Accepted | Professional meaning stays in Knowledge Objects. Execution/loading/export/audit-specific structures use dedicated records such as source evidence, graph edges, ontology terms, workflow definitions, templates, formulas, prompts, runtime config, package manifests, and governance events. |
+| 2026-07-16 | First KO governance audit history added | Accepted | KO edits, lifecycle transitions, and relationship creation now write governance/audit events and display selected-KO history in the Studio. Relationship quality hints flag isolated KOs, draft edges, weak confidence, and missing provenance. |
+| 2026-07-16 | Sprint 2 relationship filters and version snapshots added | Accepted | `/knowledge-objects` can filter selected KO relationships by edge type and quality state. Editable KO saves now capture an audit-backed previous-version snapshot and bump the patch version. A Sprint 4 review queue preview and planning doc define the next governance boundary without adding a browser test dependency yet. |
+| 2026-07-16 | Sprint 4 governance route and version table started | Accepted | Playwright is approved as the future browser/runtime test runner, pending package install and script wiring. `/review` is now the dedicated governance queue. Reviewer notes plus approved/changes_requested/rejected decisions write Review records, audit events, lifecycle updates, and Mission traces. KO snapshots are promoted to a dedicated `KnowledgeObjectVersion` table. |
+| 2026-07-16 | Sprint 4 readiness and runtime smoke checks added | Accepted | `@playwright/test` is installed with `corepack pnpm test:runtime`. Dashboard and Review now show review metrics and PKA release-blocking checks for missing evidence, unapproved KOs, weak/missing relationships, and missing metadata. Store tests cover governance blockers. |
+| 2026-07-16 | Review filters and PKA Builder release gate added | Accepted | `/review` now filters review history by decision and reviewer. Dashboard metrics drill into filtered Review and PKA Builder views. `/pka-builder` exists as a future packaging surface with release-blocking governance integration. `test:runtime` remains separate from default `check` until deterministic server orchestration and database reset/seed behavior are available; use `corepack pnpm check:runtime` for the full local gate. |
+| 2026-07-16 | Review queue and blocker filters added | Accepted | `/review` now supports `queueStatus` and `blockerType` filters. Dashboard release-blocking checks and `/pka-builder` readiness items link into KO-specific Review views when a blocker belongs to a Knowledge Object. |
+| 2026-07-16 | Continue Sprint 4 hardening before Sprint 5 | Accepted | Finish Review remediation, deterministic runtime reset/server orchestration, and deeper browser coverage before starting Sprint 5 ontology/graph quality. This keeps the governance foundation stable before graph-facing UX grows. |
+| 2026-07-16 | Sprint 5 graph quality surface started | Accepted | `/ontology` is the first graph quality surface. It uses fixed MVP object/relationship vocabulary, object-type and relationship-type filters, isolated-KO detection, weak-edge counts, and KO-level graph readiness hints. |
+| 2026-07-16 | Inline remediation and draft PKA assembly added | Accepted | Review can attach missing evidence and repair relationship provenance inline. PKA Builder can create a draft package record with manifest metadata only after release blockers clear. Runtime reset now requires a local request and reset token. |
+| 2026-07-16 | Ontology search and package validation preview added | Accepted | `/ontology` now supports node search and relationship detail/history. PKA Builder now shows a package validation report and manifest detail preview. Runtime browser tests cover evidence/provenance remediation and draft package assembly. |
+| 2026-07-16 | Relationship evidence and manifest JSON inspection added | Accepted | Relationship source evidence is stored as structured relationship provenance for now, with audit history and Review remediation. `/ontology` shows relationship evidence and an adjacency map. `/pka-builder/manifest` exposes the current package manifest JSON for local inspection/export while full folder/archive export remains Sprint 6 work. |
+| 2026-07-16 | Sprint 6 export preview and runtime teardown hardening added | Accepted | Playwright runtime tests use `scripts/run-runtime-tests.mjs` and `scripts/runtime-studio-server.mjs` so the dev-server process tree exits cleanly on Windows. PKA Builder exposes an export preview for `manifest.json`, `ontology/`, `knowledge-objects/`, `graph/`, `sources/`, `governance/`, and placeholder component indexes for `runtime/`, `prompts/`, `rules/`, `formulas`, `cases`, `workflows/`, and `templates/`. |
+| 2026-07-16 | PKA export files and JSON archive added | Accepted | Draft package assembly persists export preview files under `storage/exports/<packageId>`. `/pka-builder/download` can download individual JSON package files or the `package-archive.json` bundle. Relationship source evidence remains in structured provenance until Sprint 6 package/export feedback justifies a dedicated table. |
+| 2026-07-16 | Persisted export detail, ZIP archive, and Base PKA boundary added | Accepted | `/pka-builder/export` inspects files persisted under `storage/exports/<packageId>`. `package.zip` is generated without new dependencies for pilot handoff. `docs/implementation/PKA Export Strategy.md` documents replace-by-version export updates, Base PKA exclusions, and the deferred relationship evidence table decision. |
+| 2026-07-16 | Package replacement and immutable publish semantics added | Accepted | Same-version package assembly now requires explicit replacement confirmation and increments a replacement sequence. Published package versions are immutable; users must create a new version instead. PKA Builder shows file-level and semantic package diff status before assembly. |
+| 2026-07-16 | Return to Sprint 3 after Sprint 6 hardening | Accepted | Sprint 3 was deferred intentionally until KO governance, Review gates, graph quality, and PKA export boundaries were stable. After package replacement, lineage, and immutable publish semantics, the next major track should return to Sprint 3 with a bounded ingestion-to-suggestion pipeline slice. |
+| 2026-07-16 | Sprint 3 deterministic pipeline loop started | Accepted | Added `SourceChunk` and `KnowledgeSuggestion` records, Mission-backed source ingestion, deterministic fake-provider KO suggestions, `/pipeline` stage tracking, and suggestion-to-AI-generated-draft KO creation with source evidence. |
+| 2026-07-16 | Sprint 3 relationship suggestions and artifact extraction added | Accepted | Added `RelationshipSuggestion` records, deterministic relationship fixtures, relationship-suggestion acceptance into draft graph edges, retry controls, failed job visibility, and Markdown/plain-text artifact extraction. |
+| 2026-07-16 | Defer Ollama adapter until deterministic review flow is stronger | Accepted | Keep fake-provider fixtures as the Sprint 3 default while relationship suggestions, retry behavior, and review governance are hardened. Add Ollama after the deterministic pipeline can be reviewed reliably end to end. |
+| 2026-07-17 | Sprint 3 suggestion governance hardening added | Accepted | Relationship suggestions can now be accepted, deferred, or rejected with audit history. Pipeline includes an explicit failed-ingestion fixture for recovery tests. Continue package release approval workflow before Ollama adapter work. |
+| 2026-07-17 | Package release approval workflow added | Accepted | Draft package assembly is now separate from release approval. PKA packages move through `draft`, `under_review`, `approved`, and `published`; reviewer and publisher notes create audit history. PKA Builder shows release gate state, decision history, version lineage, and published export retention. Runtime tests prove publish requires approval. Ollama remains deferred until deterministic pipeline and package release governance are stable. |
+| 2026-07-17 | Package non-approval and governance export summaries added | Accepted | PKA package release review now supports `changes_requested` and `rejected` decisions. `changes_requested` packages can be resubmitted; rejected packages require replacement or a new version before another release attempt. Exported `governance/index.json` now includes `releaseDecisionSummary`. Relationship source evidence remains in structured relationship provenance for the pilot; defer a dedicated table until multiple evidence links, independent review lifecycle, or evidence versioning is required. |
+| 2026-07-17 | Sprint 3 deterministic pipeline metrics and failure fixtures added | Accepted | `/pipeline` now shows deterministic quality metrics for source chunks, suggestion decision ratios, failed jobs, and retries. Unsupported artifact and empty artifact fixtures create safe local test files and fail ingestion without falling back silently to metadata. PKA release decisions now refresh persisted package exports so `governance/index.json`, `package-archive.json`, and `package.zip` carry current release summaries after review/publish actions. Ollama remains deferred. |
+| 2026-07-17 | Pipeline drilldowns and KO suggestion decisions added | Accepted | Pipeline metric cards and queue summaries now link into source/status filtered suggestion views. KO suggestions can be deferred or rejected with reviewer notes and audit history, matching relationship suggestion governance. Runtime browser tests verify persisted package governance exports contain release decision summaries after publication. Ollama remains deferred until deterministic pipeline and package governance stay stable end to end. |
 
 ---
 
@@ -660,15 +733,18 @@ Apply these checks to every sprint:
 - [x] PKA anatomy and runtime boundary: Base PKA is manufactured by KF; runtime products own client data, runtime state, and client-adapted PKA instances.
 - [x] App developer retrieval posture: cloud AI receives selected governed context, not whole PKAs, graphs, source libraries, or client vaults.
 - [x] Initial PKA context bundle contract: exported from `packages/pka` with AIFA and LADOS examples documented.
+- [x] Browser/runtime test runner direction: Playwright is approved for KF, but package installation and `pnpm check` wiring remain a separate tooling task.
+- [x] Knowledge Object version persistence: promote from audit-backed placeholders to dedicated `KnowledgeObjectVersion` records.
 
 ---
 
 ## 10. Current Next Actions
 
-1. Complete Sprint 2 KO editing for draft/under-review records.
-2. Add status transition controls for draft, under review, approved, and deprecated.
-3. Add relationship panel and first KO-to-KO link creation flow.
-4. Add stronger runtime/browser tests once a test runner is approved or introduced.
+1. Add pipeline audit/history panel per source showing ingestion, retry, failure, and suggestion-decision events.
+2. Add a deterministic source artifact repair flow after unsupported/empty fixture failure.
+3. Add package governance export verification to store contract around ZIP/archive contents, not only JSON file download.
+4. Continue deterministic Sprint 3 pipeline hardening until source ingestion, suggestion review, and package governance are stable end to end.
+5. Add Ollama adapter after deterministic review and package release flow are stable.
 
 ---
 

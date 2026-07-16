@@ -118,6 +118,8 @@ export const pkaPackageFolders = [
   "sources",
   "prompts",
   "rules",
+  "formulas",
+  "cases",
   "workflows",
   "templates",
   "runtime",

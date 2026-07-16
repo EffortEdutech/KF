@@ -1,4 +1,4 @@
-import type { LifecycleState, MissionStatus, MissionType } from "@kf/core";
+import type { LifecycleState, MissionStatus, MissionType, RelationshipType } from "@kf/core";
 
 export const navigationItems = [
   { label: "Dashboard", href: "/dashboard" },
@@ -6,11 +6,11 @@ export const navigationItems = [
   { label: "Projects", href: "/projects" },
   { label: "Sources", href: "/sources" },
   { label: "Knowledge Objects", href: "/knowledge-objects" },
-  { label: "Ontology", href: "#ontology" },
-  { label: "Graph", href: "#graph" },
-  { label: "Pipeline", href: "#pipeline" },
-  { label: "Review", href: "#review" },
-  { label: "PKA Builder", href: "#pka-builder" },
+  { label: "Review", href: "/review" },
+  { label: "Ontology", href: "/ontology" },
+  { label: "Graph", href: "/ontology#graph-quality" },
+  { label: "Pipeline", href: "/pipeline" },
+  { label: "PKA Builder", href: "/pka-builder" },
   { label: "AI Workbench", href: "#ai-workbench" },
   { label: "Settings", href: "#settings" }
 ];
@@ -178,6 +178,121 @@ export type SourceEvidenceSummary = {
   confidence?: number;
 };
 
+export type SourceChunkSummary = {
+  id: string;
+  projectId: string;
+  sourceId: string;
+  sourceTitle: string;
+  chunkIndex: number;
+  locator?: string;
+  content: string;
+  tokenEstimate?: number;
+  createdAt: string;
+};
+
+export type KnowledgeSuggestionStatus = "pending" | "accepted" | "rejected" | "deferred";
+
+export type KnowledgeSuggestionSummary = {
+  id: string;
+  projectId: string;
+  sourceId?: string;
+  sourceTitle?: string;
+  sourceChunkId?: string;
+  title: string;
+  objectType: KnowledgeObjectType;
+  domain: string;
+  description: string;
+  confidence?: number;
+  suggestedTags: string[];
+  evidenceExcerpt?: string;
+  evidenceLocator?: string;
+  reviewNotes?: string;
+  status: KnowledgeSuggestionStatus;
+  acceptedKnowledgeObjectId?: string;
+  createdAt: string;
+};
+
+export type RelationshipSuggestionStatus = "pending" | "accepted" | "rejected" | "deferred";
+
+export type RelationshipSuggestionSummary = {
+  id: string;
+  projectId: string;
+  sourceId?: string;
+  sourceTitle?: string;
+  sourceChunkId?: string;
+  fromSuggestionId: string;
+  fromSuggestionTitle: string;
+  fromAcceptedKnowledgeObjectId?: string;
+  toSuggestionId: string;
+  toSuggestionTitle: string;
+  toAcceptedKnowledgeObjectId?: string;
+  type: import("@kf/core").RelationshipType;
+  rationale: string;
+  confidence?: number;
+  evidenceExcerpt?: string;
+  evidenceLocator?: string;
+  reviewNotes?: string;
+  status: RelationshipSuggestionStatus;
+  acceptedRelationshipId?: string;
+  createdAt: string;
+};
+
+export type KnowledgeRelationshipSummary = {
+  id: string;
+  projectId: string;
+  fromId: string;
+  fromTitle: string;
+  toId: string;
+  toTitle: string;
+  type: RelationshipType;
+  status: LifecycleState;
+  confidence?: number;
+  provenanceNote?: string;
+  evidenceSourceId?: string;
+  evidenceSourceTitle?: string;
+  evidenceExcerpt?: string;
+  evidenceLocator?: string;
+  evidenceConfidence?: number;
+  createdAt: string;
+};
+
+export type GovernanceEventSummary = {
+  id: string;
+  action: string;
+  subjectType: string;
+  subjectId: string;
+  actorId?: string;
+  detail: string;
+  createdAt: string;
+};
+
+export type KnowledgeObjectVersionSnapshotSummary = {
+  id: string;
+  knowledgeObjectId: string;
+  version: string;
+  title: string;
+  objectType: KnowledgeObjectType;
+  domain: string;
+  description: string;
+  status: LifecycleState;
+  confidence?: number;
+  tags: string[];
+  snapshotReason: string;
+  actorId?: string;
+  createdAt: string;
+};
+
+export type ReviewSummary = {
+  id: string;
+  knowledgeObjectId: string;
+  knowledgeObjectTitle: string;
+  reviewerId: string;
+  reviewerRole: string;
+  decision: LifecycleState;
+  notes?: string;
+  createdAt: string;
+};
+
 export type KnowledgeObjectSummary = {
   id: string;
   projectId: string;
@@ -195,6 +310,8 @@ export type KnowledgeObjectSummary = {
   reviewer?: string;
   tags: string[];
   evidenceLinks: SourceEvidenceSummary[];
+  outgoingRelationships: KnowledgeRelationshipSummary[];
+  incomingRelationships: KnowledgeRelationshipSummary[];
   createdAt: string;
 };
 

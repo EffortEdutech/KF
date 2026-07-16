@@ -1,12 +1,22 @@
 import Link from "next/link";
-import { lifecycleStates } from "@kf/core";
-import { createKnowledgeObjectAction } from "../source-actions";
+import { lifecycleStates, relationshipTypes } from "@kf/core";
+import {
+  createKnowledgeObjectAction,
+  createKnowledgeRelationshipAction,
+  updateKnowledgeObjectAction,
+  updateKnowledgeObjectStatusAction
+} from "../source-actions";
 import { knowledgeObjectTypes } from "../studio-data";
 import {
   getKnowledgeObject,
   getProjectReadinessHints,
+  getRelationshipReadinessHints,
+  type KnowledgeRelationshipFilter,
   type KnowledgeObjectFilter,
+  listGovernanceHistory,
+  listKnowledgeObjectVersionSnapshots,
   listKnowledgeObjects,
+  listKnowledgeRelationships,
   listProjects,
   listSources,
   listSourcesByProject
@@ -19,8 +29,18 @@ type KnowledgeObjectsPageProps = {
     type?: string;
     q?: string;
     koId?: string;
+    relType?: string;
+    relQuality?: string;
   }>;
 };
+
+const relationshipQualityStates: Exclude<KnowledgeRelationshipFilter["qualityState"], undefined>[] = [
+  "all",
+  "ready",
+  "needs_review",
+  "weak_confidence",
+  "missing_provenance"
+];
 
 export default async function KnowledgeObjectsPage({ searchParams }: KnowledgeObjectsPageProps) {
   const params = await searchParams;
@@ -39,6 +59,16 @@ export default async function KnowledgeObjectsPage({ searchParams }: KnowledgeOb
   )
     ? (params?.type as (typeof knowledgeObjectTypes)[number])
     : "all";
+  const selectedRelationshipType: KnowledgeRelationshipFilter["relationshipType"] = relationshipTypes.includes(
+    params?.relType as (typeof relationshipTypes)[number]
+  )
+    ? (params?.relType as (typeof relationshipTypes)[number])
+    : "all";
+  const selectedRelationshipQuality: KnowledgeRelationshipFilter["qualityState"] = relationshipQualityStates.includes(
+    params?.relQuality as Exclude<KnowledgeRelationshipFilter["qualityState"], undefined>
+  )
+    ? (params?.relQuality as Exclude<KnowledgeRelationshipFilter["qualityState"], undefined>)
+    : "all";
   const filters: KnowledgeObjectFilter = {
     projectId: activeProject?.id,
     status: selectedStatus,
@@ -46,9 +76,38 @@ export default async function KnowledgeObjectsPage({ searchParams }: KnowledgeOb
     query: params?.q
   };
   const knowledgeObjects = await listKnowledgeObjects(filters);
+  const projectKnowledgeObjects = activeProject
+    ? await listKnowledgeObjects({ projectId: activeProject.id })
+    : [];
   const requestedKnowledgeObject = params?.koId ? await getKnowledgeObject(params.koId) : undefined;
   const selectedKnowledgeObject =
     requestedKnowledgeObject ?? knowledgeObjects[0];
+  const selectedRelationships = selectedKnowledgeObject
+    ? await listKnowledgeRelationships({
+        projectId: selectedKnowledgeObject.projectId,
+        knowledgeObjectId: selectedKnowledgeObject.id,
+        relationshipType: selectedRelationshipType,
+        qualityState: selectedRelationshipQuality
+      })
+    : [];
+  const selectedAllRelationships = selectedKnowledgeObject
+    ? await listKnowledgeRelationships({
+        projectId: selectedKnowledgeObject.projectId,
+        knowledgeObjectId: selectedKnowledgeObject.id
+      })
+    : [];
+  const governanceHistory = selectedKnowledgeObject
+    ? await listGovernanceHistory({ subjectId: selectedKnowledgeObject.id })
+    : [];
+  const versionSnapshots = selectedKnowledgeObject
+    ? await listKnowledgeObjectVersionSnapshots(selectedKnowledgeObject.id)
+    : [];
+  const reviewQueueCandidates = activeProject
+    ? await listKnowledgeObjects({ projectId: activeProject.id, status: "under_review" })
+    : [];
+  const relationshipHints = getRelationshipReadinessHints(selectedKnowledgeObject, selectedAllRelationships);
+  const editableSelectedKnowledgeObject =
+    selectedKnowledgeObject?.status === "draft" || selectedKnowledgeObject?.status === "under_review";
   const activeProjectHints = activeProject ? await getProjectReadinessHints(activeProject) : [];
   const totalKnowledgeObjects = projects.reduce(
     (total, project) => total + project.knowledgeObjectCount,
@@ -286,11 +345,158 @@ export default async function KnowledgeObjectsPage({ searchParams }: KnowledgeOb
                   </div>
                 )}
               </div>
+              <form action={updateKnowledgeObjectStatusAction} className="inline-form">
+                <input type="hidden" name="knowledgeObjectId" value={selectedKnowledgeObject.id} />
+                <input type="hidden" name="reviewer" value="reviewer" />
+                <select
+                  key={`${selectedKnowledgeObject.id}-${selectedKnowledgeObject.status}`}
+                  name="status"
+                  defaultValue={selectedKnowledgeObject.status}
+                  aria-label={`Lifecycle status for ${selectedKnowledgeObject.title}`}
+                >
+                  <option value="draft">draft</option>
+                  <option value="under_review">under_review</option>
+                  <option value="approved">approved</option>
+                  <option value="deprecated">deprecated</option>
+                </select>
+                <button type="submit">Update lifecycle</button>
+              </form>
             </>
           ) : (
             <div className="empty-state compact-empty">
               <strong>No Knowledge Object selected</strong>
               <span>Create a draft KO or adjust filters to inspect repository detail.</span>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="board board-two">
+        <article className="panel panel-strong">
+          <p className="eyebrow">Governed editing</p>
+          <h3>Draft / under-review edits</h3>
+          {selectedKnowledgeObject && editableSelectedKnowledgeObject ? (
+            <form action={updateKnowledgeObjectAction} className="source-form" key={`edit-${selectedKnowledgeObject.id}`}>
+              <input type="hidden" name="knowledgeObjectId" value={selectedKnowledgeObject.id} />
+              <label className="field-wide">
+                Title
+                <input name="title" defaultValue={selectedKnowledgeObject.title} required />
+              </label>
+              <label>
+                Type
+                <select name="objectType" defaultValue={selectedKnowledgeObject.objectType}>
+                  {knowledgeObjectTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Domain
+                <input name="domain" defaultValue={selectedKnowledgeObject.domain} required />
+              </label>
+              <label>
+                Owner
+                <input name="owner" defaultValue={selectedKnowledgeObject.owner ?? "knowledge_engineer"} required />
+              </label>
+              <label>
+                Author
+                <input name="author" defaultValue={selectedKnowledgeObject.author ?? "knowledge_engineer"} required />
+              </label>
+              <label>
+                Confidence
+                <input
+                  name="confidence"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  defaultValue={selectedKnowledgeObject.confidence ?? ""}
+                />
+              </label>
+              <label className="field-wide">
+                Tags
+                <input name="tags" defaultValue={selectedKnowledgeObject.tags.join(", ")} />
+              </label>
+              <label className="field-wide">
+                Description
+                <textarea name="description" defaultValue={selectedKnowledgeObject.description} required />
+              </label>
+              <button type="submit">Save KO edit</button>
+            </form>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>{selectedKnowledgeObject ? "Editing locked" : "No KO selected"}</strong>
+              <span>
+                {selectedKnowledgeObject
+                  ? "Only draft and under-review Knowledge Objects can be edited in this Sprint 2 slice."
+                  : "Select or create a Knowledge Object before editing."}
+              </span>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <p className="eyebrow">Relationship creation</p>
+          <h3>Link Knowledge Objects</h3>
+          {selectedKnowledgeObject && projectKnowledgeObjects.length > 1 ? (
+            <form
+              action={createKnowledgeRelationshipAction}
+              className="source-form"
+              key={`relationship-${selectedKnowledgeObject.id}`}
+            >
+              <input type="hidden" name="projectId" value={selectedKnowledgeObject.projectId} />
+              <input type="hidden" name="fromId" value={selectedKnowledgeObject.id} />
+              <div className="field-wide form-static">
+                <span>From</span>
+                <strong>{selectedKnowledgeObject.title}</strong>
+              </div>
+              <label className="field-wide">
+                To
+                <select
+                  name="toId"
+                  defaultValue={
+                    projectKnowledgeObjects.find((knowledgeObject) => knowledgeObject.id !== selectedKnowledgeObject.id)
+                      ?.id ?? ""
+                  }
+                >
+                  {projectKnowledgeObjects
+                    .filter((knowledgeObject) => knowledgeObject.id !== selectedKnowledgeObject.id)
+                    .map((knowledgeObject) => (
+                      <option key={knowledgeObject.id} value={knowledgeObject.id}>
+                        {knowledgeObject.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Relationship
+                <select name="relationshipType" defaultValue="supports">
+                  {relationshipTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Confidence
+                <input name="relationshipConfidence" type="number" min="0" max="100" step="0.01" defaultValue="60" />
+              </label>
+              <label className="field-wide">
+                Provenance note
+                <textarea
+                  name="provenanceNote"
+                  defaultValue="Manual relationship created during Sprint 2 repository review."
+                />
+              </label>
+              <button type="submit">Create relationship</button>
+            </form>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>Need at least two KOs</strong>
+              <span>Create another Knowledge Object in this project before linking relationships.</span>
             </div>
           )}
         </article>
@@ -318,12 +524,143 @@ export default async function KnowledgeObjectsPage({ searchParams }: KnowledgeOb
         </article>
 
         <article className="panel">
-          <p className="eyebrow">Sprint 2 boundary</p>
-          <h3>Draft-first governance</h3>
-          <p>
-            This first slice creates draft Knowledge Objects only. Editing, relationship management,
-            approval transitions, and release locks remain explicit Sprint 2 follow-up tasks.
-          </p>
+          <p className="eyebrow">Relationship panel</p>
+          <h3>Connected knowledge</h3>
+          <form className="filter-bar compact-filter" aria-label="Relationship filters">
+            {activeProject ? <input type="hidden" name="projectId" value={activeProject.id} /> : null}
+            {selectedKnowledgeObject ? <input type="hidden" name="koId" value={selectedKnowledgeObject.id} /> : null}
+            {selectedStatus !== "all" ? <input type="hidden" name="status" value={selectedStatus} /> : null}
+            {selectedObjectType !== "all" ? <input type="hidden" name="type" value={selectedObjectType} /> : null}
+            {params?.q ? <input type="hidden" name="q" value={params.q} /> : null}
+            <label className="filter-field">
+              Edge type
+              <select name="relType" defaultValue={selectedRelationshipType}>
+                <option value="all">all</option>
+                {relationshipTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-field">
+              Quality
+              <select name="relQuality" defaultValue={selectedRelationshipQuality}>
+                {relationshipQualityStates.map((qualityState) => (
+                  <option key={qualityState} value={qualityState}>
+                    {qualityState}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="filter-button" type="submit">
+              Filter edges
+            </button>
+          </form>
+          <div className="readiness-list" aria-label="Relationship quality hints">
+            {relationshipHints.map((hint) => (
+              <div className={`readiness-item readiness-${hint.level}`} key={hint.id}>
+                <strong>{hint.title}</strong>
+                <span>{hint.detail}</span>
+              </div>
+            ))}
+          </div>
+          {selectedRelationships.length > 0 ? (
+            <div className="readiness-list" aria-label="Knowledge Object relationships">
+              {selectedRelationships.map((relationship) => (
+                <div className="readiness-item readiness-info" key={relationship.id}>
+                  <strong>
+                    {relationship.fromTitle} {relationship.type} {relationship.toTitle}
+                  </strong>
+                  <span>Status: {relationship.status}</span>
+                  <span>Confidence: {relationship.confidence ?? "not set"}</span>
+                  <span>{relationship.provenanceNote ?? "No provenance note captured."}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No relationships yet</strong>
+              <span>
+                {selectedAllRelationships.length > 0
+                  ? "No relationships match the current type/quality filters."
+                  : "Link Knowledge Objects to begin the inspectable PKA graph."}
+              </span>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="board board-two">
+        <article className="panel">
+          <p className="eyebrow">Governance history</p>
+          <h3>{selectedKnowledgeObject?.title ?? "No Knowledge Object selected"}</h3>
+          {governanceHistory.length > 0 ? (
+            <div className="timeline-list" aria-label="Knowledge Object governance history">
+              {governanceHistory.map((event) => (
+                <div className="timeline-item" key={event.id}>
+                  <strong>{event.action}</strong>
+                  <span>{event.detail}</span>
+                  <span>
+                    {event.createdAt}
+                    {event.actorId ? ` by ${event.actorId}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No governance events yet</strong>
+              <span>Edit, transition, or relate this KO to create its first audit event.</span>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <p className="eyebrow">Version snapshots</p>
+          <h3>{selectedKnowledgeObject?.version ?? "No version selected"}</h3>
+          {versionSnapshots.length > 0 ? (
+            <div className="timeline-list" aria-label="Knowledge Object version snapshots">
+              {versionSnapshots.map((snapshot) => (
+                <div className="timeline-item" key={snapshot.id}>
+                  <strong>{snapshot.version}</strong>
+                  <span>{snapshot.title}</span>
+                  <span>
+                    {snapshot.createdAt}
+                    {snapshot.actorId ? ` by ${snapshot.actorId}` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No version snapshots yet</strong>
+              <span>The first editable KO save will capture the previous version before applying changes.</span>
+            </div>
+          )}
+        </article>
+      </section>
+
+      <section className="board">
+        <article className="panel">
+          <p className="eyebrow">Sprint 4 planning</p>
+          <h3>Review queue preview</h3>
+          {reviewQueueCandidates.length > 0 ? (
+            <div className="readiness-list" aria-label="Sprint 4 review queue preview">
+              {reviewQueueCandidates.map((knowledgeObject) => (
+                <div className="readiness-item readiness-info" key={knowledgeObject.id}>
+                  <strong>{knowledgeObject.title}</strong>
+                  <span>{knowledgeObject.objectType} in {knowledgeObject.domain}</span>
+                  <span>{knowledgeObject.evidenceLinks.length} evidence link(s), {knowledgeObject.outgoingRelationships.length + knowledgeObject.incomingRelationships.length} relationship edge(s)</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No under-review KOs queued</strong>
+              <span>Move draft Knowledge Objects to under_review to seed the Sprint 4 review queue.</span>
+            </div>
+          )}
         </article>
       </section>
 

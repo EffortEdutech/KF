@@ -1,6 +1,6 @@
 # Knowledge Factory Local Development Setup
 
-**Status:** Sprint 1 active  
+**Status:** Sprint 4 governance implementation
 **Host strategy:** standalone-first with LADOS-compatible boundaries
 
 ---
@@ -48,6 +48,7 @@ Current verification note, 2026-07-15:
   resolves Docker from PATH or Docker Desktop's default Windows install path.
 - `kf-postgres` is healthy on port `55432`.
 - Initial Prisma migration `20260715094912_init` has been applied.
+- Knowledge Object version migration `20260716090000_add_knowledge_object_versions` has been applied.
 
 ---
 
@@ -103,9 +104,49 @@ or:
 .\scripts\check.ps1
 ```
 
+Runtime/browser smoke test:
+
+```powershell
+corepack pnpm test:runtime
+```
+
+Full local check including runtime smoke test:
+
+```powershell
+corepack pnpm check:runtime
+```
+
+The runtime smoke test uses Playwright. `corepack pnpm test:runtime` runs `scripts/run-runtime-tests.mjs`, which starts the Studio dev server through `scripts/runtime-studio-server.mjs`, runs Playwright with the built-in webServer disabled, and then stops the Studio process tree. The default URL is:
+
+```text
+http://localhost:4700
+```
+
+Set `KF_STUDIO_URL` to point the test at another local Studio URL.
+
+Runtime tests reset and reseed the local workspace through `/api/test/reset` before each test. The route requires a local request plus the `x-kf-test-reset-token` header. Playwright sets this from `KF_TEST_RESET_TOKEN`, defaulting to `kf-local-runtime-reset`.
+
+Database-backed runtime resets are allowed only for local database URLs unless `KF_ALLOW_DATABASE_TEST_RESET=1` is explicitly set by the test runner.
+
+`test:runtime` remains separate from default `check` until KF has stronger safeguards for database-backed resets in non-local environments.
+
 ---
 
-## 8. Graphify Refresh
+## 8. Local Package Exports
+
+Draft PKA assembly persists inspectable JSON package files under:
+
+```text
+storage/exports/<packageId>
+```
+
+The folder includes `manifest.json`, ontology, Knowledge Object, graph, source, governance, placeholder component index files, `package-archive.json`, and `package.zip`. The `storage/exports` contents are local development artifacts and are ignored by git.
+
+See `docs/implementation/PKA Export Strategy.md` for the package update strategy and Base PKA/runtime-vault boundary.
+
+---
+
+## 9. Graphify Refresh
 
 After meaningful structure changes:
 
@@ -115,7 +156,7 @@ After meaningful structure changes:
 
 ---
 
-## 9. Current Architecture Boundaries
+## 10. Current Architecture Boundaries
 
 - `apps/studio` - Next.js App Router Studio shell.
 - `packages/core` - shared lifecycle, mission, role, and relationship contracts.
