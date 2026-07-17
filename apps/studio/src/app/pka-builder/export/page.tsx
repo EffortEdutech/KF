@@ -102,6 +102,12 @@ export default async function PkaExportPage({ searchParams }: PkaExportPageProps
           <Link className="inline-link" href={`/pka-builder?projectId=${activeProject?.id ?? ""}`}>
             Back to PKA Builder
           </Link>
+          <Link className="inline-link" href={`/pka-builder/readback?projectId=${activeProject?.id ?? ""}`}>
+            Open readback report
+          </Link>
+          <Link className="inline-link" href={`/runtime-import?projectId=${activeProject?.id ?? ""}`}>
+            Open runtime import harness
+          </Link>
         </article>
 
         <article className="panel">

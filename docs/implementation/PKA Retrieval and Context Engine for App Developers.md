@@ -377,6 +377,57 @@ Minimum fields added to the PKA manifest contract:
 
 This allows AIFA, LADOS, or another runtime to reject a PKA gracefully when the app cannot support the PKA's retrieval needs.
 
+Knowledge Factory now exposes a local contract harness at `/runtime-import` so developers can inspect this behavior before integrating a package into a runtime. The harness validates persisted PKA archives and deterministic fixtures for:
+
+- valid package import,
+- missing governance release summary,
+- malformed package archive,
+- unsupported runtime capability mismatch.
+
+For AIFA or LADOS, a capability mismatch should block package import or keep the package in an installation-review state rather than silently loading partial professional knowledge.
+
+Example AIFA mismatch:
+
+```json
+{
+  "packageId": "pka-finance-bookkeeping-0-1-0",
+  "requiredRuntimeCapabilities": [
+    "knowledge_object_lookup",
+    "source_citation",
+    "bank_feed_reconciliation_runtime"
+  ],
+  "aifaSupportedCapabilities": [
+    "knowledge_object_lookup",
+    "source_citation"
+  ],
+  "decision": "block_import",
+  "reason": "AIFA cannot safely install a package that requires bank feed reconciliation runtime behavior it does not provide."
+}
+```
+
+Example LADOS mismatch:
+
+```json
+{
+  "packageId": "pka-qs-rfq-from-boq-0-1-0",
+  "requiredRuntimeCapabilities": [
+    "knowledge_object_lookup",
+    "relationship_traversal",
+    "source_citation",
+    "workflow_execution"
+  ],
+  "ladosSupportedCapabilities": [
+    "knowledge_object_lookup",
+    "relationship_traversal",
+    "source_citation"
+  ],
+  "decision": "installation_review_required",
+  "reason": "LADOS can inspect the knowledge package but must not expose workflow execution until the runtime supports that capability."
+}
+```
+
+See `docs/implementation/PKA Package Installer Contract for Runtime Apps.md` for the focused install/readback contract that AIFA, LADOS, and future runtime apps should apply before loading a Base PKA.
+
 The initial TypeScript contract is exported from `packages/pka` as:
 
 - `PkaRetrievalCapability`

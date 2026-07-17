@@ -94,6 +94,70 @@ The exported `governance/index.json` includes:
 
 Package assembly, release review, approval, rejection, and publication refresh the persisted package files under `storage/exports/<packageId>`, including `governance/index.json`, `package-archive.json`, and `package.zip`.
 
+The runtime smoke and store contract verify that release decision summaries are present in the standalone governance JSON, bundled JSON archive, and ZIP archive.
+
+Package validation also performs local readback checks against the generated JSON archive and ZIP archive so a consuming runtime can detect missing governance summaries before import.
+
+The Studio exposes these checks at:
+
+```text
+/pka-builder/readback
+```
+
+The readback report validates the latest persisted package files and can generate invalid archive/ZIP fixtures for negative checks. The invalid fixtures intentionally omit governance release summaries so developers can verify that runtime import validation fails closed before a Base PKA is treated as trustworthy.
+
+The current local runtime import harness is:
+
+```text
+/runtime-import
+```
+
+This harness validates a selected persisted `package-archive.json` as a runtime would before loading it. The first contract checks are:
+
+- package archive can be parsed as a KF JSON archive,
+- `manifest.json` is present,
+- `ontology/index.json` exposes runtime-loadable object types,
+- required package component indexes are present,
+- `runtime/config.json` is present as the placeholder runtime configuration boundary,
+- placeholder component indexes exist for `prompts/index.json`, `rules/index.json`, `workflows/index.json`, and `templates/index.json`,
+- `governance/index.json` includes release decision summaries,
+- package runtime capability requirements are supported by the consuming runtime.
+
+The deterministic fixture set includes:
+
+- valid package archive,
+- missing governance summary,
+- malformed archive,
+- unsupported runtime capability mismatch,
+- missing prompt component index,
+- missing rule component index,
+- missing workflow component index,
+- missing template component index.
+
+The harness also supports safe local JSON archive imports. Imported archives are saved under:
+
+```text
+storage/exports/<packageId>/imports/
+```
+
+Current safety rules:
+
+- JSON archives only,
+- 1 MB maximum for the local harness,
+- sanitized filename only,
+- archive must parse as `kf-json-archive`,
+- archive must contain a `files` array,
+- imported archives do not replace the persisted package export.
+
+The harness is not a replacement for LADOS or AIFA. It is a KF-side contract test that helps app developers see why a runtime may accept or reject a Base PKA before import.
+
+Import decisions can be recorded into governance history as:
+
+- `runtime_import.importable`
+- `runtime_import.blocked`
+
+The harness can filter recorded import decisions by all/importable/blocked states. This gives app developers a local audit trail for package installation decisions without turning KF into the runtime product.
+
 The PKA Builder shows the current release gate state, latest package decision history, version lineage, and published export retention status.
 
 ---

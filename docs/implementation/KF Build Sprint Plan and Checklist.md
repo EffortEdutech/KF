@@ -297,6 +297,24 @@ Checklist:
 - [x] Add pipeline metrics drilldowns by source and status.
 - [x] Add source-ingestion fixture coverage for unsupported file types and empty artifact content.
 - [x] Add runtime verification for persisted package governance exports.
+- [x] Add pipeline audit/history panel per source.
+- [x] Add deterministic source artifact repair flow after unsupported/empty fixture failure.
+- [x] Add ZIP/archive-level governance export verification.
+- [x] Add pipeline run detail drawer for longer source histories.
+- [x] Add user-provided artifact repair text/path behind safe storage rules.
+- [x] Add package archive/ZIP import-readback validation.
+- [x] Add visible package import/readback report page for persisted package files.
+- [x] Add invalid archive/ZIP readback fixtures.
+- [x] Add runtime import/readback contract harness for selected persisted packages.
+- [x] Add deterministic runtime import fixtures for valid, missing-governance, malformed-archive, and capability-mismatch cases.
+- [x] Add ontology and runtime placeholder component checks to the runtime import harness.
+- [x] Add safe local JSON archive import handling under `storage/exports/<packageId>/imports/`.
+- [x] Add prompt, rule, workflow, and template placeholder checks to the runtime import harness.
+- [x] Add runtime import decision history/audit trail.
+- [x] Add package installer contract document for AIFA/LADOS developers.
+- [x] Add runtime import decision filtering and drilldowns by importable vs blocked.
+- [x] Add missing-component fixtures for prompt, rule, workflow, and template component indexes.
+- [x] Add Ollama adapter design notes without implementation.
 - [x] Add tests for pipeline state transitions.
 - [x] Add tests for provider abstraction using a deterministic fake provider.
 - [x] Update docs for pipeline flow and AI provider configuration.
@@ -447,6 +465,7 @@ Checklist:
 - [x] Document what is excluded from a Base PKA and belongs to runtime vault/client state.
 - [x] Add tests for manifest generation and validation.
 - [x] Add runtime/browser coverage proving draft assembly is separate from release approval and publish.
+- [x] Add runtime/browser coverage for persisted package readback and invalid readback fixtures.
 - [~] Update docs for PKA export format.
 
 Acceptance checks:
@@ -499,28 +518,29 @@ Acceptance checks:
 
 Checklist:
 
-- [ ] Define minimal runtime import contract.
+- [x] Define minimal runtime import contract.
 - [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
 - [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
 - [x] Define app-developer retrieval boundary: selected governed context only, not whole PKA or graph upload.
 - [x] Document MCP-style retrieval tool examples for PKA context bundles.
-- [ ] Build local PKA loader/test harness.
-- [ ] Validate manifest.
-- [ ] Load ontology.
-- [ ] Load Knowledge Objects.
-- [ ] Load relationships.
-- [ ] Load prompts/runtime configuration.
-- [ ] Report missing runtime capabilities.
+- [~] Build local PKA loader/test harness.
+- [x] Validate manifest.
+- [x] Load ontology.
+- [x] Load Knowledge Objects.
+- [x] Load relationships.
+- [x] Load prompts/runtime configuration.
+- [x] Check rule, workflow, and template placeholder component boundaries.
+- [x] Report missing runtime capabilities.
 - [ ] Run a grounded Q&A demo using package content.
 - [ ] Demonstrate one workflow or assistant behavior.
 - [ ] Verify unapproved knowledge is not loaded or served as production-ready knowledge.
-- [ ] Add tests for valid and invalid package imports.
+- [x] Add tests for valid and invalid package imports.
 - [ ] Update docs for runtime contract.
 
 Acceptance checks:
 
 - [ ] Exported PKA loads outside the main authoring flow.
-- [ ] Runtime capability mismatch is clear.
+- [x] Runtime capability mismatch is clear.
 - [ ] Evidence-grounded answer demo works from package content.
 - [ ] At least one workflow or assistant behavior is demonstrated.
 
@@ -712,6 +732,13 @@ Apply these checks to every sprint:
 | 2026-07-17 | Package non-approval and governance export summaries added | Accepted | PKA package release review now supports `changes_requested` and `rejected` decisions. `changes_requested` packages can be resubmitted; rejected packages require replacement or a new version before another release attempt. Exported `governance/index.json` now includes `releaseDecisionSummary`. Relationship source evidence remains in structured relationship provenance for the pilot; defer a dedicated table until multiple evidence links, independent review lifecycle, or evidence versioning is required. |
 | 2026-07-17 | Sprint 3 deterministic pipeline metrics and failure fixtures added | Accepted | `/pipeline` now shows deterministic quality metrics for source chunks, suggestion decision ratios, failed jobs, and retries. Unsupported artifact and empty artifact fixtures create safe local test files and fail ingestion without falling back silently to metadata. PKA release decisions now refresh persisted package exports so `governance/index.json`, `package-archive.json`, and `package.zip` carry current release summaries after review/publish actions. Ollama remains deferred. |
 | 2026-07-17 | Pipeline drilldowns and KO suggestion decisions added | Accepted | Pipeline metric cards and queue summaries now link into source/status filtered suggestion views. KO suggestions can be deferred or rejected with reviewer notes and audit history, matching relationship suggestion governance. Runtime browser tests verify persisted package governance exports contain release decision summaries after publication. Ollama remains deferred until deterministic pipeline and package governance stay stable end to end. |
+| 2026-07-17 | Pipeline source history, artifact repair, and archive verification added | Accepted | `/pipeline` now shows source-level pipeline audit history for ingestion, retry, fixture, repair, and suggestion events. Failed unsupported/empty artifacts can be repaired into deterministic text fixtures and re-ingested. Store and runtime tests verify release summaries inside `governance/index.json`, `package-archive.json`, and `package.zip`. Ollama remains deferred. |
+| 2026-07-17 | Pipeline event drawer and package readback validation added | Accepted | Source pipeline history now supports a longer event drawer. Artifact repair accepts inline replacement text or a safe workspace `.md`/`.txt` path; `.env`, unsupported extensions, empty files, and paths outside the workspace are rejected. Package validation now includes JSON archive and ZIP readback checks for governance release summaries. Ollama remains deferred. |
+| 2026-07-17 | Visible package readback report and invalid fixtures added | Accepted | `/pka-builder/readback` shows persisted archive and ZIP readback status for assembled packages. Invalid archive and ZIP fixtures can be generated to prove missing governance summaries are caught before runtime import. Turbopack tracing was narrowed around server-side path resolution; if the warning remains after verification, isolate filesystem helpers into a dedicated server-only storage module next. |
+| 2026-07-17 | Runtime import contract harness added | Accepted | `/runtime-import` simulates a LADOS-compatible runtime import against selected persisted PKA package archives. Deterministic fixtures cover valid package import, missing governance summary, malformed archive, and unsupported runtime capability mismatch. Ollama remains deferred until this deterministic import path is stable. |
+| 2026-07-17 | Runtime import component and safe archive import checks added | Accepted | `/runtime-import` now checks ontology loading and the `runtime/config.json` placeholder boundary. Local uploaded/imported JSON archives are stored under `storage/exports/<packageId>/imports/` with filename sanitizing, JSON archive validation, and a 1 MB local harness limit. AIFA/LADOS docs now describe capability mismatch behavior. Ollama remains deferred. |
+| 2026-07-17 | Runtime installer contract and import audit trail added | Accepted | `/runtime-import` now checks prompt, rule, workflow, and template placeholder boundaries and records `runtime_import.importable` or `runtime_import.blocked` decisions into governance history. `docs/implementation/PKA Package Installer Contract for Runtime Apps.md` defines deterministic installer expectations for AIFA/LADOS. Ollama remains deferred. |
+| 2026-07-17 | Runtime import decision drilldowns and missing-component fixtures added | Accepted | `/runtime-import` now filters decision history by all/importable/blocked and shows import decision drilldown metrics. Deterministic fixtures now cover missing `prompts/`, `rules/`, `workflows/`, and `templates/` component indexes. `docs/implementation/Ollama Adapter Design Notes.md` records the future Ollama adapter boundary without implementing it. |
 
 ---
 
@@ -740,11 +767,11 @@ Apply these checks to every sprint:
 
 ## 10. Current Next Actions
 
-1. Add pipeline audit/history panel per source showing ingestion, retry, failure, and suggestion-decision events.
-2. Add a deterministic source artifact repair flow after unsupported/empty fixture failure.
-3. Add package governance export verification to store contract around ZIP/archive contents, not only JSON file download.
-4. Continue deterministic Sprint 3 pipeline hardening until source ingestion, suggestion review, and package governance are stable end to end.
-5. Add Ollama adapter after deterministic review and package release flow are stable.
+1. Review the accumulated runtime import/readback batch after commit and push.
+2. Continue deterministic Sprint 3 pipeline hardening with richer suggestion review/reporting.
+3. Add package installer import fixtures for unsupported package schema version when manifest versioning is introduced.
+4. Keep Ollama adapter unimplemented until deterministic review, package release, and runtime import flow remain stable after the committed batch.
+5. Decide whether the next sprint slice should return to source ingestion depth or start runtime Q&A harness preparation.
 
 ---
 

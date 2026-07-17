@@ -618,6 +618,16 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
                   Inspect persisted export
                 </Link>
               ) : null}
+              {activeProject ? (
+                <Link className="inline-link" href={`/pka-builder/readback?projectId=${activeProject.id}`}>
+                  Open readback report
+                </Link>
+              ) : null}
+              {activeProject ? (
+                <Link className="inline-link" href={`/runtime-import?projectId=${activeProject.id}`}>
+                  Open runtime import harness
+                </Link>
+              ) : null}
             </p>
             <pre className="code-panel" aria-label="PKA manifest JSON preview">
 {manifestJson}

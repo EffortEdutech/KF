@@ -492,6 +492,15 @@ a.readiness-item:hover {
   line-height: 1.45;
 }
 
+.details-panel {
+  margin-top: 16px;
+}
+
+.details-panel summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .code-panel {
   overflow: auto;
   max-height: 360px;

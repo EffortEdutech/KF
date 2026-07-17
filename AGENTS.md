@@ -53,6 +53,8 @@ The frozen architecture source of truth remains `docs/v1`. The active implementa
 - `docs/implementation/PKA Component Boundary Decision.md`
 - `docs/implementation/PKA Retrieval and Context Engine for App Developers.md`
 - `docs/implementation/PKA Export Strategy.md`
+- `docs/implementation/PKA Package Installer Contract for Runtime Apps.md`
+- `docs/implementation/Ollama Adapter Design Notes.md`
 - `docs/implementation/Sprint 4 Review Queue Planning Slice.md`
 - `docs/implementation/setup/Local Development Setup.md`
 

@@ -11,6 +11,7 @@ export const navigationItems = [
   { label: "Graph", href: "/ontology#graph-quality" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "PKA Builder", href: "/pka-builder" },
+  { label: "Runtime Import", href: "/runtime-import" },
   { label: "AI Workbench", href: "#ai-workbench" },
   { label: "Settings", href: "#settings" }
 ];

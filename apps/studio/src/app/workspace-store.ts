@@ -107,6 +107,13 @@ export type FailedIngestionFixtureInput = {
   fixtureType?: "manual_failure" | "unsupported_file" | "empty_artifact";
 };
 
+export type RepairSourceArtifactInput = {
+  sourceId: string;
+  actor?: string;
+  repairText?: string;
+  repairPath?: string;
+};
+
 export type PipelineQualityMetrics = {
   projectId?: string;
   sourceId?: string;
@@ -280,6 +287,36 @@ export type PackageValidationItem = {
   detail: string;
 };
 
+export type RuntimePkaImportFixtureKind =
+  | "valid"
+  | "missing_governance"
+  | "malformed_archive"
+  | "capability_mismatch"
+  | "missing_prompt"
+  | "missing_rule"
+  | "missing_workflow"
+  | "missing_template";
+
+export type RuntimePkaImportReport = {
+  packageId: string;
+  archivePath: string;
+  status: "importable" | "blocked";
+  supportedRuntimeCapabilities: string[];
+  requiredRuntimeCapabilities: string[];
+  loaded: {
+    ontologyObjectTypes: number;
+    knowledgeObjects: number;
+    relationships: number;
+    sources: number;
+    runtimeConfigEntries: number;
+    promptEntries: number;
+    ruleEntries: number;
+    workflowEntries: number;
+    templateEntries: number;
+  };
+  items: PackageValidationItem[];
+};
+
 export type PkaManifestPreview = {
   packageId: string;
   name: string;
@@ -318,6 +355,17 @@ export type PkaPersistedExportFile = {
   path: string;
   size: number;
   updatedAt: string;
+};
+
+export const runtimePkaImportFixtureArchivePaths: Record<RuntimePkaImportFixtureKind, string> = {
+  valid: "runtime-valid-package-archive.json",
+  missing_governance: "runtime-missing-governance-archive.json",
+  malformed_archive: "runtime-malformed-package-archive.json",
+  capability_mismatch: "runtime-capability-mismatch-archive.json",
+  missing_prompt: "runtime-missing-prompt-package-archive.json",
+  missing_rule: "runtime-missing-rule-package-archive.json",
+  missing_workflow: "runtime-missing-workflow-package-archive.json",
+  missing_template: "runtime-missing-template-package-archive.json"
 };
 
 export type KnowledgeRelationshipFilter = {
@@ -620,6 +668,7 @@ type AuditLogInput = {
 
 export type GovernanceHistoryFilter = {
   subjectId?: string;
+  limit?: number;
 };
 
 type KnowledgeObjectSnapshotInput = {
@@ -1467,9 +1516,9 @@ function sourceTextForIngestion(source: SourceSummary) {
 function safeWorkspacePath(path: string) {
   const cwd = process.cwd();
   const workspaceRoot = cwd.endsWith(`${"apps"}\\studio`) || cwd.endsWith("apps/studio")
-    ? resolve(cwd, "..", "..")
+    ? resolve(/* turbopackIgnore: true */ cwd, "..", "..")
     : cwd;
-  const resolved = resolve(workspaceRoot, path);
+  const resolved = resolve(/* turbopackIgnore: true */ workspaceRoot, path);
   return resolved.startsWith(workspaceRoot) ? resolved : undefined;
 }
 
@@ -1498,7 +1547,7 @@ async function readTextArtifact(path: string): Promise<string | undefined> {
         return entryExtension === ".md" || entryExtension === ".txt";
       });
 
-      return textEntry ? readFile(resolve(resolved, textEntry), "utf8") : undefined;
+      return textEntry ? readFile(resolve(/* turbopackIgnore: true */ resolved, textEntry), "utf8") : undefined;
     }
   } catch {
     return undefined;
@@ -2414,15 +2463,15 @@ function workspaceRootPath() {
   const normalized = cwd.replace(/\\/g, "/");
 
   if (normalized.endsWith("/apps/studio")) {
-    return resolve(cwd, "..", "..");
+    return resolve(/* turbopackIgnore: true */ cwd, "..", "..");
   }
 
   return cwd;
 }
 
 function resolvePkaExportPath(packageId: string, relativePath = "") {
-  const exportRoot = resolve(workspaceRootPath(), "storage", "exports", packageId);
-  const targetPath = resolve(exportRoot, relativePath);
+  const exportRoot = resolve(/* turbopackIgnore: true */ workspaceRootPath(), "storage", "exports", packageId);
+  const targetPath = resolve(/* turbopackIgnore: true */ exportRoot, relativePath);
 
   if (targetPath !== exportRoot && !targetPath.startsWith(`${exportRoot}\\`) && !targetPath.startsWith(`${exportRoot}/`)) {
     throw new Error("Invalid PKA export path.");
@@ -2603,7 +2652,7 @@ export async function listPersistedPkaExportFiles(packageId: string) {
     const entries = await readdir(directory, { withFileTypes: true });
 
     for (const entry of entries) {
-      const absolutePath = resolve(directory, entry.name);
+      const absolutePath = resolve(/* turbopackIgnore: true */ directory, entry.name);
       if (entry.isDirectory()) {
         await walk(absolutePath);
         continue;
@@ -2635,6 +2684,477 @@ export async function readPersistedPkaExportFile(packageId: string, relativePath
     path: relativePath,
     contents
   };
+}
+
+export async function validatePersistedPkaPackageReadback(
+  packageId: string,
+  paths: { archivePath?: string; zipPath?: string } = {}
+): Promise<PackageValidationItem[]> {
+  const archivePath = paths.archivePath ?? "package-archive.json";
+  const zipPath = paths.zipPath ?? "package.zip";
+  const items: PackageValidationItem[] = [];
+
+  try {
+    const archiveFile = await readPersistedPkaExportFile(packageId, archivePath);
+    const archive = JSON.parse(archiveFile.contents) as {
+      files?: Array<{ path: string; contents?: { releaseDecisionSummary?: { items?: unknown[] } } }>;
+    };
+    const governanceFile = archive.files?.find((file) => file.path === "governance/index.json");
+    const hasSummary = Boolean(governanceFile?.contents?.releaseDecisionSummary?.items?.length);
+    items.push({
+      id: `persisted-archive-readback-${archivePath}`,
+      level: hasSummary ? "ready" : "warning",
+      title: "Persisted JSON archive readback",
+      detail: hasSummary
+        ? `${archivePath} includes governance release summaries.`
+        : `${archivePath} is missing governance release summaries.`
+    });
+  } catch {
+    items.push({
+      id: `persisted-archive-readback-${archivePath}`,
+      level: "warning",
+      title: "Persisted JSON archive readback",
+      detail: `${archivePath} could not be read as a valid package archive.`
+    });
+  }
+
+  try {
+    const zipContents = await readFile(resolvePkaExportPath(packageId, zipPath));
+    const zipText = zipContents.toString("utf8");
+    const hasSummary = zipText.includes("governance/index.json") && zipText.includes("releaseDecisionSummary");
+    items.push({
+      id: `persisted-zip-readback-${zipPath}`,
+      level: hasSummary ? "ready" : "warning",
+      title: "Persisted ZIP readback",
+      detail: hasSummary
+        ? `${zipPath} includes governance release summaries.`
+        : `${zipPath} is missing governance release summaries.`
+    });
+  } catch {
+    items.push({
+      id: `persisted-zip-readback-${zipPath}`,
+      level: "warning",
+      title: "Persisted ZIP readback",
+      detail: `${zipPath} could not be read as a package ZIP archive.`
+    });
+  }
+
+  return items;
+}
+
+export async function createInvalidPkaReadbackFixtures(packageId: string) {
+  const invalidArchivePath = "invalid-package-archive.json";
+  const invalidZipPath = "invalid-package.zip";
+  await mkdir(resolvePkaExportPath(packageId), { recursive: true });
+  await writeFile(
+    resolvePkaExportPath(packageId, invalidArchivePath),
+    `${JSON.stringify(
+      {
+        packageId,
+        archiveFormat: "kf-json-archive",
+        files: [{ path: "manifest.json", contents: { packageId, invalidFixture: true } }]
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+  await writeFile(resolvePkaExportPath(packageId, invalidZipPath), Buffer.from("invalid package zip fixture\n"));
+
+  return {
+    archivePath: invalidArchivePath,
+    zipPath: invalidZipPath
+  };
+}
+
+type RuntimePkaArchiveFile = {
+  path: string;
+  contents?: Record<string, unknown>;
+};
+
+type RuntimePkaArchive = {
+  packageId?: string;
+  archiveFormat?: string;
+  files?: RuntimePkaArchiveFile[];
+};
+
+const supportedRuntimeImportCapabilities = [
+  "knowledge_object_lookup",
+  "relationship_traversal",
+  "source_citation"
+];
+
+function archiveFile(archive: RuntimePkaArchive, path: string) {
+  return archive.files?.find((file) => file.path === path);
+}
+
+function archiveWithoutFile(archive: RuntimePkaArchive, path: string) {
+  return {
+    ...archive,
+    files: archive.files?.filter((file) => file.path !== path)
+  };
+}
+
+function archiveCount(file: RuntimePkaArchiveFile | undefined) {
+  const count = file?.contents?.count;
+  return typeof count === "number" ? count : 0;
+}
+
+function archiveObjectTypeCount(file: RuntimePkaArchiveFile | undefined) {
+  const objectTypes = file?.contents?.objectTypes;
+  return Array.isArray(objectTypes) ? objectTypes.length : 0;
+}
+
+function archiveItemsCount(file: RuntimePkaArchiveFile | undefined) {
+  const items = file?.contents?.items;
+  return Array.isArray(items) ? items.length : 0;
+}
+
+function componentBoundaryItem(file: RuntimePkaArchiveFile | undefined, label: string, boundaryDetail: string) {
+  return {
+    id: `runtime-import-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    level: file ? "ready" as const : "warning" as const,
+    title: `${label} component`,
+    detail: file ? boundaryDetail : `${label} component index is required for runtime package inspection.`
+  };
+}
+
+function manifestRuntimeCapabilities(manifestFile: RuntimePkaArchiveFile | undefined) {
+  const capabilities = manifestFile?.contents?.requiredRuntimeCapabilities;
+  return Array.isArray(capabilities)
+    ? capabilities.filter((capability): capability is string => typeof capability === "string")
+    : [];
+}
+
+function safeArchiveFileName(fileName: string) {
+  if (fileName.includes(".env")) {
+    throw new Error("Runtime import archive cannot reference environment files.");
+  }
+
+  const baseName = fileName
+    .replace(/\\/g, "/")
+    .split("/")
+    .pop()
+    ?.toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!baseName || !baseName.endsWith(".json")) {
+    throw new Error("Runtime import archive must be a JSON archive file.");
+  }
+
+  return `${Date.now().toString(36)}-${baseName}`;
+}
+
+export async function validateRuntimePkaImportReadback(
+  packageId: string,
+  archivePath = "package-archive.json"
+): Promise<RuntimePkaImportReport> {
+  const items: PackageValidationItem[] = [];
+  let archive: RuntimePkaArchive | undefined;
+
+  try {
+    const archiveFileContents = await readPersistedPkaExportFile(packageId, archivePath);
+    archive = JSON.parse(archiveFileContents.contents) as RuntimePkaArchive;
+    items.push({
+      id: "runtime-import-archive-readable",
+      level: archive.archiveFormat === "kf-json-archive" && Array.isArray(archive.files) ? "ready" : "warning",
+      title: "Archive structure",
+      detail:
+        archive.archiveFormat === "kf-json-archive" && Array.isArray(archive.files)
+          ? `${archivePath} is a readable KF JSON archive.`
+          : `${archivePath} is not a complete KF JSON archive.`
+    });
+  } catch {
+    return {
+      packageId,
+      archivePath,
+      status: "blocked",
+      supportedRuntimeCapabilities: supportedRuntimeImportCapabilities,
+      requiredRuntimeCapabilities: [],
+      loaded: {
+        ontologyObjectTypes: 0,
+        knowledgeObjects: 0,
+        relationships: 0,
+        sources: 0,
+        runtimeConfigEntries: 0,
+        promptEntries: 0,
+        ruleEntries: 0,
+        workflowEntries: 0,
+        templateEntries: 0
+      },
+      items: [
+        {
+          id: "runtime-import-archive-readable",
+          level: "warning",
+          title: "Archive structure",
+          detail: `${archivePath} could not be parsed as a KF package archive.`
+        }
+      ]
+    };
+  }
+
+  const manifestFile = archiveFile(archive, "manifest.json");
+  const ontologyFile = archiveFile(archive, "ontology/index.json");
+  const governanceFile = archiveFile(archive, "governance/index.json");
+  const knowledgeObjectFile = archiveFile(archive, "knowledge-objects/index.json");
+  const relationshipFile = archiveFile(archive, "graph/relationships.json");
+  const sourceFile = archiveFile(archive, "sources/index.json");
+  const runtimeConfigFile = archiveFile(archive, "runtime/config.json");
+  const promptsFile = archiveFile(archive, "prompts/index.json");
+  const rulesFile = archiveFile(archive, "rules/index.json");
+  const workflowsFile = archiveFile(archive, "workflows/index.json");
+  const templatesFile = archiveFile(archive, "templates/index.json");
+  const requiredRuntimeCapabilities = manifestRuntimeCapabilities(manifestFile);
+  const unsupportedCapabilities = requiredRuntimeCapabilities.filter(
+    (capability) => !supportedRuntimeImportCapabilities.includes(capability)
+  );
+  const requiredFiles = [
+    "manifest.json",
+    "ontology/index.json",
+    "knowledge-objects/index.json",
+    "graph/relationships.json",
+    "sources/index.json",
+    "runtime/config.json",
+    "prompts/index.json",
+    "rules/index.json",
+    "workflows/index.json",
+    "templates/index.json",
+    "governance/index.json"
+  ];
+  const missingFiles = requiredFiles.filter((path) => !archiveFile(archive, path));
+  const governanceSummaryItems = governanceFile?.contents?.releaseDecisionSummary;
+  const hasGovernanceSummary =
+    governanceSummaryItems &&
+    typeof governanceSummaryItems === "object" &&
+    "items" in governanceSummaryItems &&
+    Array.isArray((governanceSummaryItems as { items?: unknown[] }).items) &&
+    Boolean((governanceSummaryItems as { items?: unknown[] }).items?.length);
+
+  items.push(
+    {
+      id: "runtime-import-manifest",
+      level: manifestFile ? "ready" : "warning",
+      title: "Manifest contract",
+      detail: manifestFile
+        ? "manifest.json is present for runtime package identity and capability checks."
+        : "manifest.json is required before a runtime can import the package."
+    },
+    {
+      id: "runtime-import-capabilities",
+      level: unsupportedCapabilities.length === 0 ? "ready" : "warning",
+      title: "Runtime capabilities",
+      detail:
+        unsupportedCapabilities.length === 0
+          ? `${requiredRuntimeCapabilities.length} required runtime capability/capabilities are supported by this harness.`
+          : `Unsupported runtime capabilities: ${unsupportedCapabilities.join(", ")}.`
+    },
+    {
+      id: "runtime-import-components",
+      level: missingFiles.length === 0 ? "ready" : "warning",
+      title: "Component indexes",
+      detail:
+        missingFiles.length === 0
+          ? "Required component indexes are present for import."
+          : `Missing component indexes: ${missingFiles.join(", ")}.`
+    },
+    {
+      id: "runtime-import-ontology",
+      level: archiveObjectTypeCount(ontologyFile) > 0 ? "ready" : "warning",
+      title: "Ontology index",
+      detail:
+        archiveObjectTypeCount(ontologyFile) > 0
+          ? `${archiveObjectTypeCount(ontologyFile)} object type(s) available for runtime classification.`
+          : "ontology/index.json must expose object types before runtime graph loading."
+    },
+    {
+      id: "runtime-import-runtime-config",
+      level: runtimeConfigFile ? "ready" : "warning",
+      title: "Runtime configuration placeholder",
+      detail: runtimeConfigFile
+        ? "runtime/config.json is present as the placeholder runtime configuration boundary."
+        : "runtime/config.json is required so runtime configuration stays separate from client state."
+    },
+    componentBoundaryItem(
+      promptsFile,
+      "Prompt library",
+      "prompts/index.json is present as the placeholder prompt library boundary."
+    ),
+    componentBoundaryItem(
+      rulesFile,
+      "Rule library",
+      "rules/index.json is present as the placeholder rule library boundary."
+    ),
+    componentBoundaryItem(
+      workflowsFile,
+      "Workflow library",
+      "workflows/index.json is present as the placeholder workflow library boundary."
+    ),
+    componentBoundaryItem(
+      templatesFile,
+      "Template library",
+      "templates/index.json is present as the placeholder template library boundary."
+    ),
+    {
+      id: "runtime-import-governance",
+      level: hasGovernanceSummary ? "ready" : "warning",
+      title: "Governance release summary",
+      detail: hasGovernanceSummary
+        ? "governance/index.json includes release decision summaries."
+        : "governance/index.json must include release decision summaries before runtime import."
+    }
+  );
+
+  return {
+    packageId,
+    archivePath,
+    status: items.some((item) => item.level === "warning") ? "blocked" : "importable",
+    supportedRuntimeCapabilities: supportedRuntimeImportCapabilities,
+    requiredRuntimeCapabilities,
+    loaded: {
+      ontologyObjectTypes: archiveObjectTypeCount(ontologyFile),
+      knowledgeObjects: archiveCount(knowledgeObjectFile),
+      relationships: archiveCount(relationshipFile),
+      sources: archiveCount(sourceFile),
+      runtimeConfigEntries: archiveItemsCount(runtimeConfigFile),
+      promptEntries: archiveItemsCount(promptsFile),
+      ruleEntries: archiveItemsCount(rulesFile),
+      workflowEntries: archiveItemsCount(workflowsFile),
+      templateEntries: archiveItemsCount(templatesFile)
+    },
+    items
+  };
+}
+
+export async function recordRuntimePkaImportDecision(input: {
+  packageId: string;
+  archivePath: string;
+  actor?: string;
+}) {
+  const report = await validateRuntimePkaImportReadback(input.packageId, input.archivePath);
+
+  await recordAuditLog({
+    action: `runtime_import.${report.status}`,
+    subjectType: "PkaPackageRuntimeImport",
+    subjectId: input.packageId,
+    actorId: input.actor ?? "runtime_consumer",
+    detail: `Runtime import ${report.status}: ${input.archivePath}`,
+    metadata: {
+      packageId: input.packageId,
+      archivePath: input.archivePath,
+      status: report.status,
+      warningCount: report.items.filter((item) => item.level === "warning").length,
+      requiredRuntimeCapabilities: report.requiredRuntimeCapabilities,
+      supportedRuntimeCapabilities: report.supportedRuntimeCapabilities,
+      loaded: report.loaded
+    }
+  });
+
+  return report;
+}
+
+export async function importRuntimePkaArchive(input: {
+  packageId: string;
+  fileName: string;
+  contents: string;
+}) {
+  if (Buffer.byteLength(input.contents, "utf8") > 1024 * 1024) {
+    throw new Error("Runtime import archive must be 1 MB or smaller for the local harness.");
+  }
+
+  const parsed = JSON.parse(input.contents) as RuntimePkaArchive;
+  if (parsed.archiveFormat !== "kf-json-archive" || !Array.isArray(parsed.files)) {
+    throw new Error("Runtime import archive must be a KF JSON archive with a files array.");
+  }
+
+  const archivePath = `imports/${safeArchiveFileName(input.fileName)}`;
+  const fullPath = resolvePkaExportPath(input.packageId, archivePath);
+  await mkdir(dirname(fullPath), { recursive: true });
+  await writeFile(fullPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+
+  return archivePath;
+}
+
+export async function createRuntimePkaImportFixtures(packageId: string) {
+  const sourceArchive = JSON.parse(
+    (await readPersistedPkaExportFile(packageId, "package-archive.json")).contents
+  ) as RuntimePkaArchive;
+  const validArchive = JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive;
+  const missingGovernanceArchive = JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive;
+  const capabilityMismatchArchive = JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive;
+  const missingPromptArchive = archiveWithoutFile(
+    JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive,
+    "prompts/index.json"
+  );
+  const missingRuleArchive = archiveWithoutFile(
+    JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive,
+    "rules/index.json"
+  );
+  const missingWorkflowArchive = archiveWithoutFile(
+    JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive,
+    "workflows/index.json"
+  );
+  const missingTemplateArchive = archiveWithoutFile(
+    JSON.parse(JSON.stringify(sourceArchive)) as RuntimePkaArchive,
+    "templates/index.json"
+  );
+
+  const missingGovernanceFile = archiveFile(missingGovernanceArchive, "governance/index.json");
+  if (missingGovernanceFile?.contents) {
+    delete missingGovernanceFile.contents.releaseDecisionSummary;
+  }
+
+  const mismatchManifestFile = archiveFile(capabilityMismatchArchive, "manifest.json");
+  if (mismatchManifestFile?.contents) {
+    mismatchManifestFile.contents.requiredRuntimeCapabilities = [
+      ...manifestRuntimeCapabilities(mismatchManifestFile),
+      "unsupported_realtime_workflow_execution"
+    ];
+  }
+
+  await mkdir(resolvePkaExportPath(packageId), { recursive: true });
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.valid),
+    `${JSON.stringify(validArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.missing_governance),
+    `${JSON.stringify(missingGovernanceArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.capability_mismatch),
+    `${JSON.stringify(capabilityMismatchArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.missing_prompt),
+    `${JSON.stringify(missingPromptArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.missing_rule),
+    `${JSON.stringify(missingRuleArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.missing_workflow),
+    `${JSON.stringify(missingWorkflowArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.missing_template),
+    `${JSON.stringify(missingTemplateArchive, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimePkaImportFixtureArchivePaths.malformed_archive),
+    "{ invalid runtime package archive\n",
+    "utf8"
+  );
+
+  return runtimePkaImportFixtureArchivePaths;
 }
 
 export async function getPkaPackageReplacementSummary(input: {
@@ -2807,6 +3327,50 @@ export function validatePkaManifest(manifest: Partial<PkaManifestPreview> | unde
   ];
 }
 
+export function validatePkaPackageReadback(preview: PkaPackageExportPreview | undefined): PackageValidationItem[] {
+  if (!preview) {
+    return [
+      {
+        id: "package-readback-missing",
+        level: "warning",
+        title: "Package readback",
+        detail: "A package export preview is required before archive and ZIP readback validation."
+      }
+    ];
+  }
+
+  const archive = buildPkaPackageArchive(preview);
+  const governanceArchiveFile = archive.files.find((file) => file.path === "governance/index.json");
+  const archiveHasGovernanceSummary = Boolean(
+    governanceArchiveFile &&
+      typeof governanceArchiveFile.contents === "object" &&
+      governanceArchiveFile.contents &&
+      "releaseDecisionSummary" in governanceArchiveFile.contents
+  );
+  const zipText = buildPkaPackageZip(preview).toString("utf8");
+  const zipHasGovernanceSummary =
+    zipText.includes("governance/index.json") && zipText.includes("releaseDecisionSummary");
+
+  return [
+    {
+      id: "package-archive-readback",
+      level: archiveHasGovernanceSummary ? "ready" : "warning",
+      title: "JSON archive readback",
+      detail: archiveHasGovernanceSummary
+        ? "package-archive.json contains the governance release summary."
+        : "package-archive.json must include governance/index.json with release decision summaries."
+    },
+    {
+      id: "package-zip-readback",
+      level: zipHasGovernanceSummary ? "ready" : "warning",
+      title: "ZIP archive readback",
+      detail: zipHasGovernanceSummary
+        ? "package.zip contains governance/index.json with release summaries."
+        : "package.zip must include governance/index.json with release decision summaries."
+    }
+  ];
+}
+
 export async function getPkaPackageValidationReport(projectId: string): Promise<PackageValidationItem[]> {
   const project = (await listProjects()).find((item) => item.id === projectId);
 
@@ -2827,12 +3391,14 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
   const releaseReadinessHints = await getPkaReleaseReadinessHints(projectId);
   const blockers = releaseReadinessHints.filter((hint) => hint.level === "warning");
   const manifestPreview = await getPkaManifestPreview(projectId);
+  const exportPreview = await getPkaPackageExportPreview(projectId);
   const releasableObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
   );
   const items: PackageValidationItem[] = [];
 
   items.push(...validatePkaManifest(manifestPreview));
+  items.push(...validatePkaPackageReadback(exportPreview));
 
   items.push({
     id: "approved-knowledge-objects",
@@ -2892,6 +3458,8 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
 }
 
 export async function listGovernanceHistory(filters: GovernanceHistoryFilter = {}) {
+  const limit = Math.max(1, Math.min(filters.limit ?? 20, 100));
+
   if (usePrismaStore()) {
     await ensureLocalWorkspace();
     const auditLogs = await getPrismaClient().auditLog.findMany({
@@ -2906,7 +3474,7 @@ export async function listGovernanceHistory(filters: GovernanceHistoryFilter = {
           }
         : undefined,
       orderBy: { createdAt: "desc" },
-      take: 20
+      take: limit
     });
 
     return auditLogs.map(mapAuditLog);
@@ -2922,7 +3490,7 @@ export async function listGovernanceHistory(filters: GovernanceHistoryFilter = {
     }
 
     return metadataMatchesSubject((event as GovernanceEventSummary & { metadata?: unknown }).metadata, filters.subjectId);
-  });
+  }).slice(0, limit);
 }
 
 export async function listKnowledgeObjectVersionSnapshots(
@@ -3287,7 +3855,7 @@ async function createPipelineFixtureArtifact(source: SourceSummary, fixtureType:
     fixtureType === "unsupported_file"
       ? `storage/pipeline-fixtures/${source.id}-unsupported.pdf`
       : `storage/pipeline-fixtures/${source.id}-empty.txt`;
-  const absolutePath = resolve(workspaceRootPath(), fixturePath);
+  const absolutePath = resolve(/* turbopackIgnore: true */ workspaceRootPath(), fixturePath);
   await mkdir(dirname(absolutePath), { recursive: true });
   await writeFile(
     absolutePath,
@@ -3297,6 +3865,88 @@ async function createPipelineFixtureArtifact(source: SourceSummary, fixtureType:
   await setSourceStoragePath(source.id, fixturePath);
 
   return fixturePath;
+}
+
+async function validateRepairArtifactPath(path: string) {
+  if (path.includes(".env")) {
+    throw new Error("Repair artifact path cannot reference environment files.");
+  }
+
+  const resolved = safeWorkspacePath(path);
+  if (!resolved) {
+    throw new Error("Repair artifact path must stay inside the KF workspace.");
+  }
+
+  const extension = extname(resolved).toLowerCase();
+  if (extension !== ".md" && extension !== ".txt") {
+    throw new Error("Repair artifact path must point to a Markdown or plain-text file.");
+  }
+
+  const content = await readFile(resolved, "utf8");
+  if (!content.trim()) {
+    throw new Error("Repair artifact path points to an empty text file.");
+  }
+
+  return path;
+}
+
+export async function repairSourceArtifact(input: RepairSourceArtifactInput) {
+  const source = (await listSources()).find((item) => item.id === input.sourceId);
+
+  if (!source) {
+    throw new Error(`Source not found: ${input.sourceId}`);
+  }
+
+  const repairedPath = input.repairPath?.trim()
+    ? await validateRepairArtifactPath(input.repairPath.trim())
+    : `storage/pipeline-fixtures/${source.id}-repaired.txt`;
+
+  if (!input.repairPath?.trim()) {
+    const absolutePath = resolve(/* turbopackIgnore: true */ workspaceRootPath(), repairedPath);
+    await mkdir(dirname(absolutePath), { recursive: true });
+    await writeFile(
+      absolutePath,
+      (
+        input.repairText?.trim() ||
+        [
+          `${source.title} repaired deterministic artifact.`,
+          `Domain: ${source.domain}.`,
+          "This repaired source describes the governed source intake, extraction, suggestion, and review workflow.",
+          "The artifact is intentionally plain text so deterministic ingestion can create chunks and source-backed suggestions."
+        ].join("\n")
+      ).trim() + "\n",
+      "utf8"
+    );
+  }
+
+  await setSourceStoragePath(source.id, repairedPath);
+  await markSourceProcessingStatus(source.id, "retried");
+
+  const mission = await createMission({
+    type: "intelligence",
+    title: `Repair source artifact: ${source.title}`,
+    projectId: source.projectId,
+    assignedTo: input.actor ?? "knowledge_engineer",
+    stage: "pipeline-ingestion",
+    priority: "normal",
+    status: "retried"
+  });
+
+  await recordAuditLog({
+    action: "pipeline.source_artifact_repaired",
+    subjectType: "Source",
+    subjectId: source.id,
+    actorId: input.actor ?? "knowledge_engineer",
+    detail: `Repaired source artifact with deterministic text fixture: ${source.title}`,
+    metadata: {
+      sourceId: source.id,
+      repairedPath,
+      repairMode: input.repairPath?.trim() ? "safe_path" : input.repairText?.trim() ? "inline_text" : "deterministic_default",
+      missionId: mission.id
+    }
+  });
+
+  return mission;
 }
 
 export async function runSourceIngestion(input: PipelineIngestionInput): Promise<PipelineIngestionResult> {

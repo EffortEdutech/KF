@@ -10,9 +10,11 @@ import {
   createFailedIngestionFixture,
   createKnowledgeObject,
   createKnowledgeRelationship,
+  createInvalidPkaReadbackFixtures,
   createMission,
   createSource,
   createReviewDecision,
+  createRuntimePkaImportFixtures,
   filterReleaseReadinessHints,
   getKnowledgeObject,
   getKnowledgeObjectReviewReadinessHints,
@@ -24,6 +26,7 @@ import {
   getRelationshipReadinessHints,
   getProjectSourceCount,
   getSourceReadinessHints,
+  importRuntimePkaArchive,
   listGovernanceHistory,
   listKnowledgeObjectVersionSnapshots,
   listKnowledgeObjects,
@@ -40,6 +43,8 @@ import {
   listSources,
   publishPkaPackage,
   releaseBlockerTypeFromHintId,
+  recordRuntimePkaImportDecision,
+  repairSourceArtifact,
   resetWorkspaceStoreForTests,
   retrySourceIngestion,
   runSourceIngestion,
@@ -50,6 +55,9 @@ import {
   updateKnowledgeObjectStatus,
   updateRelationshipSuggestionStatus,
   updateMissionStatus,
+  validatePkaPackageReadback,
+  validatePersistedPkaPackageReadback,
+  validateRuntimePkaImportReadback,
   validatePkaManifest
 } from "./workspace-store";
 
@@ -288,6 +296,23 @@ async function runWorkspaceStoreContractTest() {
   });
   expect(unsupportedIngestion.mission.status === "failed", "unsupported artifact ingestion should fail deterministically");
   expect(unsupportedIngestion.chunks.length === 0, "unsupported artifact ingestion should not create chunks");
+  const repairMission = await repairSourceArtifact({
+    sourceId: unsupportedSource.id,
+    actor: "knowledge_engineer"
+  });
+  expect(repairMission.status === "retried", "source artifact repair should create a retry mission");
+  expect(
+    (await listGovernanceHistory({ subjectId: unsupportedSource.id })).some(
+      (event) => event.action === "pipeline.source_artifact_repaired"
+    ),
+    "source artifact repair should create a pipeline audit event"
+  );
+  const repairedIngestion = await runSourceIngestion({
+    sourceId: unsupportedSource.id,
+    actor: "knowledge_engineer"
+  });
+  expect(repairedIngestion.chunks.length > 0, "repaired artifact ingestion should create chunks");
+  expect(repairedIngestion.suggestions.length > 0, "repaired artifact ingestion should create suggestions");
   const emptySource = await createSource({
     projectId: project.id,
     title: "Empty Artifact Source",
@@ -310,6 +335,16 @@ async function runWorkspaceStoreContractTest() {
   });
   expect(emptyIngestion.mission.status === "failed", "empty artifact ingestion should fail deterministically");
   expect(emptyIngestion.suggestions.length === 0, "empty artifact ingestion should not create suggestions");
+  await repairSourceArtifact({
+    sourceId: emptySource.id,
+    actor: "knowledge_engineer",
+    repairText: "User supplied repair text for deterministic source ingestion. It contains enough content for chunking."
+  });
+  const repairedEmptyIngestion = await runSourceIngestion({
+    sourceId: emptySource.id,
+    actor: "knowledge_engineer"
+  });
+  expect(repairedEmptyIngestion.chunks.length > 0, "user-supplied repair text should allow ingestion");
   const failedPipelineMetrics = await getPipelineQualityMetrics({ projectId: project.id });
   expect(failedPipelineMetrics.failedJobCount >= 3, "pipeline metrics should count failed ingestion jobs");
 
@@ -685,6 +720,10 @@ async function runWorkspaceStoreContractTest() {
     "package release decisions should create governance history events"
   );
   const releaseExportPreview = await getPkaPackageExportPreview(project.id);
+  expect(
+    validatePkaPackageReadback(releaseExportPreview).every((item) => item.level === "ready"),
+    "package archive and ZIP readback validation should pass"
+  );
   const governanceFile = releaseExportPreview?.files.find((file) => file.path === "governance/index.json");
   const governanceContents = governanceFile?.contents as
     | { releaseDecisionSummary?: { items?: Array<{ status: string; decisions: unknown[] }> } }
@@ -711,6 +750,127 @@ async function runWorkspaceStoreContractTest() {
     ),
     "persisted governance export should be refreshed after package publication"
   );
+  const persistedArchive = JSON.parse(
+    await readFile(
+      resolve(testWorkspaceRoot(), "storage", "exports", publishedPackage.packageId, "package-archive.json"),
+      "utf8"
+    )
+  ) as { files?: Array<{ path: string; contents?: { releaseDecisionSummary?: { items?: unknown[] } } }> };
+  expect(
+    Boolean(
+      persistedArchive.files?.some(
+        (file) => file.path === "governance/index.json" && file.contents?.releaseDecisionSummary?.items?.length
+      )
+    ),
+    "persisted JSON archive should include governance release summaries"
+  );
+  const persistedZipText = (
+    await readFile(resolve(testWorkspaceRoot(), "storage", "exports", publishedPackage.packageId, "package.zip"))
+  ).toString("utf8");
+  expect(
+    persistedZipText.includes("governance/index.json") && persistedZipText.includes("releaseDecisionSummary"),
+    "persisted ZIP archive should include governance release summaries"
+  );
+  expect(
+    (await validatePersistedPkaPackageReadback(publishedPackage.packageId)).every((item) => item.level === "ready"),
+    "persisted package readback validation should pass for valid archives"
+  );
+  const invalidReadbackFixtures = await createInvalidPkaReadbackFixtures(publishedPackage.packageId);
+  expect(
+    (await validatePersistedPkaPackageReadback(publishedPackage.packageId, invalidReadbackFixtures)).every(
+      (item) => item.level === "warning"
+    ),
+    "invalid package readback fixtures should fail validation"
+  );
+  const validRuntimeImportReport = await validateRuntimePkaImportReadback(publishedPackage.packageId);
+  expect(validRuntimeImportReport.status === "importable", "valid package archive should be importable");
+  expect(
+    validRuntimeImportReport.loaded.ontologyObjectTypes > 0 &&
+    validRuntimeImportReport.loaded.knowledgeObjects > 0 &&
+      validRuntimeImportReport.loaded.relationships > 0 &&
+      validRuntimeImportReport.loaded.sources > 0,
+    "valid runtime import should report loaded package component counts"
+  );
+  expect(
+    validRuntimeImportReport.items.some((item) => item.id === "runtime-import-ontology" && item.level === "ready") &&
+      validRuntimeImportReport.items.some(
+        (item) => item.id === "runtime-import-runtime-config" && item.level === "ready"
+      ) &&
+      validRuntimeImportReport.items.some((item) => item.id === "runtime-import-prompt-library" && item.level === "ready") &&
+      validRuntimeImportReport.items.some((item) => item.id === "runtime-import-rule-library" && item.level === "ready") &&
+      validRuntimeImportReport.items.some((item) => item.id === "runtime-import-workflow-library" && item.level === "ready") &&
+      validRuntimeImportReport.items.some((item) => item.id === "runtime-import-template-library" && item.level === "ready"),
+    "valid runtime import should load ontology and placeholder component boundaries"
+  );
+  await recordRuntimePkaImportDecision({
+    packageId: publishedPackage.packageId,
+    archivePath: "package-archive.json",
+    actor: "runtime_consumer"
+  });
+  expect(
+    (await listGovernanceHistory({ subjectId: publishedPackage.packageId })).some(
+      (event) => event.action === "runtime_import.importable"
+    ),
+    "runtime import decision should write governance history"
+  );
+  const importedArchivePath = await importRuntimePkaArchive({
+    packageId: publishedPackage.packageId,
+    fileName: "Runtime Handoff Archive.json",
+    contents: JSON.stringify(persistedArchive)
+  });
+  expect(importedArchivePath.startsWith("imports/"), "imported archive should be stored under imports/");
+  expect(
+    (await validateRuntimePkaImportReadback(publishedPackage.packageId, importedArchivePath)).status === "importable",
+    "imported runtime archive should validate without replacing the persisted export"
+  );
+  await expectRejects(
+    () =>
+      importRuntimePkaArchive({
+        packageId: publishedPackage.packageId,
+        fileName: ".env",
+        contents: JSON.stringify(persistedArchive)
+      }),
+    "runtime import archive should reject environment file names"
+  );
+  const runtimeImportFixtures = await createRuntimePkaImportFixtures(publishedPackage.packageId);
+  expect(
+    (await validateRuntimePkaImportReadback(publishedPackage.packageId, runtimeImportFixtures.valid)).status ===
+      "importable",
+    "valid runtime import fixture should pass"
+  );
+  expect(
+    (await validateRuntimePkaImportReadback(publishedPackage.packageId, runtimeImportFixtures.missing_governance))
+      .status === "blocked",
+    "missing governance runtime import fixture should be blocked"
+  );
+  expect(
+    (await validateRuntimePkaImportReadback(publishedPackage.packageId, runtimeImportFixtures.malformed_archive))
+      .status === "blocked",
+    "malformed archive runtime import fixture should be blocked"
+  );
+  const capabilityMismatchReport = await validateRuntimePkaImportReadback(
+    publishedPackage.packageId,
+    runtimeImportFixtures.capability_mismatch
+  );
+  expect(capabilityMismatchReport.status === "blocked", "capability mismatch runtime import fixture should be blocked");
+  expect(
+    capabilityMismatchReport.items.some((item) => item.detail.includes("Unsupported runtime capabilities")),
+    "capability mismatch report should name unsupported runtime capabilities"
+  );
+  const missingComponentFixtures = [
+    [runtimeImportFixtures.missing_prompt, "prompts/index.json"],
+    [runtimeImportFixtures.missing_rule, "rules/index.json"],
+    [runtimeImportFixtures.missing_workflow, "workflows/index.json"],
+    [runtimeImportFixtures.missing_template, "templates/index.json"]
+  ] as const;
+  for (const [fixturePath, missingPath] of missingComponentFixtures) {
+    const missingComponentReport = await validateRuntimePkaImportReadback(publishedPackage.packageId, fixturePath);
+    expect(missingComponentReport.status === "blocked", `${missingPath} fixture should be blocked`);
+    expect(
+      missingComponentReport.items.some((item) => item.detail.includes(missingPath)),
+      `${missingPath} fixture should name the missing component index`
+    );
+  }
   await expectRejects(
     () =>
       assemblePkaPackage({

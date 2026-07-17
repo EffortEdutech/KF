@@ -16,6 +16,7 @@ test.describe("KF Studio runtime smoke", () => {
     ).toBeVisible();
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Ontology" })).toBeVisible();
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Pipeline" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Import" })).toBeVisible();
     await expect(page.getByText("Review queue")).toBeVisible();
     await expect(page.getByText("Release blockers")).toBeVisible();
 
@@ -101,8 +102,18 @@ test.describe("KF Studio runtime smoke", () => {
 
     await page.goto("/pipeline?projectId=kf-finance-reference&sourceId=src-aifa-pka-runtime");
     await page.getByRole("button", { name: "Run ingestion" }).click();
-    await expect(page.getByRole("heading", { name: "AIFA PKA Runtime Alignment Notes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AIFA PKA Runtime Alignment Notes" }).first()).toBeVisible();
     await expect(page.getByText("Runtime Boundary").first()).toBeVisible();
+
+    await page.goto("/pipeline?projectId=kf-qs-rfq-pilot&sourceId=src-rfq-template");
+    await page.getByRole("button", { name: "Create unsupported fixture" }).click();
+    await expect(page.getByText("failed pipeline job")).toBeVisible();
+    await expect(page.getByText("pipeline.ingestion_failed_fixture")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Repair artifact" })).toBeVisible();
+    await page.getByRole("button", { name: "Repair artifact" }).click();
+    await expect(page.getByText("pipeline.source_artifact_repaired")).toBeVisible();
+    await page.getByRole("button", { name: "Run ingestion" }).click();
+    await expect(page.getByText("Source-backed draft:").first()).toBeVisible();
   });
 
   test("records a review decision and drills down from PKA Builder blockers", async ({ page }) => {
@@ -279,11 +290,69 @@ test.describe("KF Studio runtime smoke", () => {
         (item: { status: string; decisions: unknown[] }) => item.status === "published" && item.decisions.length > 0
       )
     ).toBeTruthy();
+    const publishedArchiveResponse = await request.get(
+      `/pka-builder/download?projectId=${pilotProjectId}&path=package-archive.json`
+    );
+    expect(publishedArchiveResponse.ok()).toBeTruthy();
+    const publishedArchivePayload = await publishedArchiveResponse.json();
+    expect(
+      publishedArchivePayload.files.some(
+        (file: { path: string; contents?: { releaseDecisionSummary?: { items?: unknown[] } } }) =>
+          file.path === "governance/index.json" && file.contents?.releaseDecisionSummary?.items?.length
+      )
+    ).toBeTruthy();
+    const publishedZipResponse = await request.get(`/pka-builder/download?projectId=${pilotProjectId}&path=package.zip`);
+    expect(publishedZipResponse.ok()).toBeTruthy();
+    const publishedZipText = (await publishedZipResponse.body()).toString("utf8");
+    expect(publishedZipText).toContain("governance/index.json");
+    expect(publishedZipText).toContain("releaseDecisionSummary");
 
     await page.goto(`/pka-builder/export?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Persisted Export" })).toBeVisible();
     await expect(page.getByLabel("Persisted PKA export files").getByText("manifest.json")).toBeVisible();
-    await expect(page.getByLabel("Persisted PKA export files").getByText("package.zip")).toBeVisible();
+    await expect(page.getByRole("link", { name: /^package\.zip\b/ })).toBeVisible();
     await expect(page.getByLabel("Persisted PKA export file preview")).toBeVisible();
+    await page.getByRole("link", { name: "Open readback report" }).click();
+    await expect(page.getByRole("heading", { name: "Package Readback Report" })).toBeVisible();
+    await expect(page.getByLabel("Current package readback report").getByText("Persisted JSON archive readback")).toBeVisible();
+    await expect(page.getByLabel("Current package readback report").getByText("Persisted ZIP readback")).toBeVisible();
+    await page.getByRole("button", { name: "Create invalid readback fixtures" }).click();
+    await expect(
+      page.getByLabel("Invalid package readback report").getByText("missing governance release summaries").first()
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Open runtime import harness" }).click();
+    await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Import allowed" })).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Governance release summary")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Ontology index")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Runtime configuration placeholder")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Prompt library component")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Rule library component")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Workflow library component")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Template library component")).toBeVisible();
+    await expect(page.getByLabel("Runtime import loaded counts").getByText("Ontology types")).toBeVisible();
+    await page.getByRole("button", { name: "Record import decision" }).click();
+    await expect(page.getByLabel("Runtime import decision history").getByText("runtime_import.importable")).toBeVisible();
+    await page.getByRole("button", { name: "Create runtime import fixtures" }).click();
+    await page.getByRole("link", { name: "Capability mismatch" }).click();
+    await expect(page.getByRole("heading", { name: "Import blocked" })).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("Unsupported runtime capabilities")).toBeVisible();
+    await page.getByRole("button", { name: "Record import decision" }).click();
+    await expect(page.getByLabel("Runtime import decision metrics").getByText("Blocked decisions")).toBeVisible();
+    await page.getByLabel("Runtime import decision filters").getByRole("link", { name: "Blocked" }).click();
+    await expect(page.getByLabel("Runtime import decision filters").getByText("Blocked")).toBeVisible();
+    await expect(page.getByLabel("Runtime import decision history").getByText("runtime_import.blocked")).toBeVisible();
+    await page.getByRole("link", { name: "Missing prompt" }).click();
+    await expect(page.getByRole("heading", { name: "Import blocked" })).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("prompts/index.json")).toBeVisible();
+    await page.setInputFiles('input[name="archiveFile"]', {
+      name: "runtime-handoff-archive.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(publishedArchivePayload), "utf8")
+    });
+    await page.getByRole("button", { name: "Import archive for readback" }).click();
+    await expect(page.getByRole("heading", { name: "Import allowed" })).toBeVisible();
+    await expect(page.getByLabel("Imported runtime archive selectors").getByText("imports/").first()).toBeVisible();
   });
 });

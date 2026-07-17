@@ -3,6 +3,7 @@ import {
   acceptKnowledgeSuggestionAction,
   acceptRelationshipSuggestionAction,
   createFailedIngestionFixtureAction,
+  repairSourceArtifactAction,
   retrySourceIngestionAction,
   runSourceIngestionAction,
   updateKnowledgeSuggestionStatusAction,
@@ -10,6 +11,7 @@ import {
 } from "../source-actions";
 import {
   getPipelineQualityMetrics,
+  listGovernanceHistory,
   listKnowledgeObjects,
   listKnowledgeSuggestions,
   listMissions,
@@ -73,6 +75,12 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     projectId: activeProject?.id,
     sourceId: selectedSource?.id
   });
+  const selectedSourceHistory = selectedSource
+    ? (await listGovernanceHistory({ subjectId: selectedSource.id, limit: 100 })).filter((event) =>
+        event.action.startsWith("pipeline.")
+      )
+    : [];
+  const latestSourceHistory = selectedSourceHistory.slice(0, 8);
   const failedPipelineMissions = missions.filter(
     (mission) =>
       mission.stage === "pipeline-ingestion" &&
@@ -208,6 +216,24 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
                   <button type="submit">Create empty fixture</button>
                 </form>
               </div>
+              {selectedSource.processingStatus === "failed" ? (
+                <form className="source-form compact-form" action={repairSourceArtifactAction}>
+                  <input type="hidden" name="sourceId" value={selectedSource.id} />
+                  <input type="hidden" name="actor" value="knowledge_engineer" />
+                  <label className="field-wide">
+                    Replacement text
+                    <textarea
+                      name="repairText"
+                      defaultValue={`${selectedSource.title} repaired source artifact.\nThis plain-text repair keeps ingestion deterministic and source-backed.`}
+                    />
+                  </label>
+                  <label className="field-wide">
+                    Safe existing path
+                    <input name="repairPath" placeholder="storage/sources/repaired-source.txt" />
+                  </label>
+                  <button type="submit">Repair artifact</button>
+                </form>
+              ) : null}
               <div className="readiness-list" aria-label="Pipeline source selector">
                 {sources.map((source) => (
                   <Link
@@ -292,6 +318,45 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
             </div>
           )}
         </article>
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Pipeline audit history</p>
+        <h3>{selectedSource?.title ?? "No source selected"}</h3>
+        {selectedSourceHistory.length > 0 ? (
+          <div className="timeline-list" aria-label="Pipeline source audit history">
+            {latestSourceHistory.map((event) => (
+              <div className="timeline-item" key={event.id}>
+                <strong>{event.action}</strong>
+                <span>{event.detail}</span>
+                <span>
+                  {event.actorId ?? "system"} / {event.createdAt}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state compact-empty">
+            <strong>No pipeline history yet</strong>
+            <span>Run ingestion or create a fixture to record source-level pipeline events.</span>
+          </div>
+        )}
+        {selectedSourceHistory.length > latestSourceHistory.length ? (
+          <details className="details-panel">
+            <summary>Open full source event history ({selectedSourceHistory.length})</summary>
+            <div className="timeline-list" aria-label="Full pipeline source event history">
+              {selectedSourceHistory.map((event) => (
+                <div className="timeline-item" key={`full-${event.id}`}>
+                  <strong>{event.action}</strong>
+                  <span>{event.detail}</span>
+                  <span>
+                    {event.actorId ?? "system"} / {event.createdAt}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
       </section>
 
       <section className="board board-two">

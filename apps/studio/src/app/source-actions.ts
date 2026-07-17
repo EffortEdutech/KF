@@ -2,6 +2,7 @@
 
 import { lifecycleStates, missionStatuses, missionTypes, relationshipTypes } from "@kf/core";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   acceptRelationshipSuggestion,
   acceptKnowledgeSuggestion,
@@ -9,13 +10,18 @@ import {
   assemblePkaPackage,
   attachSourceEvidenceToKnowledgeRelationship,
   createKnowledgeRelationship,
+  createInvalidPkaReadbackFixtures,
   createFailedIngestionFixture,
   createKnowledgeObject,
   createMission,
   createProject,
   createReviewDecision,
+  createRuntimePkaImportFixtures,
   createSource,
+  importRuntimePkaArchive,
   publishPkaPackage,
+  recordRuntimePkaImportDecision,
+  repairSourceArtifact,
   retrySourceIngestion,
   runSourceIngestion,
   updateKnowledgeSuggestionStatus,
@@ -135,6 +141,8 @@ function revalidateStudioSurfaces() {
   revalidatePath("/pipeline");
   revalidatePath("/pka-builder");
   revalidatePath("/pka-builder/export");
+  revalidatePath("/pka-builder/readback");
+  revalidatePath("/runtime-import");
   revalidatePath("/ontology");
 }
 
@@ -199,6 +207,17 @@ export async function createFailedIngestionFixtureAction(formData: FormData) {
       fixtureType === "unsupported_file" || fixtureType === "empty_artifact"
         ? fixtureType
         : "manual_failure"
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function repairSourceArtifactAction(formData: FormData) {
+  await repairSourceArtifact({
+    sourceId: readRequired(formData, "sourceId"),
+    actor: readOptionalString(formData, "actor") ?? "knowledge_engineer",
+    repairText: readOptionalString(formData, "repairText"),
+    repairPath: readOptionalString(formData, "repairPath")
   });
 
   revalidateStudioSurfaces();
@@ -384,6 +403,53 @@ export async function updatePkaPackageReleaseStatusAction(formData: FormData) {
     status: readPackageReleaseStatus(status),
     actor: readOptionalString(formData, "actor") ?? (status === "approved" ? "publisher" : "reviewer"),
     notes: readOptionalString(formData, "notes")
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function createInvalidPkaReadbackFixturesAction(formData: FormData) {
+  await createInvalidPkaReadbackFixtures(readRequired(formData, "packageId"));
+
+  revalidateStudioSurfaces();
+}
+
+export async function createRuntimePkaImportFixturesAction(formData: FormData) {
+  await createRuntimePkaImportFixtures(readRequired(formData, "packageId"));
+
+  revalidateStudioSurfaces();
+}
+
+export async function importRuntimePkaArchiveAction(formData: FormData) {
+  const packageId = readRequired(formData, "packageId");
+  const projectId = readRequired(formData, "projectId");
+  const archiveFile = formData.get("archiveFile");
+
+  if (!(archiveFile instanceof File) || archiveFile.size === 0) {
+    throw new Error("archiveFile is required");
+  }
+
+  if (archiveFile.size > 1024 * 1024) {
+    throw new Error("Runtime import archive must be 1 MB or smaller for the local harness.");
+  }
+
+  const archivePath = await importRuntimePkaArchive({
+    packageId,
+    fileName: archiveFile.name,
+    contents: await archiveFile.text()
+  });
+
+  revalidateStudioSurfaces();
+  redirect(
+    `/runtime-import?projectId=${projectId}&packageId=${packageId}&archivePath=${encodeURIComponent(archivePath)}`
+  );
+}
+
+export async function recordRuntimePkaImportDecisionAction(formData: FormData) {
+  await recordRuntimePkaImportDecision({
+    packageId: readRequired(formData, "packageId"),
+    archivePath: readRequired(formData, "archivePath"),
+    actor: readOptionalString(formData, "actor") ?? "runtime_consumer"
   });
 
   revalidateStudioSurfaces();
