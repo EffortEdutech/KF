@@ -22,6 +22,7 @@ import {
   getKnowledgeObjectReviewReadinessHints,
   getManufacturingLineRunReport,
   getManufacturingWorkOrderReport,
+  getPkaComponentManufacturingReport,
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
   getPipelineQualityMetrics,
@@ -903,6 +904,23 @@ async function runWorkspaceStoreContractTest() {
       )
     ),
     "PKA export preview should include runtime configuration placeholder component"
+  );
+  const componentManufacturingReport = await getPkaComponentManufacturingReport(project.id);
+  expect(
+    componentManufacturingReport.ready,
+    "component manufacturing report should distinguish required components from intentional placeholders"
+  );
+  expect(
+    componentManufacturingReport.items.some(
+      (item) => item.kind === "workflow" && item.path === "workflows/rfq-package-issue-workflow.json" && item.status === "manufactured"
+    ),
+    "component manufacturing report should treat the RFQ workflow contract as a manufactured package component"
+  );
+  expect(
+    componentManufacturingReport.items.some(
+      (item) => item.kind === "prompt_library" && item.status === "intentional_placeholder"
+    ),
+    "component manufacturing report should keep prompt libraries as intentional placeholders until model integration is approved"
   );
   const persistedExportFiles = await listPersistedPkaExportFiles(pkaPackage.packageId);
   expect(

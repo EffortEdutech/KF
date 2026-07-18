@@ -828,6 +828,7 @@ Apply these checks to every sprint:
 | 2026-07-18 | KF Manufacturing Line Sprint Plan added | Accepted | Added `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md` as the active execution authority. Sprint execution now targets reusable KF factory capabilities for manufacturing PKAs, with QS/RFQ used only as the validation article. |
 | 2026-07-18 | Manufacturing Line status surface added | Accepted | Added `/manufacturing-line` as the generic KF factory status and run-report surface. It shows ten-stage readiness, stage links, current blockers, validation article status, package handoff/import readiness, and a manufacturing validation action that returns to the factory line. |
 | 2026-07-18 | Generic Manufacturing Work Orders added | Accepted | Added a derived work-order report for Source-to-KO, relationship/governance, KO-to-package, runtime validation, and continuous improvement work. `/manufacturing-line` now shows owner roles, input/output signals, approval checkpoints, run controls, and Mission-backed work-order trace creation. |
+| 2026-07-18 | Component Manufacturing readiness added | Accepted | Added `getPkaComponentManufacturingReport` and a PKA Builder component-manufacturing panel that classifies required manufactured components, the conditional RFQ workflow contract, intentional placeholders, dedicated-record decisions, and promotion triggers. |
 
 ---
 
@@ -858,9 +859,9 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Verify and close Manufacturing Line Batch 2: Generic Manufacturing Work Orders.
-2. Start Manufacturing Line Batch 3: Component Manufacturing.
-3. Keep Ollama, broad extraction formats, marketplace, and relationship-evidence table work deferred until the documented gates reopen them.
+1. Verify and close Manufacturing Line Batch 3: Component Manufacturing.
+2. Start Manufacturing Line Batch 4: PKA Product Quality.
+3. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and relationship-evidence table work deferred until the documented gates reopen them.
 
 ---
 

@@ -285,6 +285,14 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 - [x] Add reusable run/retry/control links and Mission-backed work-order trace creation.
 - [x] Add clear human approval checkpoints for each work order.
 
+### Batch 3 Must Finish - Component Manufacturing
+
+- [x] Decide first dedicated component records beyond Knowledge Objects.
+- [x] Add generic component readiness checks for workflows, rules, templates, prompts, formulas, and cases.
+- [x] Keep placeholders where a component is not required yet.
+- [x] Surface component manufacturing readiness in PKA Builder.
+- [x] Validate QS/RFQ workflow contract as a manufactured component without making runtime workflow execution a KF responsibility.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -368,6 +376,13 @@ Done when:
 
 PKA assembly distinguishes missing required components from intentionally empty placeholders.
 
+Implementation status:
+
+- [x] `getPkaComponentManufacturingReport` distinguishes required manufactured components, conditional components, intentional placeholders, and missing required package pieces.
+- [x] `workflows/rfq-package-issue-workflow.json` is treated as the first manufactured component contract file.
+- [x] Runtime config, prompts, rules, templates, formulas, cases, and generic workflow library indexes remain intentional placeholders until their promotion triggers are met.
+- [x] PKA Builder shows component manufacturing metrics, boundaries, dedicated-record decisions, and promotion triggers.
+
 ### Batch 4 - PKA Product Quality
 
 Goal:
@@ -440,9 +455,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Continue **Batch 2 - Generic Manufacturing Work Orders** by verifying the work-order surface, refreshing Graphify, and closing the batch with a capability-level commit.
+Continue **Batch 3 - Component Manufacturing** by verifying component readiness, refreshing Graphify, and closing the batch with a capability-level commit.
 
-Do not add more QS/RFQ-specific hardening unless it blocks the generic Manufacturing Work Order skeleton.
+Do not add runtime workflow execution, component database tables, Ollama, or broader extraction formats unless they block component manufacturing readiness.
 
 ---
 

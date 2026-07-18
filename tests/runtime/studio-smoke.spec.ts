@@ -336,7 +336,14 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Manifest JSON", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Open manifest JSON" })).toBeVisible();
     await expect(page.getByText("Export structure")).toBeVisible();
-    await expect(page.getByText("Component index")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Package component index" })).toBeVisible();
+    await expect(page.getByText("Component manufacturing", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("PKA component manufacturing metrics").getByText("Manufactured")).toBeVisible();
+    await expect(page.getByLabel("PKA component manufacturing readiness").getByText("Workflow contract")).toBeVisible();
+    await expect(page.getByLabel("PKA component manufacturing readiness").getByText("Prompt library boundary")).toBeVisible();
+    await expect(
+      page.getByLabel("PKA component manufacturing readiness").getByText("intentional placeholder").first()
+    ).toBeVisible();
     await expect(page.getByLabel("PKA component index").getByText("runtime_configuration")).toBeVisible();
     await expect(page.getByLabel("PKA component index").getByText("formula", { exact: true })).toBeVisible();
     await expect(page.getByLabel("PKA component index").getByText("case_library", { exact: true })).toBeVisible();
@@ -355,6 +362,9 @@ test.describe("KF Studio runtime smoke", () => {
     expect(manifestPayload.exportPreview.files.map((file: { path: string }) => file.path)).toContain(
       "cases/index.json"
     );
+    expect(
+      manifestPayload.exportPreview.componentIndex.map((component: { path: string }) => component.path)
+    ).toContain("workflows/rfq-package-issue-workflow.json");
     const archiveResponse = await request.get(
       `/pka-builder/download?projectId=${pilotProjectId}&path=package-archive.json`
     );

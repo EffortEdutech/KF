@@ -7,6 +7,7 @@ import {
 import {
   filterReleaseReadinessHints,
   getPkaManifestPreview,
+  getPkaComponentManufacturingReport,
   getPkaPackageExportPreview,
   getPkaPackageReplacementSummary,
   getPkaPackageValidationReport,
@@ -74,6 +75,9 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
       })
     : undefined;
   const validationReport = activeProject ? await getPkaPackageValidationReport(activeProject.id) : [];
+  const componentManufacturingReport = activeProject
+    ? await getPkaComponentManufacturingReport(activeProject.id)
+    : undefined;
   const latestManifest = packages[0]?.manifest ?? manifestPreview;
   const manifestJson = latestManifest ? JSON.stringify(latestManifest, null, 2) : "";
   const releasableObjects = knowledgeObjects.filter((knowledgeObject) =>
@@ -642,6 +646,59 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
       </section>
 
       <section className="board board-two">
+        <article className="panel panel-strong">
+          <p className="eyebrow">Component manufacturing</p>
+          <h3>Manufactured assets and intentional placeholders</h3>
+          {componentManufacturingReport ? (
+            <>
+              <dl className="detail-list" aria-label="PKA component manufacturing metrics">
+                <div>
+                  <dt>Manufactured</dt>
+                  <dd>{componentManufacturingReport.manufacturedCount}</dd>
+                </div>
+                <div>
+                  <dt>Intentional placeholders</dt>
+                  <dd>{componentManufacturingReport.intentionalPlaceholderCount}</dd>
+                </div>
+                <div>
+                  <dt>Missing required</dt>
+                  <dd>{componentManufacturingReport.missingRequiredCount}</dd>
+                </div>
+                <div>
+                  <dt>Not required yet</dt>
+                  <dd>{componentManufacturingReport.notRequiredYetCount}</dd>
+                </div>
+              </dl>
+              <div className="readiness-list" aria-label="PKA component manufacturing readiness">
+                {componentManufacturingReport.items.map((component) => (
+                  <div
+                    className={`readiness-item ${
+                      component.status === "manufactured"
+                        ? "readiness-ready"
+                        : component.status === "missing_required"
+                          ? "readiness-warning"
+                          : "readiness-info"
+                    }`}
+                    key={component.id}
+                  >
+                    <strong>{component.title}</strong>
+                    <span>{component.status.replaceAll("_", " ")} / {component.requirement.replaceAll("_", " ")}</span>
+                    <span>{component.path}</span>
+                    <span>{component.manufacturingBoundary}</span>
+                    <span>Decision: {component.dedicatedRecordDecision.replaceAll("_", " ")}</span>
+                    <span>Trigger: {component.promotionTrigger}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No component report</strong>
+              <span>Select a project before inspecting component manufacturing readiness.</span>
+            </div>
+          )}
+        </article>
+
         <article className="panel">
           <p className="eyebrow">Export structure</p>
           <h3>Package folders</h3>
@@ -678,7 +735,7 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
 
         <article className="panel">
           <p className="eyebrow">Component index</p>
-          <h3>Package component placeholders</h3>
+          <h3>Package component index</h3>
           {exportPreview ? (
             <div className="readiness-list" aria-label="PKA component index">
               {exportPreview.componentIndex.map((component) => (

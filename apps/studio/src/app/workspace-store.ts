@@ -455,6 +455,41 @@ export type PackageValidationItem = {
   detail: string;
 };
 
+export type PkaComponentManufacturingRequirement =
+  | "required"
+  | "conditional"
+  | "optional_placeholder";
+
+export type PkaComponentManufacturingStatus =
+  | "manufactured"
+  | "intentional_placeholder"
+  | "missing_required"
+  | "not_required_yet";
+
+export type PkaComponentManufacturingItem = {
+  id: string;
+  kind: PkaComponentManifestEntry["kind"];
+  path: string;
+  requirement: PkaComponentManufacturingRequirement;
+  status: PkaComponentManufacturingStatus;
+  title: string;
+  detail: string;
+  manufacturingBoundary: string;
+  dedicatedRecordDecision: "knowledge_object_backed" | "component_contract_file" | "defer_dedicated_record";
+  promotionTrigger: string;
+};
+
+export type PkaComponentManufacturingReport = {
+  projectId: string;
+  packageId?: string;
+  ready: boolean;
+  manufacturedCount: number;
+  intentionalPlaceholderCount: number;
+  missingRequiredCount: number;
+  notRequiredYetCount: number;
+  items: PkaComponentManufacturingItem[];
+};
+
 export type RuntimePkaImportFixtureKind =
   | "valid"
   | "missing_governance"
@@ -5050,6 +5085,16 @@ function packageComponentIndex(input: {
       sourceRefs: []
     },
     {
+      id: `${input.packageId}-rfq-package-issue-workflow`,
+      kind: "workflow",
+      path: "workflows/rfq-package-issue-workflow.json",
+      version: input.version,
+      governanceStatus: input.rfqEvidenceEntries.length > 0 ? "draft" : "placeholder",
+      sourceRefs: input.rfqEvidenceEntries
+        .map((entry) => entry.sourceId)
+        .filter((sourceId): sourceId is string => Boolean(sourceId))
+    },
+    {
       id: `${input.packageId}-templates`,
       kind: "template",
       path: "templates/index.json",
@@ -5066,6 +5111,199 @@ function packageComponentIndex(input: {
       sourceRefs: []
     }
   ];
+}
+
+function componentReadinessClass(status: PkaComponentManufacturingStatus): PackageValidationItem["level"] {
+  return status === "missing_required" ? "warning" : status === "manufactured" ? "ready" : "info";
+}
+
+function componentManufacturingItem(input: Omit<PkaComponentManufacturingItem, "id">): PkaComponentManufacturingItem {
+  return {
+    id: `component-${input.path.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    ...input
+  };
+}
+
+export async function getPkaComponentManufacturingReport(projectId: string): Promise<PkaComponentManufacturingReport> {
+  const exportPreview = await buildPkaPackageExportPreview({ projectId });
+
+  if (!exportPreview) {
+    return {
+      projectId,
+      ready: false,
+      manufacturedCount: 0,
+      intentionalPlaceholderCount: 0,
+      missingRequiredCount: 1,
+      notRequiredYetCount: 0,
+      items: [
+        componentManufacturingItem({
+          kind: "governance_record",
+          path: "manifest.json",
+          requirement: "required",
+          status: "missing_required",
+          title: "Package component contract",
+          detail: "Select a project before component manufacturing can be inspected.",
+          manufacturingBoundary: "Package assembly must create a manifest and component index before release.",
+          dedicatedRecordDecision: "component_contract_file",
+          promotionTrigger: "Always required for every Base PKA."
+        })
+      ]
+    };
+  }
+
+  const filesByPath = new Map(exportPreview.files.map((file) => [file.path, file]));
+  const componentByPath = new Map(exportPreview.componentIndex.map((component) => [component.path, component]));
+  const hasFile = (path: string) => filesByPath.has(path);
+  const componentStatus = (path: string) => componentByPath.get(path)?.governanceStatus;
+  const readyStatus = (path: string) =>
+    hasFile(path) && componentStatus(path) !== "placeholder" ? "manufactured" : "missing_required";
+  const placeholderStatus = (path: string) =>
+    hasFile(path) ? "intentional_placeholder" : "missing_required";
+  const items: PkaComponentManufacturingItem[] = [
+    componentManufacturingItem({
+      kind: "knowledge_object",
+      path: "knowledge-objects/index.json",
+      requirement: "required",
+      status: readyStatus("knowledge-objects/index.json"),
+      title: "Knowledge Object index",
+      detail: "Release-grade KOs are the primary manufactured components inside a Base PKA.",
+      manufacturingBoundary: "Keep professional concepts, rules, checklist items, and evidence controls as governed KOs until they need independent component lifecycle.",
+      dedicatedRecordDecision: "knowledge_object_backed",
+      promotionTrigger: "Promote only when a component needs its own lifecycle, reuse boundary, or version history beyond a KO."
+    }),
+    componentManufacturingItem({
+      kind: "ontology",
+      path: "ontology/index.json",
+      requirement: "required",
+      status: readyStatus("ontology/index.json"),
+      title: "Ontology vocabulary",
+      detail: "Object and relationship vocabularies are packaged for graph inspection and runtime traversal.",
+      manufacturingBoundary: "Fixed MVP vocabulary remains package metadata; a dedicated ontology table waits for configurable vocabularies.",
+      dedicatedRecordDecision: "component_contract_file",
+      promotionTrigger: "Promote when operators can edit ontology terms independently of code."
+    }),
+    componentManufacturingItem({
+      kind: "relationship_graph",
+      path: "graph/relationships.json",
+      requirement: "required",
+      status: readyStatus("graph/relationships.json"),
+      title: "Relationship graph",
+      detail: "Governed KO relationships are packaged with provenance and source evidence pointers.",
+      manufacturingBoundary: "Relationships are dedicated records already; relationship evidence stays in provenance until lifecycle feedback reopens the table decision.",
+      dedicatedRecordDecision: "component_contract_file",
+      promotionTrigger: "Promote relationship evidence only after repeated multi-source lifecycle feedback."
+    }),
+    componentManufacturingItem({
+      kind: "source_reference_index",
+      path: "sources/index.json",
+      requirement: "required",
+      status: readyStatus("sources/index.json"),
+      title: "Source reference index",
+      detail: "Source references preserve provenance, reliability, usage policy, and Base PKA boundary.",
+      manufacturingBoundary: "Source records are dedicated records; package exports contain references, not client vault state.",
+      dedicatedRecordDecision: "component_contract_file",
+      promotionTrigger: "Always required for governed package traceability."
+    }),
+    componentManufacturingItem({
+      kind: "governance_record",
+      path: "governance/index.json",
+      requirement: "required",
+      status: readyStatus("governance/index.json"),
+      title: "Governance record index",
+      detail: "Release decisions, review evidence, and package risk summaries are exported for auditability.",
+      manufacturingBoundary: "Governance stays audit-backed; dedicated review tables are added only when audit records become too thin.",
+      dedicatedRecordDecision: "component_contract_file",
+      promotionTrigger: "Always required before publish and runtime handoff."
+    }),
+    componentManufacturingItem({
+      kind: "workflow",
+      path: "workflows/rfq-package-issue-workflow.json",
+      requirement: "conditional",
+      status: hasFile("workflows/rfq-package-issue-workflow.json") ? "manufactured" : "not_required_yet",
+      title: "Workflow contract",
+      detail: "The QS/RFQ validation article manufactures a workflow contract file for RFQ package issue readiness.",
+      manufacturingBoundary: "KF packages governed workflow structure only; runtime workflow execution belongs to the consuming app.",
+      dedicatedRecordDecision: "component_contract_file",
+      promotionTrigger: "Promote to dedicated workflow records when multiple PKAs need reusable workflow authoring/versioning."
+    }),
+    componentManufacturingItem({
+      kind: "runtime_configuration",
+      path: "runtime/config.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("runtime/config.json"),
+      title: "Runtime configuration boundary",
+      detail: "Runtime configuration is an intentional empty boundary until an app-developer contract needs concrete settings.",
+      manufacturingBoundary: "KF may declare package configuration, but client runtime state remains outside the Base PKA.",
+      dedicatedRecordDecision: "defer_dedicated_record",
+      promotionTrigger: "Promote when a runtime needs governed configuration values packaged with the Base PKA."
+    }),
+    componentManufacturingItem({
+      kind: "prompt_library",
+      path: "prompts/index.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("prompts/index.json"),
+      title: "Prompt library boundary",
+      detail: "Prompt components stay intentionally empty while deterministic manufacturing does not call models.",
+      manufacturingBoundary: "Prompts become governed package components only after the provider/model-router path is approved.",
+      dedicatedRecordDecision: "defer_dedicated_record",
+      promotionTrigger: "Promote when prompts need review, reuse, versioning, or app-specific installation checks."
+    }),
+    componentManufacturingItem({
+      kind: "rule",
+      path: "rules/index.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("rules/index.json"),
+      title: "Rule library boundary",
+      detail: "Professional rules remain Knowledge Objects for now unless they need executable or reusable rule packaging.",
+      manufacturingBoundary: "Keep rules as KOs until a rule requires independent validation or runtime evaluation.",
+      dedicatedRecordDecision: "knowledge_object_backed",
+      promotionTrigger: "Promote when a rule must be executed, parameterized, or versioned separately from its explanatory KO."
+    }),
+    componentManufacturingItem({
+      kind: "template",
+      path: "templates/index.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("templates/index.json"),
+      title: "Template library boundary",
+      detail: "Templates stay as placeholder index entries until an output template must be manufactured.",
+      manufacturingBoundary: "Template text can remain in KOs until it becomes a reusable file/component.",
+      dedicatedRecordDecision: "defer_dedicated_record",
+      promotionTrigger: "Promote when a runtime app needs a governed reusable template file."
+    }),
+    componentManufacturingItem({
+      kind: "formula",
+      path: "formulas/index.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("formulas/index.json"),
+      title: "Formula library boundary",
+      detail: "Formula components are reserved for future computed professional logic.",
+      manufacturingBoundary: "Formula explanations remain KOs; executable formula assets need separate governance later.",
+      dedicatedRecordDecision: "defer_dedicated_record",
+      promotionTrigger: "Promote when formulas need executable validation, test cases, or runtime calculation."
+    }),
+    componentManufacturingItem({
+      kind: "case_library",
+      path: "cases/index.json",
+      requirement: "optional_placeholder",
+      status: placeholderStatus("cases/index.json"),
+      title: "Case library boundary",
+      detail: "Case-library components are intentionally empty until curated cases become part of a Base PKA.",
+      manufacturingBoundary: "Historical/client cases must respect Base PKA vs client-adapted PKA boundaries.",
+      dedicatedRecordDecision: "defer_dedicated_record",
+      promotionTrigger: "Promote when anonymized cases are approved as reusable Base PKA knowledge."
+    })
+  ];
+
+  return {
+    projectId,
+    packageId: exportPreview.packageId,
+    ready: items.every((item) => item.status !== "missing_required"),
+    manufacturedCount: items.filter((item) => item.status === "manufactured").length,
+    intentionalPlaceholderCount: items.filter((item) => item.status === "intentional_placeholder").length,
+    missingRequiredCount: items.filter((item) => item.status === "missing_required").length,
+    notRequiredYetCount: items.filter((item) => item.status === "not_required_yet").length,
+    items
+  };
 }
 
 function releaseDecisionDetail(status: PkaPackageReleaseStatusInput["status"], notes?: string) {
@@ -6823,6 +7061,7 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
   const blockers = releaseReadinessHints.filter((hint) => hint.level === "warning");
   const manifestPreview = await getPkaManifestPreview(projectId);
   const exportPreview = await getPkaPackageExportPreview(projectId);
+  const componentManufacturingReport = await getPkaComponentManufacturingReport(projectId);
   const releasableObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
   );
@@ -6830,6 +7069,26 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
 
   items.push(...validatePkaManifest(manifestPreview));
   items.push(...validatePkaPackageReadback(exportPreview));
+  items.push({
+    id: "component-manufacturing-readiness",
+    level: componentManufacturingReport.ready ? "ready" : "warning",
+    title: "Component manufacturing readiness",
+    detail: componentManufacturingReport.ready
+      ? `${componentManufacturingReport.manufacturedCount} manufactured component(s) and ${componentManufacturingReport.intentionalPlaceholderCount} intentional placeholder(s) are classified.`
+      : `${componentManufacturingReport.missingRequiredCount} required component(s) are missing.`
+  });
+  items.push(
+    ...componentManufacturingReport.items
+      .filter((item) => item.status !== "manufactured")
+      .map((item) => ({
+        id: item.id,
+        level: componentReadinessClass(item.status),
+        title: item.title,
+        detail: item.status === "intentional_placeholder"
+          ? `${item.detail} Promotion trigger: ${item.promotionTrigger}`
+          : item.detail
+      }))
+  );
 
   items.push({
     id: "approved-knowledge-objects",

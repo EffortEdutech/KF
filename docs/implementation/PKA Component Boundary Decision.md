@@ -98,4 +98,29 @@ Runtime apps such as LADOS and AIFA should retrieve focused governed context fro
 
 ---
 
+## 8. Manufacturing Line Batch 3 Application
+
+Batch 3 adds a component-manufacturing readiness distinction without adding new component tables.
+
+Current decision:
+
+- Required manufactured package components: Knowledge Object index, ontology vocabulary, relationship graph, source reference index, and governance record index.
+- Conditional manufactured component: `workflows/rfq-package-issue-workflow.json`, because the QS/RFQ validation article needs a governed workflow contract for package issue readiness.
+- Intentional placeholders: runtime configuration, prompts, rules, templates, formulas, cases, and generic workflow library index.
+
+The RFQ workflow contract is a component contract file, not a runtime workflow engine. KF manufactures the governed workflow structure and handoff boundary. Runtime execution remains outside Base PKA scope.
+
+Do not promote prompts, rules, templates, formulas, cases, runtime config, or workflow libraries into dedicated records until one of these triggers appears:
+
+- independent review lifecycle,
+- reusable authoring/editing surface,
+- package-level version history,
+- runtime loading/execution behavior,
+- validation rules that exceed a Knowledge Object,
+- repeated app-developer feedback requesting the dedicated component.
+
+Rules and formula explanations remain Knowledge Objects until they need executable or machine-readable behavior. Prompt libraries remain deferred while Ollama/model integration is gated.
+
+---
+
 **End of PKA Component Boundary Decision**
