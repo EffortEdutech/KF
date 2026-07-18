@@ -632,6 +632,32 @@ export type RuntimeHandoffFeedbackSummary = {
   items: RuntimeHandoffFeedbackRecord[];
 };
 
+export type RuntimeConsumerProfileId = "generic_runtime" | "aifa" | "lados";
+
+export type RuntimeConsumptionDecision = RuntimeHandoffInstallDecision;
+
+export type RuntimeConsumerProfileReport = {
+  id: RuntimeConsumerProfileId;
+  label: string;
+  decision: RuntimeConsumptionDecision;
+  supportedCapabilities: string[];
+  requiredCapabilities: string[];
+  unsupportedCapabilities: string[];
+  contextBoundary: string;
+  installerChecklist: string[];
+  nextAction: string;
+};
+
+export type RuntimeConsumptionContractReport = {
+  packageId: string;
+  packageName?: string;
+  packageDomain?: string;
+  handoffDecision: RuntimeHandoffInstallDecision;
+  importStatus?: RuntimePkaImportReport["status"];
+  genericChecklist: RuntimeHandoffReadbackItem[];
+  profiles: RuntimeConsumerProfileReport[];
+};
+
 export const runtimeHandoffFixturePaths = {
   missing_required_file: "runtime/app-developer-handoff-missing-required-file.json",
   review_required: "runtime/app-developer-handoff-review-required.json"
@@ -6629,6 +6655,139 @@ export async function validateRuntimeAppDeveloperHandoff(
     feedbackQuestions,
     nextDeveloperSlice: stringArray(handoff.nextDeveloperSlice),
     items
+  };
+}
+
+function profileDecision(input: {
+  handoffDecision: RuntimeHandoffInstallDecision;
+  importStatus?: RuntimePkaImportReport["status"];
+  unsupportedCapabilities: string[];
+  forceReview?: boolean;
+}): RuntimeConsumptionDecision {
+  if (input.handoffDecision === "blocked" || input.importStatus === "blocked") {
+    return "blocked";
+  }
+
+  if (input.forceReview || input.handoffDecision === "installation_review_required" || input.unsupportedCapabilities.length > 0) {
+    return "installation_review_required";
+  }
+
+  return "installable";
+}
+
+function profileNextAction(decision: RuntimeConsumptionDecision) {
+  if (decision === "installable") {
+    return "Install for deterministic context retrieval; keep model calls behind the runtime provider policy.";
+  }
+
+  if (decision === "installation_review_required") {
+    return "Route to runtime owner review before enabling package use.";
+  }
+
+  return "Block installation and request a corrected package export.";
+}
+
+function runtimeConsumerProfileReport(input: {
+  id: RuntimeConsumerProfileId;
+  label: string;
+  handoffDecision: RuntimeHandoffInstallDecision;
+  importStatus?: RuntimePkaImportReport["status"];
+  supportedCapabilities: string[];
+  requiredCapabilities: string[];
+  contextBoundary: string;
+  installerChecklist: string[];
+  forceReview?: boolean;
+}): RuntimeConsumerProfileReport {
+  const unsupportedCapabilities = input.requiredCapabilities.filter(
+    (capability) => !input.supportedCapabilities.includes(capability)
+  );
+  const decision = profileDecision({
+    handoffDecision: input.handoffDecision,
+    importStatus: input.importStatus,
+    unsupportedCapabilities,
+    forceReview: input.forceReview
+  });
+
+  return {
+    id: input.id,
+    label: input.label,
+    decision,
+    supportedCapabilities: input.supportedCapabilities,
+    requiredCapabilities: input.requiredCapabilities,
+    unsupportedCapabilities,
+    contextBoundary: input.contextBoundary,
+    installerChecklist: input.installerChecklist,
+    nextAction: profileNextAction(decision)
+  };
+}
+
+export async function getRuntimeConsumptionContractReport(
+  packageId: string,
+  handoffPath = "runtime/app-developer-handoff.json"
+): Promise<RuntimeConsumptionContractReport> {
+  const packageRecord = (await listPkaPackages()).find((pkaPackage) => pkaPackage.packageId === packageId);
+  const handoff = await validateRuntimeAppDeveloperHandoff(packageId, handoffPath);
+  const runtimeImport = await validateRuntimePkaImportReadback(packageId).catch(() => undefined);
+  const requiredCapabilities = runtimeImport?.requiredRuntimeCapabilities ?? [];
+  const packageDomain = packageRecord?.domain;
+  const aifaRequiresReview = Boolean(packageDomain && !/bookkeeping|finance|account/i.test(packageDomain));
+  const profiles: RuntimeConsumerProfileReport[] = [
+    runtimeConsumerProfileReport({
+      id: "generic_runtime",
+      label: "Generic PKA runtime",
+      handoffDecision: handoff.decision,
+      importStatus: runtimeImport?.status,
+      supportedCapabilities: ["knowledge_object_lookup", "relationship_traversal", "source_citation"],
+      requiredCapabilities,
+      contextBoundary:
+        "Load the Base PKA as governed package content; keep runtime facts, user sessions, and client vault state outside the package.",
+      installerChecklist: [
+        "Validate manifest, governance, component indexes, and archive readback.",
+        "Use approved/published knowledge only for production context.",
+        "Return focused context bundles instead of sending full package archives to a model."
+      ]
+    }),
+    runtimeConsumerProfileReport({
+      id: "aifa",
+      label: "AIFA mobile app",
+      handoffDecision: handoff.decision,
+      importStatus: runtimeImport?.status,
+      supportedCapabilities: ["knowledge_object_lookup", "relationship_traversal", "source_citation"],
+      requiredCapabilities,
+      forceReview: aifaRequiresReview,
+      contextBoundary:
+        "AIFA keeps ledgers, transactions, bookkeeping state, chat memory, and client learning outside the Base PKA.",
+      installerChecklist: [
+        "Confirm the package domain is appropriate for AIFA before installation.",
+        "Use PKA guidance as professional reasoning context, not as ledger/runtime data.",
+        "Require installation review for non-finance/non-bookkeeping packages."
+      ]
+    }),
+    runtimeConsumerProfileReport({
+      id: "lados",
+      label: "LADOS runtime",
+      handoffDecision: handoff.decision,
+      importStatus: runtimeImport?.status,
+      supportedCapabilities: ["knowledge_object_lookup", "relationship_traversal", "source_citation"],
+      requiredCapabilities,
+      contextBoundary:
+        "LADOS may orchestrate workflows and tools, but project facts, mission state, permissions, and client vault data remain runtime-owned.",
+      installerChecklist: [
+        "Expose installed PKA retrieval through runtime tools or MCP-compatible interfaces.",
+        "Keep workflow execution disabled until the runtime explicitly supports the component contract.",
+        "Log retrieval decisions and preserve source citations."
+      ]
+    })
+  ];
+
+  return {
+    packageId,
+    packageName: packageRecord?.name,
+    packageDomain,
+    handoffDecision: handoff.decision,
+    importStatus: runtimeImport?.status,
+    genericChecklist: handoff.items,
+    profiles
   };
 }
 

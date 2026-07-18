@@ -8,6 +8,7 @@ import {
   listPkaPackages,
   listProjects,
   listRuntimeHandoffFeedback,
+  getRuntimeConsumptionContractReport,
   runtimeHandoffFixturePaths,
   validateRuntimeAppDeveloperHandoff
 } from "../workspace-store";
@@ -35,6 +36,9 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
   const handoffPath = params?.handoffPath ?? "runtime/app-developer-handoff.json";
   const report = selectedPackage
     ? await validateRuntimeAppDeveloperHandoff(selectedPackage.packageId, handoffPath)
+    : undefined;
+  const consumptionContractReport = selectedPackage
+    ? await getRuntimeConsumptionContractReport(selectedPackage.packageId, handoffPath)
     : undefined;
   const feedbackSummary = selectedPackage
     ? await listRuntimeHandoffFeedback(selectedPackage.packageId)
@@ -89,6 +93,97 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
           <span>Recorded feedback</span>
           <strong>{feedbackSummary?.totalFeedbackCount ?? 0}</strong>
         </div>
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Runtime Consumption Contract</p>
+            <h3>Generic app-developer installer profile</h3>
+          </div>
+          <span className="pill">
+            {consumptionContractReport?.importStatus ?? "no import"} /{" "}
+            {consumptionContractReport ? decisionLabel(consumptionContractReport.handoffDecision) : "no handoff"}
+          </span>
+        </div>
+        {consumptionContractReport ? (
+          <>
+            <section className="metrics" aria-label="Runtime consumption contract metrics">
+              <div className="metric">
+                <span>Profiles</span>
+                <strong>{consumptionContractReport.profiles.length}</strong>
+              </div>
+              <div className="metric">
+                <span>Installable</span>
+                <strong>
+                  {consumptionContractReport.profiles.filter((profile) => profile.decision === "installable").length}
+                </strong>
+              </div>
+              <div className="metric">
+                <span>Review required</span>
+                <strong>
+                  {
+                    consumptionContractReport.profiles.filter(
+                      (profile) => profile.decision === "installation_review_required"
+                    ).length
+                  }
+                </strong>
+              </div>
+              <div className="metric">
+                <span>Blocked</span>
+                <strong>{consumptionContractReport.profiles.filter((profile) => profile.decision === "blocked").length}</strong>
+              </div>
+            </section>
+            <div className="readiness-list" aria-label="Runtime consumption profiles">
+              {consumptionContractReport.profiles.map((profile) => (
+                <div
+                  className={`readiness-item ${
+                    profile.decision === "installable"
+                      ? "readiness-ready"
+                      : profile.decision === "blocked"
+                        ? "readiness-blocked"
+                        : "readiness-warning"
+                  }`}
+                  key={profile.id}
+                >
+                  <strong>{profile.label}</strong>
+                  <span>{decisionLabel(profile.decision)}</span>
+                  <span>{profile.contextBoundary}</span>
+                  <span>
+                    Unsupported capabilities:{" "}
+                    {profile.unsupportedCapabilities.length > 0
+                      ? profile.unsupportedCapabilities.join(", ")
+                      : "none"}
+                  </span>
+                  <span>{profile.nextAction}</span>
+                </div>
+              ))}
+            </div>
+            <div className="readiness-list compact-list" aria-label="Runtime consumption generic checklist">
+              {consumptionContractReport.genericChecklist.map((item) => (
+                <div
+                  className={`readiness-item ${
+                    item.decision === "pass"
+                      ? "readiness-ready"
+                      : item.decision === "blocked"
+                        ? "readiness-blocked"
+                        : "readiness-warning"
+                  }`}
+                  key={item.id}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{decisionLabel(item.decision)}</span>
+                  <span>{item.detail}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="empty-state compact-empty">
+            <strong>No consumption contract</strong>
+            <span>Publish a package before inspecting runtime consumption profiles.</span>
+          </div>
+        )}
       </section>
 
       <section className="board board-two">

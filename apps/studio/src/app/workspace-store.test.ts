@@ -38,6 +38,7 @@ import {
   getRuntimeQaAnswerReadinessReport,
   getRuntimeQaContextBundlePreview,
   getRuntimeQaFixtureEvaluationReport,
+  getRuntimeConsumptionContractReport,
   getQsRfqPilotSourcePack,
   getProjectSourceCount,
   getSourceReadinessHints,
@@ -1174,6 +1175,23 @@ async function runWorkspaceStoreContractTest() {
   expect(
     runtimeHandoffReport.relationshipEvidencePolicy?.dedicatedTableStatus === "deferred_for_pilot",
     "runtime handoff should carry the relationship evidence table decision"
+  );
+  const runtimeConsumptionContract = await getRuntimeConsumptionContractReport(publishedPackage.packageId);
+  expect(
+    runtimeConsumptionContract.profiles.length === 3,
+    "runtime consumption contract should expose generic, AIFA, and LADOS installer profiles"
+  );
+  expect(
+    runtimeConsumptionContract.profiles.some(
+      (profile) => profile.id === "lados" && profile.decision === "installable"
+    ),
+    "LADOS profile should be installable when the package handoff and import checks pass"
+  );
+  expect(
+    runtimeConsumptionContract.profiles.some(
+      (profile) => profile.id === "aifa" && profile.decision === "installation_review_required"
+    ),
+    "AIFA profile should require installation review for a non-finance Base PKA"
   );
   const missingHandoffReport = await validateRuntimeAppDeveloperHandoff(
     publishedPackage.packageId,

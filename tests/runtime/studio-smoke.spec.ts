@@ -502,6 +502,12 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Runtime import loaded counts").getByText("Ontology types")).toBeVisible();
     await page.goto(`/runtime-handoff?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Consuming App Handoff" })).toBeVisible();
+    await expect(page.getByText("Runtime Consumption Contract", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Runtime consumption contract metrics").getByText("Profiles")).toBeVisible();
+    await expect(page.getByLabel("Runtime consumption profiles").getByText("Generic PKA runtime")).toBeVisible();
+    await expect(page.getByLabel("Runtime consumption profiles").getByText("AIFA mobile app")).toBeVisible();
+    await expect(page.getByLabel("Runtime consumption profiles").getByText("LADOS runtime")).toBeVisible();
+    await expect(page.getByLabel("Runtime consumption profiles").getByText("installation review required")).toBeVisible();
     await expect(page.getByLabel("Runtime handoff decision metrics").getByText("installable")).toBeVisible();
     await expect(page.getByLabel("Runtime handoff installer checks").getByText("Required package files")).toBeVisible();
     await expect(page.getByLabel("Runtime handoff installer checks").getByText("pass").first()).toBeVisible();

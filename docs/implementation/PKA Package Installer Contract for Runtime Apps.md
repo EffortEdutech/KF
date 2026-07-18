@@ -152,6 +152,24 @@ The harness exposes decision drilldowns for all/importable/blocked outcomes and 
 
 This harness is a contract test for runtime developers. It is not a substitute for AIFA or LADOS runtime installation, permissions, tenant isolation, vault state, or execution engines.
 
+The consuming-app handoff surface now also exposes a generic Runtime Consumption Contract report. The report applies the same published package and handoff file to multiple runtime profiles:
+
+- Generic PKA runtime.
+- AIFA mobile app.
+- LADOS runtime.
+
+Each profile records:
+
+- install decision,
+- supported capabilities,
+- required package capabilities,
+- unsupported capabilities,
+- runtime/client-state boundary,
+- installer checklist,
+- next action.
+
+A package can therefore be installable for one runtime and `installation_review_required` for another without changing the Base PKA. For example, the QS/RFQ validation article is suitable for LADOS inspection, while AIFA should route it to installation review because it is outside the finance/bookkeeping runtime domain.
+
 ---
 
 ## 7. QS/RFQ Pilot Package Readback Checklist

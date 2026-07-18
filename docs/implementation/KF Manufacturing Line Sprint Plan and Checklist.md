@@ -301,6 +301,14 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 - [x] Add relationship density and evidence coverage.
 - [x] Add package quality report in PKA Builder.
 
+### Batch 5 Must Finish - Runtime Consumption Contract
+
+- [x] Review generic handoff schema across AIFA, LADOS, and future runtimes.
+- [x] Add app-developer checklist for any Base PKA.
+- [x] Align runtime import/readback fixtures with handoff decisions.
+- [x] Add runtime consumer profile decisions for Generic Runtime, AIFA, and LADOS.
+- [x] Keep feedback loop routed into Continuous Improvement without adding runtime execution.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -433,6 +441,13 @@ Done when:
 
 A runtime developer can inspect a Base PKA without knowing the pilot internals.
 
+Implementation status:
+
+- [x] `getRuntimeConsumptionContractReport` maps a published package into Generic Runtime, AIFA, and LADOS installer profiles.
+- [x] `/runtime-handoff` shows profile decisions, supported/required capabilities, unsupported capabilities, context boundaries, generic checklist checks, and next actions.
+- [x] AIFA can require installation review for non-finance/non-bookkeeping packages while LADOS remains installable when deterministic handoff/import checks pass.
+- [x] Feedback still records into package governance history and Continuous Improvement gates; no runtime execution was added.
+
 ---
 
 ## 8. Decision Gates
@@ -470,9 +485,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Continue **Batch 4 - PKA Product Quality** by verifying quality scoring, refreshing Graphify, and closing the batch with a capability-level commit.
+Continue **Batch 5 - Runtime Consumption Contract** by verifying generic runtime profiles, refreshing Graphify, and closing the batch with a capability-level commit.
 
-Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, or marketplace distribution unless they block measurable PKA product quality.
+Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, or marketplace distribution unless they block the generic runtime consumption contract.
 
 ---
 
