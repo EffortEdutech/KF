@@ -14,10 +14,12 @@ import {
   createMission,
   createSource,
   createReviewDecision,
+  createRuntimeHandoffReadbackFixtures,
   createRuntimePkaImportFixtures,
   filterReleaseReadinessHints,
   getKnowledgeObject,
   getKnowledgeObjectReviewReadinessHints,
+  getManufacturingLineRunReport,
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
   getPipelineQualityMetrics,
@@ -56,6 +58,7 @@ import {
   publishPkaPackage,
   releaseBlockerTypeFromHintId,
   recordRuntimePkaImportDecision,
+  recordRuntimeHandoffFeedback,
   recordRfqWorkflowGateAction,
   repairSourceArtifact,
   resetWorkspaceStoreForTests,
@@ -74,6 +77,7 @@ import {
   validatePkaPackageReadback,
   validatePersistedPkaPackageReadback,
   validateRuntimeAppDeveloperHandoff,
+  listRuntimeHandoffFeedback,
   validateRuntimePkaImportReadback,
   validatePkaManifest
 } from "./workspace-store";
@@ -1143,6 +1147,99 @@ async function runWorkspaceStoreContractTest() {
   expect(
     missingHandoffReport.decision === "blocked",
     "missing app-developer handoff file should block consuming-app installation"
+  );
+  const runtimeHandoffFixtures = await createRuntimeHandoffReadbackFixtures(publishedPackage.packageId);
+  const missingRequiredFileReport = await validateRuntimeAppDeveloperHandoff(
+    publishedPackage.packageId,
+    runtimeHandoffFixtures.missing_required_file
+  );
+  expect(
+    missingRequiredFileReport.decision === "blocked",
+    "missing required handoff file fixture should block consuming-app installation"
+  );
+  expect(
+    missingRequiredFileReport.items.some(
+      (item) => item.id === "runtime-handoff-required-files" && item.decision === "blocked"
+    ),
+    "missing required handoff file fixture should identify the blocked required-files check"
+  );
+  const reviewRequiredHandoffReport = await validateRuntimeAppDeveloperHandoff(
+    publishedPackage.packageId,
+    runtimeHandoffFixtures.review_required
+  );
+  expect(
+    reviewRequiredHandoffReport.decision === "installation_review_required",
+    "runtime-owner-review handoff fixture should require installation review"
+  );
+  expect(
+    reviewRequiredHandoffReport.items.some(
+      (item) =>
+        item.id === "runtime-handoff-runtime-owner-review" &&
+        item.decision === "installation_review_required"
+    ),
+    "runtime-owner-review handoff fixture should identify the review-required check"
+  );
+  const initialHandoffFeedback = await recordRuntimeHandoffFeedback({
+    packageId: publishedPackage.packageId,
+    runtimeApp: "LADOS pilot consumer",
+    decision: "provenance_ok_for_pilot",
+    actor: "runtime_consumer",
+    notes: "Relationship evidence provenance is enough for the QS/RFQ pilot handoff."
+  });
+  expect(
+    initialHandoffFeedback.relationshipEvidenceDecision === "keep_provenance_for_pilot",
+    "provenance-ok feedback should keep the relationship evidence table deferred for pilot"
+  );
+  const multiSourceHandoffFeedback = await recordRuntimeHandoffFeedback({
+    packageId: publishedPackage.packageId,
+    runtimeApp: "AIFA pilot consumer",
+    decision: "needs_multi_source_lifecycle",
+    actor: "runtime_consumer",
+    notes: "Consumer needs independent lifecycle for multiple relationship evidence citations."
+  });
+  expect(
+    multiSourceHandoffFeedback.relationshipEvidenceDecision ===
+      "monitor_multi_source_lifecycle_feedback",
+    "first multi-source lifecycle feedback should be monitored without immediately creating a relationship evidence table"
+  );
+  const repeatedMultiSourceHandoffFeedback = await recordRuntimeHandoffFeedback({
+    packageId: publishedPackage.packageId,
+    runtimeApp: "QS/RFQ pilot consumer",
+    decision: "needs_multi_source_lifecycle",
+    actor: "runtime_consumer",
+    notes: "Second consumer also needs independent relationship evidence lifecycle."
+  });
+  expect(
+    repeatedMultiSourceHandoffFeedback.relationshipEvidenceDecision ===
+      "investigate_dedicated_relationship_evidence_table",
+    "repeated multi-source lifecycle feedback should flag the dedicated relationship evidence table for investigation"
+  );
+  expect(
+    repeatedMultiSourceHandoffFeedback.repeatedMultiSourceLifecycleFeedback,
+    "repeated lifecycle feedback should be explicit in the handoff feedback summary"
+  );
+  expect(
+    (await listRuntimeHandoffFeedback(publishedPackage.packageId)).items.some(
+      (item) =>
+        item.runtimeApp === "AIFA pilot consumer" &&
+        item.decision === "needs_multi_source_lifecycle"
+    ),
+    "runtime handoff feedback records should be queryable from package governance history"
+  );
+  const manufacturingLineReport = await getManufacturingLineRunReport(project.id);
+  expect(
+    manufacturingLineReport.stages.length === 10,
+    "Manufacturing Line report should expose all ten KF factory stages"
+  );
+  expect(
+    manufacturingLineReport.summary.readyStageCount >= 8,
+    "Manufacturing Line report should show the manufactured package moving through the reusable factory line"
+  );
+  expect(
+    manufacturingLineReport.stages.some(
+      (stage) => stage.id === "runtime_handoff" && stage.status === "ready"
+    ),
+    "Manufacturing Line report should include runtime handoff readiness"
   );
   await recordRuntimePkaImportDecision({
     packageId: publishedPackage.packageId,

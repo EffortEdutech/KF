@@ -1,7 +1,14 @@
 import Link from "next/link";
 import {
+  createRuntimeHandoffReadbackFixturesAction,
+  recordRuntimeHandoffFeedbackAction
+} from "../source-actions";
+import {
+  listPersistedPkaExportFiles,
   listPkaPackages,
   listProjects,
+  listRuntimeHandoffFeedback,
+  runtimeHandoffFixturePaths,
   validateRuntimeAppDeveloperHandoff
 } from "../workspace-store";
 
@@ -9,6 +16,7 @@ type RuntimeHandoffPageProps = {
   searchParams?: Promise<{
     projectId?: string;
     packageId?: string;
+    handoffPath?: string;
   }>;
 };
 
@@ -23,9 +31,17 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
   const packages = activeProject ? await listPkaPackages(activeProject.id) : [];
   const selectedPackage =
     packages.find((pkaPackage) => pkaPackage.packageId === params?.packageId) ?? packages[0];
+  const persistedFiles = selectedPackage ? await listPersistedPkaExportFiles(selectedPackage.packageId) : [];
+  const handoffPath = params?.handoffPath ?? "runtime/app-developer-handoff.json";
   const report = selectedPackage
-    ? await validateRuntimeAppDeveloperHandoff(selectedPackage.packageId)
+    ? await validateRuntimeAppDeveloperHandoff(selectedPackage.packageId, handoffPath)
     : undefined;
+  const feedbackSummary = selectedPackage
+    ? await listRuntimeHandoffFeedback(selectedPackage.packageId)
+    : undefined;
+  const fixtureFiles = Object.entries(runtimeHandoffFixturePaths).filter(([, path]) =>
+    persistedFiles.some((file) => file.path === path)
+  );
 
   return (
     <>
@@ -69,6 +85,10 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
           <span>Feedback prompts</span>
           <strong>{report?.feedbackQuestionCount ?? 0}</strong>
         </div>
+        <div className="metric">
+          <span>Recorded feedback</span>
+          <strong>{feedbackSummary?.totalFeedbackCount ?? 0}</strong>
+        </div>
       </section>
 
       <section className="board board-two">
@@ -107,8 +127,47 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
         </article>
 
         <article className="panel">
-          <p className="eyebrow">Handoff summary</p>
-          <h3>Runtime installer posture</h3>
+          <p className="eyebrow">Fixture cases</p>
+          <h3>Negative handoff readback</h3>
+          {selectedPackage ? (
+            <form action={createRuntimeHandoffReadbackFixturesAction} className="source-form compact-form">
+              <input type="hidden" name="packageId" value={selectedPackage.packageId} />
+              <button type="submit">Create handoff fixtures</button>
+            </form>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No package available</strong>
+              <span>Publish a package before creating handoff fixtures.</span>
+            </div>
+          )}
+          <div className="tags" aria-label="Runtime handoff fixture selectors">
+            {selectedPackage && activeProject ? (
+              <Link
+                className="pill"
+                href={`/runtime-handoff?projectId=${activeProject.id}&packageId=${selectedPackage.packageId}`}
+              >
+                Valid handoff
+              </Link>
+            ) : null}
+            {fixtureFiles.map(([kind, path]) =>
+              selectedPackage && activeProject ? (
+                <Link
+                  className="pill"
+                  href={`/runtime-handoff?projectId=${activeProject.id}&packageId=${selectedPackage.packageId}&handoffPath=${encodeURIComponent(path)}`}
+                  key={kind}
+                >
+                  {kind.replaceAll("_", " ")}
+                </Link>
+              ) : null
+            )}
+            {fixtureFiles.length === 0 ? <span className="pill">No fixtures yet</span> : null}
+          </div>
+        </article>
+      </section>
+
+      <section className="panel">
+        <p className="eyebrow">Handoff summary</p>
+        <h3>Runtime installer posture</h3>
           <p>{report?.summary ?? "No handoff summary is available yet."}</p>
           <div className="readiness-list" aria-label="Runtime handoff next developer slice">
             {report?.nextDeveloperSlice.map((step) => (
@@ -118,7 +177,6 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
               </div>
             ))}
           </div>
-        </article>
       </section>
 
       <section className="panel">
@@ -183,6 +241,109 @@ export default async function RuntimeHandoffPage({ searchParams }: RuntimeHandof
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="board board-two">
+        <article className="panel panel-strong">
+          <p className="eyebrow">App-developer review</p>
+          <h3>Record handoff feedback</h3>
+          {selectedPackage ? (
+            <form action={recordRuntimeHandoffFeedbackAction} className="source-form">
+              <input type="hidden" name="packageId" value={selectedPackage.packageId} />
+              <label>
+                Runtime app
+                <input name="runtimeApp" defaultValue="LADOS pilot consumer" />
+              </label>
+              <label>
+                Feedback decision
+                <select name="decision" defaultValue="provenance_ok_for_pilot">
+                  <option value="provenance_ok_for_pilot">Provenance is OK for pilot</option>
+                  <option value="needs_multi_source_lifecycle">Needs multi-source relationship evidence lifecycle</option>
+                  <option value="needs_installation_review_records">Needs persisted app-developer review records</option>
+                </select>
+              </label>
+              <label>
+                Notes
+                <textarea
+                  name="notes"
+                  defaultValue="Pilot consumer can read relationship evidence from graph provenance for this QS/RFQ handoff."
+                />
+              </label>
+              <input type="hidden" name="actor" value="runtime_consumer" />
+              <button type="submit">Record handoff feedback</button>
+            </form>
+          ) : (
+            <div className="empty-state compact-empty">
+              <strong>No package selected</strong>
+              <span>Publish a package before recording consuming-app feedback.</span>
+            </div>
+          )}
+        </article>
+
+        <article className="panel">
+          <p className="eyebrow">Decision posture</p>
+          <h3>{feedbackSummary?.relationshipEvidenceDecision.replaceAll("_", " ") ?? "awaiting feedback"}</h3>
+          <dl className="detail-list" aria-label="Runtime handoff feedback summary">
+            <div>
+              <dt>Relationship evidence decision</dt>
+              <dd>
+                {feedbackSummary?.relationshipEvidenceDecision.replaceAll("_", " ") ??
+                  "keep provenance for pilot"}
+              </dd>
+            </div>
+            <div>
+              <dt>Provenance OK</dt>
+              <dd>{feedbackSummary?.provenanceOkCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Multi-source lifecycle requested</dt>
+              <dd>
+                {feedbackSummary?.multiSourceLifecycleRequestCount ?? 0} /{" "}
+                {feedbackSummary?.multiSourceLifecycleThreshold ?? 2}
+              </dd>
+            </div>
+            <div>
+              <dt>Repeated lifecycle signal</dt>
+              <dd>{feedbackSummary?.repeatedMultiSourceLifecycleFeedback ? "yes" : "no"}</dd>
+            </div>
+            <div>
+              <dt>Review record request</dt>
+              <dd>{feedbackSummary?.installationReviewRecordRequestCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Feedback persistence</dt>
+              <dd>
+                {feedbackSummary?.handoffFeedbackPersistenceDecision.replaceAll("_", " ") ??
+                  "audit backed records for pilot"}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Recorded feedback</p>
+            <h3>Consuming-app review history</h3>
+          </div>
+          <span className="pill">{feedbackSummary?.totalFeedbackCount ?? 0} record(s)</span>
+        </div>
+        <div className="readiness-list" aria-label="Runtime handoff feedback history">
+          {feedbackSummary?.items.map((item) => (
+            <div className="readiness-item readiness-info" key={item.id}>
+              <strong>{item.runtimeApp}</strong>
+              <span>{item.decision.replaceAll("_", " ")}</span>
+              <span>{item.notes || "No notes recorded."}</span>
+            </div>
+          ))}
+          {feedbackSummary?.items.length === 0 ? (
+            <div className="empty-state compact-empty">
+              <strong>No feedback recorded</strong>
+              <span>Record pilot consumer feedback before deciding whether relationship evidence needs a table.</span>
+            </div>
+          ) : null}
+        </div>
       </section>
     </>
   );

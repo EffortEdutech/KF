@@ -136,6 +136,56 @@ export type PipelineQualityMetrics = {
   deferOrRejectRate: number;
 };
 
+export type ManufacturingLineStageId =
+  | "source_intake"
+  | "preparation_extraction"
+  | "ko_manufacturing"
+  | "relationship_evidence"
+  | "human_governance"
+  | "pka_assembly"
+  | "release_publication"
+  | "runtime_handoff"
+  | "consumption_validation"
+  | "continuous_improvement";
+
+export type ManufacturingLineStageStatus = "ready" | "building" | "blocked";
+
+export type ManufacturingLineStage = {
+  id: ManufacturingLineStageId;
+  stageNumber: number;
+  title: string;
+  status: ManufacturingLineStageStatus;
+  capability: string;
+  genericRequirement: string;
+  validationArticle: string;
+  metric: string;
+  detail: string;
+  href: string;
+};
+
+export type ManufacturingLineRunReport = {
+  projectId: string;
+  projectName: string;
+  status: ManufacturingLineStageStatus;
+  validationArticle: string;
+  summary: {
+    readyStageCount: number;
+    buildingStageCount: number;
+    blockedStageCount: number;
+    sourceCount: number;
+    chunkCount: number;
+    approvedKnowledgeObjectCount: number;
+    approvedRelationshipCount: number;
+    latestPackageStatus?: LifecycleState;
+    latestPackageId?: string;
+    runtimeImportStatus?: RuntimePkaImportReport["status"];
+    runtimeHandoffDecision?: RuntimeHandoffInstallDecision;
+    runtimeQaReady: boolean;
+  };
+  stages: ManufacturingLineStage[];
+  nextActions: string[];
+};
+
 export type PipelineSuggestionReviewReport = {
   projectId?: string;
   sourceId?: string;
@@ -406,6 +456,56 @@ export type RuntimeHandoffReadbackReport = {
   nextDeveloperSlice: string[];
   items: RuntimeHandoffReadbackItem[];
 };
+
+export type RuntimeHandoffFeedbackDecision =
+  | "provenance_ok_for_pilot"
+  | "needs_multi_source_lifecycle"
+  | "needs_installation_review_records";
+
+export type RuntimeHandoffFeedbackInput = {
+  packageId: string;
+  actor?: string;
+  runtimeApp: string;
+  decision: RuntimeHandoffFeedbackDecision;
+  notes?: string;
+};
+
+export type RuntimeHandoffFeedbackRecord = {
+  id: string;
+  packageId: string;
+  runtimeApp: string;
+  decision: RuntimeHandoffFeedbackDecision;
+  actorId?: string;
+  notes?: string;
+  createdAt: string;
+};
+
+export type RuntimeHandoffFeedbackSummary = {
+  packageId: string;
+  totalFeedbackCount: number;
+  provenanceOkCount: number;
+  multiSourceLifecycleRequestCount: number;
+  installationReviewRecordRequestCount: number;
+  multiSourceLifecycleThreshold: number;
+  repeatedMultiSourceLifecycleFeedback: boolean;
+  relationshipEvidenceDecision:
+    | "keep_provenance_for_pilot"
+    | "monitor_multi_source_lifecycle_feedback"
+    | "investigate_dedicated_relationship_evidence_table";
+  handoffFeedbackPersistenceDecision:
+    | "audit_backed_records_for_pilot"
+    | "promote_to_dedicated_app_developer_review_table_later";
+  items: RuntimeHandoffFeedbackRecord[];
+};
+
+export const runtimeHandoffFixturePaths = {
+  missing_required_file: "runtime/app-developer-handoff-missing-required-file.json",
+  review_required: "runtime/app-developer-handoff-review-required.json"
+} as const;
+
+export type RuntimeHandoffFixtureKind = keyof typeof runtimeHandoffFixturePaths;
+
+const runtimeHandoffMultiSourceLifecycleThreshold = 2;
 
 export type PkaManifestPreview = {
   packageId: string;
@@ -4192,6 +4292,260 @@ export async function getRuntimeQaFixtureEvaluationReport(
   };
 }
 
+function manufacturingStageStatus(ready: boolean, blocked: boolean): ManufacturingLineStageStatus {
+  if (blocked) {
+    return "blocked";
+  }
+
+  return ready ? "ready" : "building";
+}
+
+function manufacturingValidationArticle(projectId: string) {
+  return projectId === qsRfqPilotProjectId
+    ? "QS/RFQ from BOQ Base PKA"
+    : "No validation article assigned yet";
+}
+
+export async function getManufacturingLineRunReport(projectId: string): Promise<ManufacturingLineRunReport> {
+  const project = (await listProjects()).find((item) => item.id === projectId);
+  if (!project) {
+    throw new Error("Project is required for Manufacturing Line reporting.");
+  }
+
+  const [
+    sources,
+    sourceChunks,
+    knowledgeObjects,
+    relationships,
+    packages,
+    pipelineMetrics,
+    releaseReadinessHints,
+    packageValidation,
+    runtimeQaReadiness,
+    fixtureEvaluation
+  ] = await Promise.all([
+    listSourcesByProject(projectId),
+    listSourceChunks({ projectId }),
+    listKnowledgeObjects({ projectId }),
+    listKnowledgeRelationships({ projectId }),
+    listPkaPackages(projectId),
+    getPipelineQualityMetrics({ projectId }),
+    getPkaReleaseReadinessHints(projectId),
+    getPkaPackageValidationReport(projectId),
+    getRuntimeQaAnswerReadinessReport(projectId),
+    getRuntimeQaFixtureEvaluationReport(projectId)
+  ]);
+  const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
+    approvedKnowledgeObject(knowledgeObject.status)
+  );
+  const approvedRelationships = relationships.filter((relationship) => relationship.status === "approved");
+  const packageRecord = latestPublishedPackage(packages) ?? packages[0];
+  const publishedPackage = packageRecord?.status === "published" ? packageRecord : undefined;
+  const runtimeImport = publishedPackage
+    ? await validateRuntimePkaImportReadback(publishedPackage.packageId)
+    : undefined;
+  const runtimeHandoff = publishedPackage
+    ? await validateRuntimeAppDeveloperHandoff(publishedPackage.packageId)
+    : undefined;
+  const handoffFeedback = publishedPackage
+    ? await listRuntimeHandoffFeedback(publishedPackage.packageId)
+    : undefined;
+  const releaseBlockerCount = releaseReadinessHints.filter((hint) => hint.level === "warning").length;
+  const packageValidationBlockerCount = packageValidation.filter((item) => item.level === "warning").length;
+  const validationArticle = manufacturingValidationArticle(projectId);
+  const stageInputs = [
+    {
+      id: "source_intake" as const,
+      title: "Source Intake",
+      ready: sources.length > 0,
+      blocked: sources.length === 0,
+      capability: "Register trusted source materials.",
+      genericRequirement: "Every PKA project declares source inputs with ownership, usage policy, provenance, and processing status.",
+      metric: `${sources.length} source(s) registered`,
+      detail:
+        sources.length > 0
+          ? "Source records are available for the selected PKA project."
+          : "Register at least one trusted source before manufacturing can begin.",
+      href: `/sources?projectId=${projectId}`
+    },
+    {
+      id: "preparation_extraction" as const,
+      title: "Preparation and Extraction",
+      ready: sourceChunks.length > 0 && pipelineMetrics.acceptedSuggestionCount > 0,
+      blocked: sources.length > 0 && sourceChunks.length === 0,
+      capability: "Prepare source artifacts and create reviewable candidates.",
+      genericRequirement: "Extraction creates traceable chunks, KO suggestions, and relationship suggestions while AI output remains draft.",
+      metric: `${sourceChunks.length} chunk(s), ${pipelineMetrics.acceptedSuggestionCount} accepted suggestion(s)`,
+      detail:
+        sourceChunks.length > 0
+          ? "The manufacturing pipeline has prepared source chunks and suggestion decisions."
+          : "Run ingestion to prepare source chunks and deterministic candidates.",
+      href: `/pipeline?projectId=${projectId}`
+    },
+    {
+      id: "ko_manufacturing" as const,
+      title: "Knowledge Object Manufacturing",
+      ready: approvedKnowledgeObjects.length > 0,
+      blocked: knowledgeObjects.length === 0,
+      capability: "Convert candidates into governed Knowledge Objects.",
+      genericRequirement: "KOs become reusable manufactured components with lifecycle, ownership, metadata, and source evidence.",
+      metric: `${approvedKnowledgeObjects.length}/${knowledgeObjects.length} release-grade KO(s)`,
+      detail:
+        approvedKnowledgeObjects.length > 0
+          ? "Approved or release-grade Knowledge Objects are ready for PKA assembly."
+          : "Accept, evidence, and approve Knowledge Objects before package release.",
+      href: `/knowledge-objects?projectId=${projectId}`
+    },
+    {
+      id: "relationship_evidence" as const,
+      title: "Relationship and Evidence Manufacturing",
+      ready: approvedRelationships.length > 0 && relationships.every((relationship) => relationship.evidenceSourceId),
+      blocked: approvedKnowledgeObjects.length > 1 && relationships.length === 0,
+      capability: "Create governed relationships with provenance and evidence.",
+      genericRequirement: "Relationships support graph inspection, retrieval, package export, and governance review.",
+      metric: `${approvedRelationships.length}/${relationships.length} approved relationship(s)`,
+      detail:
+        relationships.length > 0
+          ? "Relationship graph exists; source evidence coverage is visible in graph quality checks."
+          : "Create governed KO relationships before runtime graph traversal can be trusted.",
+      href: `/ontology?projectId=${projectId}`
+    },
+    {
+      id: "human_governance" as const,
+      title: "Human Governance",
+      ready: releaseBlockerCount === 0 && approvedKnowledgeObjects.length > 0,
+      blocked: releaseBlockerCount > 0,
+      capability: "Review, approve, version, and audit manufactured knowledge.",
+      genericRequirement: "No PKA can publish with release-blocking governance gaps.",
+      metric: `${releaseBlockerCount} release blocker(s)`,
+      detail:
+        releaseBlockerCount === 0
+          ? "Release-blocking governance checks are clear."
+          : "Resolve Review and release-readiness blockers before publication.",
+      href: `/review?projectId=${projectId}&queueStatus=all&blockerType=all`
+    },
+    {
+      id: "pka_assembly" as const,
+      title: "PKA Assembly",
+      ready: Boolean(packageRecord) && packageValidationBlockerCount === 0,
+      blocked: approvedKnowledgeObjects.length > 0 && !packageRecord,
+      capability: "Assemble approved components into a structured Base PKA package.",
+      genericRequirement: "Package structure is generic, inspectable, versioned, and runtime-boundary aware.",
+      metric: packageRecord ? `${packageRecord.packageId} / ${packageRecord.status}` : "no package",
+      detail:
+        packageRecord && packageValidationBlockerCount === 0
+          ? "The selected PKA project has an assembled package with passing local validation."
+          : "Assemble and validate a package after governance blockers are clear.",
+      href: `/pka-builder?projectId=${projectId}`
+    },
+    {
+      id: "release_publication" as const,
+      title: "Release and Publication",
+      ready: Boolean(publishedPackage),
+      blocked: Boolean(packageRecord) && packageRecord?.status !== "published",
+      capability: "Separate draft assembly from release approval and immutable publication.",
+      genericRequirement: "Published PKA versions are retained and cannot be overwritten.",
+      metric: publishedPackage ? `${publishedPackage.packageId} published` : packageRecord?.status ?? "not started",
+      detail: publishedPackage
+        ? "An immutable published package is available for handoff and consumption validation."
+        : "Submit, approve, and publish the package through the release workflow.",
+      href: `/pka-builder?projectId=${projectId}`
+    },
+    {
+      id: "runtime_handoff" as const,
+      title: "Runtime Handoff",
+      ready: runtimeHandoff?.decision === "installable",
+      blocked: Boolean(publishedPackage) && runtimeHandoff?.decision === "blocked",
+      capability: "Expose package handoff checks for runtime/app developers.",
+      genericRequirement: "Runtime apps receive package contracts and focused governed context, not client vault state.",
+      metric: runtimeHandoff?.decision ?? "waiting for published package",
+      detail:
+        runtimeHandoff?.decision === "installable"
+          ? "The app-developer handoff is installable and feedback-ready."
+          : "Publish a package with a valid runtime handoff before runtime developers consume it.",
+      href: `/runtime-handoff?projectId=${projectId}`
+    },
+    {
+      id: "consumption_validation" as const,
+      title: "Consumption Validation",
+      ready: runtimeImport?.status === "importable" && runtimeQaReadiness.ready && fixtureEvaluation.ready,
+      blocked: Boolean(publishedPackage) && runtimeImport?.status === "blocked",
+      capability: "Validate package consumption before AI/runtime execution.",
+      genericRequirement: "Import/readback and deterministic Q&A readiness pass without Ollama or model calls.",
+      metric: `${runtimeImport?.status ?? "no import"} / ${runtimeQaReadiness.ready ? "Q&A ready" : "Q&A blocked"}`,
+      detail:
+        runtimeImport?.status === "importable" && runtimeQaReadiness.ready && fixtureEvaluation.ready
+          ? "Runtime import and deterministic Q&A readiness are validated."
+          : "Run package readback/import and clear runtime Q&A context blockers.",
+      href: `/runtime-import?projectId=${projectId}`
+    },
+    {
+      id: "continuous_improvement" as const,
+      title: "Continuous Improvement",
+      ready: Boolean(handoffFeedback && handoffFeedback.totalFeedbackCount > 0),
+      blocked: false,
+      capability: "Route feedback and quality signals into future manufacturing revisions.",
+      genericRequirement: "PKA improvements return through KF governance instead of mutating runtime/client state.",
+      metric: `${handoffFeedback?.totalFeedbackCount ?? 0} handoff feedback record(s)`,
+      detail:
+        handoffFeedback && handoffFeedback.totalFeedbackCount > 0
+          ? `${handoffFeedback.relationshipEvidenceDecision.replaceAll("_", " ")}.`
+          : "Record runtime/app-developer feedback after handoff inspection.",
+      href: `/runtime-handoff?projectId=${projectId}`
+    }
+  ];
+  const stages: ManufacturingLineStage[] = stageInputs.map((stage, index) => {
+    const status = manufacturingStageStatus(stage.ready, stage.blocked);
+
+    return {
+      id: stage.id,
+      stageNumber: index + 1,
+      title: stage.title,
+      status,
+      capability: stage.capability,
+      genericRequirement: stage.genericRequirement,
+      validationArticle,
+      metric: stage.metric,
+      detail: stage.detail,
+      href: stage.href
+    };
+  });
+  const readyStageCount = stages.filter((stage) => stage.status === "ready").length;
+  const buildingStageCount = stages.filter((stage) => stage.status === "building").length;
+  const blockedStageCount = stages.filter((stage) => stage.status === "blocked").length;
+
+  return {
+    projectId,
+    projectName: project.name,
+    status:
+      blockedStageCount > 0
+        ? "blocked"
+        : readyStageCount === stages.length
+          ? "ready"
+          : "building",
+    validationArticle,
+    summary: {
+      readyStageCount,
+      buildingStageCount,
+      blockedStageCount,
+      sourceCount: sources.length,
+      chunkCount: sourceChunks.length,
+      approvedKnowledgeObjectCount: approvedKnowledgeObjects.length,
+      approvedRelationshipCount: approvedRelationships.length,
+      latestPackageStatus: packageRecord?.status,
+      latestPackageId: packageRecord?.packageId,
+      runtimeImportStatus: runtimeImport?.status,
+      runtimeHandoffDecision: runtimeHandoff?.decision,
+      runtimeQaReady: runtimeQaReadiness.ready && fixtureEvaluation.ready
+    },
+    stages,
+    nextActions: stages
+      .filter((stage) => stage.status !== "ready")
+      .slice(0, 3)
+      .map((stage) => `${stage.title}: ${stage.detail}`)
+  };
+}
+
 export async function listRelationshipGovernanceHistory(relationshipId: string) {
   return listGovernanceHistory({ subjectId: relationshipId });
 }
@@ -5206,6 +5560,45 @@ function runtimeHandoffCheck(
   };
 }
 
+export async function createRuntimeHandoffReadbackFixtures(packageId: string) {
+  const handoffFile = await readPersistedPkaExportFile(packageId, "runtime/app-developer-handoff.json");
+  const handoff = runtimeHandoffObject(JSON.parse(handoffFile.contents));
+  const requiredFiles = stringArray(handoff.requiredFiles);
+  const governanceRequirements = runtimeHandoffObject(handoff.governanceRequirements);
+
+  const missingRequiredFileFixture = {
+    ...handoff,
+    status: "fixture_blocked",
+    fixturePurpose:
+      "Negative consuming-app handoff fixture: package installation must block when a handoff-required file is absent.",
+    requiredFiles: [...requiredFiles, "sources/missing-runtime-required-file.json"]
+  };
+  const reviewRequiredFixture = {
+    ...handoff,
+    status: "fixture_review_required",
+    fixturePurpose:
+      "Negative consuming-app handoff fixture: package installation should require runtime owner review for policy-only warnings.",
+    governanceRequirements: {
+      ...governanceRequirements,
+      requireRuntimeOwnerReview: true
+    },
+    forceInstallationReviewRequired: true
+  };
+
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimeHandoffFixturePaths.missing_required_file),
+    `${JSON.stringify(missingRequiredFileFixture, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    resolvePkaExportPath(packageId, runtimeHandoffFixturePaths.review_required),
+    `${JSON.stringify(reviewRequiredFixture, null, 2)}\n`,
+    "utf8"
+  );
+
+  return runtimeHandoffFixturePaths;
+}
+
 export async function validateRuntimeAppDeveloperHandoff(
   packageId: string,
   handoffPath = "runtime/app-developer-handoff.json"
@@ -5310,6 +5703,15 @@ export async function validateRuntimeAppDeveloperHandoff(
         : "No overdue RFQ workflow gate actions require runtime owner review."
   });
 
+  if (handoff.forceInstallationReviewRequired === true) {
+    items.push({
+      id: "runtime-handoff-runtime-owner-review",
+      title: "Runtime owner review",
+      decision: "installation_review_required",
+      detail: "This handoff requests runtime owner review before installation."
+    });
+  }
+
   const relationshipEvidencePolicy = runtimeHandoffObject(handoff.relationshipEvidencePolicy);
   const promoteWhen = stringArray(relationshipEvidencePolicy.promoteWhen);
   const feedbackQuestions = stringArray(handoff.feedbackQuestions);
@@ -5350,6 +5752,101 @@ export async function validateRuntimeAppDeveloperHandoff(
     nextDeveloperSlice: stringArray(handoff.nextDeveloperSlice),
     items
   };
+}
+
+function runtimeHandoffFeedbackRecord(event: GovernanceEventSummary): RuntimeHandoffFeedbackRecord | undefined {
+  if (!event.action.startsWith("runtime_handoff_feedback.")) {
+    return undefined;
+  }
+
+  const metadata = (event as GovernanceEventSummary & { metadata?: unknown }).metadata;
+  const metadataObject = runtimeHandoffObject(metadata);
+  const runtimeApp = typeof metadataObject.runtimeApp === "string" ? metadataObject.runtimeApp : undefined;
+  const decision =
+    typeof metadataObject.decision === "string" &&
+    ["provenance_ok_for_pilot", "needs_multi_source_lifecycle", "needs_installation_review_records"].includes(
+      metadataObject.decision
+    )
+      ? (metadataObject.decision as RuntimeHandoffFeedbackDecision)
+      : undefined;
+
+  if (!runtimeApp || !decision) {
+    return undefined;
+  }
+
+  return {
+    id: event.id,
+    packageId: event.subjectId,
+    runtimeApp,
+    decision,
+    actorId: event.actorId,
+    notes: typeof metadataObject.notes === "string" ? metadataObject.notes : event.detail,
+    createdAt: event.createdAt
+  };
+}
+
+export async function listRuntimeHandoffFeedback(packageId: string): Promise<RuntimeHandoffFeedbackSummary> {
+  const events = await listGovernanceHistory({ subjectId: packageId, limit: 100 });
+  const items = events
+    .map(runtimeHandoffFeedbackRecord)
+    .filter((item): item is RuntimeHandoffFeedbackRecord => Boolean(item));
+  const multiSourceLifecycleRequestCount = items.filter(
+    (item) => item.decision === "needs_multi_source_lifecycle"
+  ).length;
+  const installationReviewRecordRequestCount = items.filter(
+    (item) => item.decision === "needs_installation_review_records"
+  ).length;
+  const repeatedMultiSourceLifecycleFeedback =
+    multiSourceLifecycleRequestCount >= runtimeHandoffMultiSourceLifecycleThreshold;
+
+  return {
+    packageId,
+    totalFeedbackCount: items.length,
+    provenanceOkCount: items.filter((item) => item.decision === "provenance_ok_for_pilot").length,
+    multiSourceLifecycleRequestCount,
+    installationReviewRecordRequestCount,
+    multiSourceLifecycleThreshold: runtimeHandoffMultiSourceLifecycleThreshold,
+    repeatedMultiSourceLifecycleFeedback,
+    relationshipEvidenceDecision:
+      repeatedMultiSourceLifecycleFeedback
+        ? "investigate_dedicated_relationship_evidence_table"
+        : multiSourceLifecycleRequestCount > 0
+          ? "monitor_multi_source_lifecycle_feedback"
+        : "keep_provenance_for_pilot",
+    handoffFeedbackPersistenceDecision:
+      installationReviewRecordRequestCount > 0
+        ? "promote_to_dedicated_app_developer_review_table_later"
+        : "audit_backed_records_for_pilot",
+    items
+  };
+}
+
+export async function recordRuntimeHandoffFeedback(input: RuntimeHandoffFeedbackInput) {
+  const runtimeApp = input.runtimeApp.trim();
+  const notes = input.notes?.trim();
+
+  if (!runtimeApp) {
+    throw new Error("runtimeApp is required for runtime handoff feedback.");
+  }
+
+  const action = `runtime_handoff_feedback.${input.decision}`;
+  await recordAuditLog({
+    action,
+    subjectType: "PkaPackage",
+    subjectId: input.packageId,
+    actorId: input.actor ?? "runtime_consumer",
+    detail: notes
+      ? `${runtimeApp}: ${notes}`
+      : `${runtimeApp} recorded runtime handoff feedback: ${input.decision}.`,
+    metadata: {
+      packageId: input.packageId,
+      runtimeApp,
+      decision: input.decision,
+      notes
+    }
+  });
+
+  return listRuntimeHandoffFeedback(input.packageId);
 }
 
 export async function validateRuntimePkaImportReadback(

@@ -10,6 +10,7 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Manufacturing Line" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Review", exact: true })).toBeVisible();
     await expect(
       page.getByLabel("Studio navigation").getByRole("link", { name: "PKA Builder", exact: true })
@@ -67,6 +68,12 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByRole("heading", { name: "Manufacturing Pipeline" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Run ingestion" })).toBeVisible();
     await expect(page.getByText("Stage tracking")).toBeVisible();
+
+    await page.goto("/manufacturing-line");
+    await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line stages").getByText("1. Source Intake")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line stages").getByText("10. Continuous Improvement")).toBeVisible();
+    await expect(page.getByText("Factory capability first")).toBeVisible();
 
     await page.goto("/runtime-qa");
 
@@ -478,6 +485,45 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Runtime handoff installer checks").getByText("feedback requested")).toBeVisible();
     await expect(page.getByText("KnowledgeRelationship.provenance.sourceEvidence")).toBeVisible();
     await expect(page.getByLabel("Runtime handoff relationship evidence feedback").getByText("Feedback requested").first()).toBeVisible();
+    await page.getByRole("button", { name: "Create handoff fixtures" }).click();
+    await page.getByLabel("Runtime handoff fixture selectors").getByRole("link", { name: "missing required file" }).click();
+    await expect(page.getByLabel("Runtime handoff decision metrics").getByText("blocked")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff installer checks").getByText("Missing handoff-required file(s)")).toBeVisible();
+    await page.getByLabel("Runtime handoff fixture selectors").getByRole("link", { name: "review required" }).click();
+    await expect(page.getByLabel("Runtime handoff decision metrics").getByText("installation review required")).toBeVisible();
+    await expect(
+      page.getByLabel("Runtime handoff installer checks").getByText("Runtime owner review", { exact: true })
+    ).toBeVisible();
+    await page.getByLabel("Runtime handoff fixture selectors").getByRole("link", { name: "Valid handoff" }).click();
+    await expect(page.getByRole("heading", { name: "Record handoff feedback" })).toBeVisible();
+    await page.getByRole("button", { name: "Record handoff feedback" }).click();
+    await expect(page.getByLabel("Runtime handoff feedback history").getByText("provenance ok for pilot")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff decision metrics").getByText("1")).toBeVisible();
+    const handoffFeedbackForm = page.locator("form").filter({
+      has: page.getByRole("button", { name: "Record handoff feedback" })
+    });
+    await handoffFeedbackForm.locator('input[name="runtimeApp"]').fill("AIFA pilot consumer");
+    await expect(handoffFeedbackForm.locator('input[name="runtimeApp"]')).toHaveValue("AIFA pilot consumer");
+    await handoffFeedbackForm.locator('select[name="decision"]').selectOption("needs_multi_source_lifecycle");
+    await expect(handoffFeedbackForm.locator('select[name="decision"]')).toHaveValue("needs_multi_source_lifecycle");
+    await handoffFeedbackForm
+      .locator('textarea[name="notes"]')
+      .fill("Pilot consumer needs independent lifecycle for multiple relationship evidence citations.");
+    await handoffFeedbackForm.getByRole("button", { name: "Record handoff feedback" }).click();
+    await expect(
+      page.getByLabel("Runtime handoff feedback summary").getByText("monitor multi source lifecycle feedback")
+    ).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff feedback summary").getByText("1 / 2")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff feedback history").getByText("needs multi source lifecycle")).toBeVisible();
+    await page.goto(`/manufacturing-line?projectId=${pilotProjectId}`);
+    await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line status metrics").getByText("Ready stages")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line stages").getByText("8. Runtime Handoff")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line stages").getByText("9. Consumption Validation")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing Line next actions")).toBeVisible();
+    await page.getByRole("button", { name: "Run manufacturing validation article" }).click();
+    await expect(page).toHaveURL(/\/manufacturing-line\?projectId=kf-qs-rfq-pilot/);
+    await expect(page.getByText("Manufacturing Run Report")).toBeVisible();
     await page.getByRole("link", { name: "Runtime import checks" }).click();
     await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();
     await page.getByRole("button", { name: "Record import decision" }).click();

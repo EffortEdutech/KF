@@ -213,6 +213,11 @@ Implemented:
 - Completed visual Studio/package handoff inspection after the publish hard-block change. The inspection confirmed Runtime Q&A readiness, persisted handoff JSON visibility, blocked-action risk readback, runtime import allowance, and RFQ workflow due-state filtering.
 - Expanded `runtime/app-developer-handoff.json` with installer checklist, governance requirements, RFQ risk policy, relationship evidence policy, feedback questions, and the next developer-consumption slice.
 - Added `/runtime-handoff` as the consuming-app readback surface. It loads `runtime/app-developer-handoff.json`, maps handoff checks to `installable`, `blocked`, or `installation_review_required`, and exposes relationship evidence feedback prompts for the pilot.
+- Visually inspected `/runtime-handoff` against a published QS/RFQ package and added negative handoff fixtures for installer developers:
+  - missing handoff-required package file -> `blocked`,
+  - runtime-owner review policy -> `installation_review_required`.
+- Added audit-backed app-developer handoff feedback records on `/runtime-handoff`. Pilot consumers can record whether relationship evidence provenance is enough or whether multi-source relationship evidence lifecycle is needed.
+- Added the pilot feedback threshold: one multi-source lifecycle request is monitored while the pilot keeps provenance evidence; two or more independent requests trigger dedicated relationship evidence record design.
 
 Professional interpretation:
 
@@ -232,10 +237,10 @@ Remaining gaps:
 
 Before expanding extraction formats or Ollama, harden RFQ workflow operations:
 
-1. Run a visual inspection of `/runtime-handoff` against the published QS/RFQ package.
-2. Add optional negative handoff fixtures if app-developer feedback asks for more installer failure cases.
-3. Gather feedback on whether relationship evidence needs independent lifecycle/table support.
-4. Keep Ollama deferred until the deterministic evidence-register path remains stable.
+1. Continue QS/RFQ package consumption review using `KnowledgeRelationship.provenance.sourceEvidence` while feedback stays below the repeated-signal threshold.
+2. Start dedicated relationship evidence record design only after two or more independent pilot consumers request multi-source lifecycle or independent relationship-evidence review.
+3. Decide after the pilot whether app-developer feedback needs a dedicated review table or whether audit-backed governance events remain sufficient.
+4. Keep Ollama deferred until the deterministic evidence-register and handoff path remains stable.
 
 ---
 

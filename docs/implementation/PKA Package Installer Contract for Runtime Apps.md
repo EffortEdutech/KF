@@ -114,6 +114,20 @@ The consuming-app handoff readback surface is:
 
 It loads `runtime/app-developer-handoff.json`, maps package handoff checks into `installable`, `blocked`, or `installation_review_required`, and keeps relationship-evidence table feedback visible before a consuming app turns package content into runtime behavior.
 
+The handoff surface also creates deterministic negative handoff fixtures for installer developers:
+
+| Fixture | Expected decision | Purpose |
+| --- | --- | --- |
+| `runtime/app-developer-handoff-missing-required-file.json` | `blocked` | Proves the runtime must fail closed when a handoff-required package file is absent. |
+| `runtime/app-developer-handoff-review-required.json` | `installation_review_required` | Proves policy-only warnings can be routed to runtime-owner review without treating the package as fully installable. |
+
+The handoff surface records pilot consuming-app feedback as package governance history. For the QS/RFQ pilot, this is the accepted persistence decision:
+
+- use audit-backed feedback records now,
+- keep relationship evidence in `KnowledgeRelationship.provenance.sourceEvidence` after a single multi-source lifecycle request and mark it for monitoring,
+- start dedicated relationship evidence record design only after two or more independent pilot consumers request multi-source relationship evidence lifecycle,
+- promote to a dedicated app-developer review table or relationship-evidence table only after repeated pilot feedback proves that the audit-backed model is too thin.
+
 It validates selected persisted package archives and safe imported JSON archives under:
 
 ```text

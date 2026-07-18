@@ -2,6 +2,7 @@ import type { LifecycleState, MissionStatus, MissionType, RelationshipType } fro
 
 export const navigationItems = [
   { label: "Dashboard", href: "/dashboard" },
+  { label: "Manufacturing Line", href: "/manufacturing-line" },
   { label: "Mission Centre", href: "/missions" },
   { label: "Projects", href: "/projects" },
   { label: "Sources", href: "/sources" },

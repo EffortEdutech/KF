@@ -43,11 +43,12 @@ Before making changes:
 
 ## Current Project State
 
-Knowledge Factory has been reset to a pilot-PKA vertical slice after early Sprint 3-7 scaffolding and hardening. The controlling milestone is now a small Quantity Surveying / RFQ from BOQ Base PKA that proves source intake, KO/relationship manufacturing, governance, package export, runtime import, and deterministic context/Q&A readiness end to end.
+Knowledge Factory has been reset from pilot-first execution to manufacturing-line execution. The controlling milestone is now the reusable KF capability to manufacture governed Base PKAs end to end. The Quantity Surveying / RFQ from BOQ Base PKA remains the current validation article, but it is not the sprint objective.
 
 The frozen architecture source of truth remains `docs/v1`. The active implementation plan is:
 
 - `docs/implementation/KF Build Sprint Plan and Checklist.md`
+- `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md`
 - `docs/implementation/Pre-Sprint Architecture Audit.md`
 - `docs/implementation/PKA Anatomy and Runtime Boundary.md`
 - `docs/implementation/PKA Component Boundary Decision.md`
@@ -73,9 +74,9 @@ Current structure:
 - `packages/config` - runtime configuration boundary.
 - `storage` - local development storage root, with source and export folders.
 
-Sprint 3 pipeline currently supports deterministic source ingestion, Markdown/plain-text artifact extraction, source chunks, KO suggestions, relationship suggestions, retry controls, source coverage drilldowns, and suggestion acceptance into draft governed records. Runtime import and Runtime Q&A have deterministic preparation surfaces only. The QS/RFQ pilot now has an idempotent run mode, compact Pilot Run Report, RFQ workflow component placeholder, app developer handoff index, expanded BOQ/RFQ source pack, structured RFQ evidence register, table-backed RFQ workflow gate actions with owner/due-date/status and evidence-entry links, dedicated `/rfq-workflow` route with update/close controls, metrics, ageing/overdue indicators, due-state filters, action-level audit drilldown, Prisma-backed persistence when `DATABASE_URL` is active, filters, detail inspection, reviewer actions, RFQ workflow gate readiness reporting, remediation prompts, and governance handoff/readback summaries including blocked/overdue gate action package risk checks. Unresolved `blocked` RFQ workflow gate actions hard-block `publishPkaPackage`; overdue actions remain visible package/readback risks. Relationship evidence remains structured `KnowledgeRelationship.provenance.sourceEvidence`; do not add a dedicated relationship evidence table until multi-source evidence lifecycle or package feedback proves the need. New work should prioritize the QS/RFQ pilot PKA vertical slice over additional broad harness hardening. Ollama integration is intentionally deferred until the deterministic pilot remains repeatable end to end.
+Sprint execution now follows `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md`. Current work should prioritize reusable factory capabilities: Source Intake, Preparation and Extraction, KO Manufacturing, Relationship and Evidence Manufacturing, Human Governance, PKA Assembly, Release and Publication, Runtime Handoff, Consumption Validation, and Continuous Improvement. The QS/RFQ validation article currently proves those capabilities with deterministic source ingestion, Markdown/plain-text artifact extraction, source chunks, KO/relationship suggestions, governance, package export, runtime handoff, runtime import, and deterministic Q&A readiness. Relationship evidence remains structured `KnowledgeRelationship.provenance.sourceEvidence`; do not add a dedicated relationship evidence table until two or more independent runtime/app-developer feedback records request multi-source relationship evidence lifecycle. Ollama integration is intentionally deferred until the generic deterministic manufacturing line is stable end to end.
 
-Current Studio routes include Dashboard, Mission Centre, Projects, Sources, Knowledge Objects, Review, Ontology, Pipeline, RFQ Workflow, PKA Builder, Runtime Import, Runtime Handoff, and Runtime Q&A preparation.
+Current Studio routes include Dashboard, Manufacturing Line, Mission Centre, Projects, Sources, Knowledge Objects, Review, Ontology, Pipeline, RFQ Workflow, PKA Builder, Runtime Import, Runtime Handoff, and Runtime Q&A preparation.
 
 Do not introduce implementation structure that conflicts with the approved Knowledge Factory documentation or the active sprint plan.
 

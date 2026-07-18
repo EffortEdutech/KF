@@ -2,7 +2,7 @@
 
 **Status:** Active planning baseline  
 **Created:** 2026-07-14  
-**Current phase:** Sprint 3 - Manufacturing Pipeline Vertical Slice, aiming at the Sprint 8 QS/RFQ pilot PKA
+**Current phase:** Manufacturing Line Execution - completing the reusable KF factory capability for Base PKA manufacturing
 **Source baseline:** `docs/v1` Version 1.0 frozen architecture and `docs/v1/TRY 1`
 
 ---
@@ -98,6 +98,29 @@ Until the first pilot PKA works end to end, new tasks should be rejected or defe
 - pilot package export/publish,
 - pilot runtime import/context demo,
 - essential defects blocking those outcomes.
+
+## 5A. Manufacturing Line Execution Reset - 2026-07-18
+
+The QS/RFQ pilot is no longer the sprint objective. It is the validation article used to prove the Knowledge Factory manufacturing line.
+
+The active execution authority is:
+
+- `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md`
+
+Future sprint work must be planned around KF factory capabilities:
+
+1. Source Intake.
+2. Preparation and Extraction.
+3. Knowledge Object Manufacturing.
+4. Relationship and Evidence Manufacturing.
+5. Human Governance.
+6. PKA Assembly.
+7. Release and Publication.
+8. Runtime Handoff.
+9. Consumption Validation.
+10. Continuous Improvement.
+
+Each sprint batch must complete a reusable manufacturing capability across implementation, verification, docs, and Graphify refresh. QS/RFQ may validate the capability, but pilot-specific hardening must not replace the KF objective.
 
 ---
 
@@ -799,6 +822,11 @@ Apply these checks to every sprint:
 | 2026-07-18 | QS/RFQ app-developer readback checklist added | Accepted | `PKA Package Installer Contract for Runtime Apps` now includes the QS/RFQ pilot package files that AIFA/LADOS-style consumers must inspect, including RFQ evidence register, workflow, handoff, governance summaries, blocked-action risk, placeholder component boundaries, and the relationship evidence provenance decision. |
 | 2026-07-18 | QS/RFQ package handoff inspection and developer-consumption slice prepared | Accepted | Visual Studio inspection confirmed the published package path after the publish hard-block: Runtime Q&A ready, persisted `runtime/app-developer-handoff.json` visible, readback includes blocked-action risk summaries, runtime import is allowed, and `/rfq-workflow` due-state filtering works. The handoff JSON now includes installer checklist, governance requirements, RFQ risk policy, relationship evidence policy, feedback questions, and the next developer-consumption slice. |
 | 2026-07-18 | Runtime handoff consuming-app readback surface added | Accepted | Added `/runtime-handoff` to load `runtime/app-developer-handoff.json`, map installer checks to `installable`, `blocked`, or `installation_review_required`, expose relationship-evidence feedback prompts, and link back to persisted export/readback/runtime import. Contract and browser tests cover installable and missing-handoff blocked behavior. Ollama remains deferred. |
+| 2026-07-18 | Runtime handoff visual inspection and negative fixtures added | Accepted | `/runtime-handoff` was visually inspected against the published QS/RFQ package and showed the installable handoff, installer checks, and relationship-evidence feedback prompts. Added deterministic consuming-app handoff fixtures for a missing required package file, which maps to `blocked`, and a runtime-owner-review policy case, which maps to `installation_review_required`. Contract and browser tests cover both fixture outcomes. |
+| 2026-07-18 | Runtime handoff app-developer feedback records added | Accepted | `/runtime-handoff` now records consuming-app feedback as package governance history for the pilot. Feedback can confirm `KnowledgeRelationship.provenance.sourceEvidence` is enough for the pilot or request multi-source relationship evidence lifecycle. The current decision is audit-backed feedback records now; promote to dedicated app-developer review or relationship-evidence tables only after pilot feedback proves the need. |
+| 2026-07-18 | Runtime handoff feedback review threshold added | Accepted | A single multi-source lifecycle request now creates a `monitor_multi_source_lifecycle_feedback` posture while keeping relationship evidence in provenance for the pilot. Two or more independent multi-source lifecycle requests create `investigate_dedicated_relationship_evidence_table`, at which point a dedicated relationship evidence record design should begin. |
+| 2026-07-18 | KF Manufacturing Line Sprint Plan added | Accepted | Added `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md` as the active execution authority. Sprint execution now targets reusable KF factory capabilities for manufacturing PKAs, with QS/RFQ used only as the validation article. |
+| 2026-07-18 | Manufacturing Line status surface added | Accepted | Added `/manufacturing-line` as the generic KF factory status and run-report surface. It shows ten-stage readiness, stage links, current blockers, validation article status, package handoff/import readiness, and a manufacturing validation action that returns to the factory line. |
 
 ---
 
@@ -829,10 +857,9 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Run a visual inspection of `/runtime-handoff` against the published QS/RFQ package.
-2. Add optional negative handoff fixtures if app-developer feedback asks for more installer failure cases.
-3. Gather pilot feedback on whether relationship evidence needs multi-source lifecycle support before adding a table.
-4. Keep broad runtime/import hardening and Ollama frozen unless they block the QS/RFQ pilot.
+1. Review operator-facing language for remaining pilot-first wording and replace it where the capability is generic manufacturing.
+2. Commit and push the completed Manufacturing Line planning/status-surface batch after verification.
+3. Start Manufacturing Line Batch 2: Generic Manufacturing Work Orders.
 
 ---
 

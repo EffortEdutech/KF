@@ -16,10 +16,12 @@ import {
   createMission,
   createProject,
   createReviewDecision,
+  createRuntimeHandoffReadbackFixtures,
   createRuntimePkaImportFixtures,
   createSource,
   importRuntimePkaArchive,
   publishPkaPackage,
+  recordRuntimeHandoffFeedback,
   recordRuntimePkaImportDecision,
   recordRfqWorkflowGateAction,
   repairSourceArtifact,
@@ -39,6 +41,7 @@ import {
 import { knowledgeObjectTypes, sourceCategories } from "./studio-data";
 import type { KnowledgeObjectSummary, MissionSummary, RfqEvidenceRegisterEntrySummary, SourceSummary } from "./studio-data";
 import type { LifecycleState, MissionStatus, MissionType, RelationshipType } from "@kf/core";
+import type { RuntimeHandoffFeedbackDecision } from "./workspace-store";
 
 function readRequired(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -46,6 +49,18 @@ function readRequired(formData: FormData, key: string) {
     throw new Error(`${key} is required`);
   }
   return value.trim();
+}
+
+function readRuntimeHandoffFeedbackDecision(value: string): RuntimeHandoffFeedbackDecision {
+  if (
+    value === "provenance_ok_for_pilot" ||
+    value === "needs_multi_source_lifecycle" ||
+    value === "needs_installation_review_records"
+  ) {
+    return value;
+  }
+
+  return "provenance_ok_for_pilot";
 }
 
 function readCategory(value: string): SourceSummary["category"] {
@@ -179,11 +194,13 @@ function revalidateStudioSurfaces() {
   revalidatePath("/knowledge-objects");
   revalidatePath("/review");
   revalidatePath("/pipeline");
+  revalidatePath("/manufacturing-line");
   revalidatePath("/rfq-workflow");
   revalidatePath("/pka-builder");
   revalidatePath("/pka-builder/export");
   revalidatePath("/pka-builder/readback");
   revalidatePath("/runtime-import");
+  revalidatePath("/runtime-handoff");
   revalidatePath("/runtime-qa");
   revalidatePath("/ontology");
 }
@@ -243,6 +260,14 @@ export async function runQsRfqPilotVerticalSliceAction(formData: FormData) {
 
   revalidateStudioSurfaces();
   redirect(`/runtime-qa?projectId=${result.projectId}`);
+}
+
+export async function runManufacturingLineValidationAction(formData: FormData) {
+  const projectId = readRequired(formData, "projectId");
+  const result = await runQsRfqPilotVerticalSlice(readOptionalString(formData, "actor") ?? "knowledge_engineer");
+
+  revalidateStudioSurfaces();
+  redirect(`/manufacturing-line?projectId=${projectId || result.projectId}`);
 }
 
 export async function retrySourceIngestionAction(formData: FormData) {
@@ -513,6 +538,24 @@ export async function createInvalidPkaReadbackFixturesAction(formData: FormData)
 
 export async function createRuntimePkaImportFixturesAction(formData: FormData) {
   await createRuntimePkaImportFixtures(readRequired(formData, "packageId"));
+
+  revalidateStudioSurfaces();
+}
+
+export async function createRuntimeHandoffReadbackFixturesAction(formData: FormData) {
+  await createRuntimeHandoffReadbackFixtures(readRequired(formData, "packageId"));
+
+  revalidateStudioSurfaces();
+}
+
+export async function recordRuntimeHandoffFeedbackAction(formData: FormData) {
+  await recordRuntimeHandoffFeedback({
+    packageId: readRequired(formData, "packageId"),
+    runtimeApp: readRequired(formData, "runtimeApp"),
+    decision: readRuntimeHandoffFeedbackDecision(readRequired(formData, "decision")),
+    actor: readOptionalString(formData, "actor") ?? "runtime_consumer",
+    notes: readOptionalString(formData, "notes")
+  });
 
   revalidateStudioSurfaces();
 }
