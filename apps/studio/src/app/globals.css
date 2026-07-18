@@ -214,8 +214,20 @@ textarea {
   gap: 16px;
 }
 
+.panel-subsection {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
 .panel h3 {
   font-size: 20px;
+}
+
+.panel h4 {
+  font-size: 16px;
 }
 
 .panel p {
@@ -466,12 +478,27 @@ a.readiness-item:hover {
   border-color: var(--warning);
 }
 
+.readiness-blocked {
+  border-color: #dc2626;
+}
+
 .readiness-info {
   border-color: var(--accent);
 }
 
 .readiness-ready {
   border-color: var(--accent-strong);
+}
+
+.checkbox-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.checkbox-stack label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
 }
 
 .timeline-list {

@@ -2,7 +2,7 @@
 
 **Status:** Active planning baseline  
 **Created:** 2026-07-14  
-**Current phase:** Sprint 3 - Pipeline and AI-Assisted Drafting
+**Current phase:** Sprint 3 - Manufacturing Pipeline Vertical Slice, aiming at the Sprint 8 QS/RFQ pilot PKA
 **Source baseline:** `docs/v1` Version 1.0 frozen architecture and `docs/v1/TRY 1`
 
 ---
@@ -78,7 +78,30 @@ Do not mark a sprint complete until its acceptance checks are complete or explic
 
 ---
 
-## 5. Sprint Roadmap
+## 5. Direction Reset - 2026-07-17
+
+The project briefly drifted into too many small hardening tasks across runtime import, package readback, Q&A readiness, and dashboard drilldowns. Those pieces are useful, but they are not the product direction by themselves.
+
+The controlling direction is now:
+
+1. Prove the Knowledge Manufacturing loop with a concrete pilot source.
+2. Manufacture a small governed Base PKA for Quantity Surveying / RFQ from BOQ.
+3. Publish/export that PKA as an inspectable package.
+4. Validate that an app/runtime can load it and retrieve governed context.
+5. Add Ollama/local AI only after the deterministic source-to-PKA-to-runtime path is stable.
+
+Until the first pilot PKA works end to end, new tasks should be rejected or deferred if they do not directly support:
+
+- pilot source ingestion,
+- pilot KO and relationship creation,
+- pilot governance and evidence,
+- pilot package export/publish,
+- pilot runtime import/context demo,
+- essential defects blocking those outcomes.
+
+---
+
+## 6. Sprint Roadmap
 
 ### Pre-Sprint Gate - Architecture Corrections
 
@@ -267,11 +290,13 @@ Acceptance checks:
 
 ---
 
-### Sprint 3 - Pipeline and AI-Assisted Drafting
+### Sprint 3 - Manufacturing Pipeline Vertical Slice
 
-**Goal:** Add the first Knowledge Manufacturing Pipeline loop.
+**Goal:** prove the manufacturing loop from source artifact to review-ready Knowledge Objects.
 
-**Primary outcome:** A source can move through ingestion/extraction/suggestion/review-ready draft generation.
+**Primary outcome:** one selected source can be ingested, chunked, converted into deterministic KO and relationship suggestions, accepted as drafts, reviewed, and traced to evidence.
+
+**Course correction:** Sprint 3 is not a place for broad runtime/import/Q&A expansion. Those items were useful scaffolding, but future work must return to the manufacturing pipeline and only add depth that helps the first pilot PKA.
 
 Checklist:
 
@@ -280,7 +305,7 @@ Checklist:
 - [x] Implement ingestion job for registered sources.
 - [x] Implement deterministic text extraction placeholder for registered sources.
 - [x] Implement Markdown/plain-text extraction from stored source artifacts.
-- [ ] Add PDF extraction if feasible in this sprint.
+- [!] Defer PDF/Word/spreadsheet extraction until the pilot source format requires it; do not block the RFQ proof of concept on broad extraction support.
 - [x] Add source chunking.
 - [x] Add AI provider/model router abstraction.
 - [x] Add deterministic local fake provider stub.
@@ -296,28 +321,22 @@ Checklist:
 - [x] Add deterministic pipeline quality metrics for chunks, suggestions, decision ratios, failures, and retries.
 - [x] Add pipeline metrics drilldowns by source and status.
 - [x] Add source-ingestion fixture coverage for unsupported file types and empty artifact content.
-- [x] Add runtime verification for persisted package governance exports.
 - [x] Add pipeline audit/history panel per source.
 - [x] Add deterministic source artifact repair flow after unsupported/empty fixture failure.
-- [x] Add ZIP/archive-level governance export verification.
 - [x] Add pipeline run detail drawer for longer source histories.
 - [x] Add user-provided artifact repair text/path behind safe storage rules.
-- [x] Add package archive/ZIP import-readback validation.
-- [x] Add visible package import/readback report page for persisted package files.
-- [x] Add invalid archive/ZIP readback fixtures.
-- [x] Add runtime import/readback contract harness for selected persisted packages.
-- [x] Add deterministic runtime import fixtures for valid, missing-governance, malformed-archive, and capability-mismatch cases.
-- [x] Add ontology and runtime placeholder component checks to the runtime import harness.
-- [x] Add safe local JSON archive import handling under `storage/exports/<packageId>/imports/`.
-- [x] Add prompt, rule, workflow, and template placeholder checks to the runtime import harness.
-- [x] Add runtime import decision history/audit trail.
-- [x] Add package installer contract document for AIFA/LADOS developers.
-- [x] Add runtime import decision filtering and drilldowns by importable vs blocked.
-- [x] Add missing-component fixtures for prompt, rule, workflow, and template component indexes.
+- [x] Add richer deterministic suggestion review/reporting for status mix, confidence/evidence gaps, and review notes coverage.
+- [x] Add source coverage reporting for extraction profile, chunk depth, token estimate, suggestion coverage, and multi-source readiness.
+- [x] Add source coverage drilldowns by extraction profile.
+- [x] Add stronger multi-source/multi-chunk deterministic fixtures.
 - [x] Add Ollama adapter design notes without implementation.
 - [x] Add tests for pipeline state transitions.
 - [x] Add tests for provider abstraction using a deterministic fake provider.
 - [x] Update docs for pipeline flow and AI provider configuration.
+- [x] Define QS/RFQ pilot source pack and source artifacts.
+- [x] Add pilot-oriented source intake recipe in Pipeline.
+- [x] Add deterministic BOQ/RFQ KO and relationship fixtures.
+- [x] Add one-click QS/RFQ pilot vertical-slice action through package publish and runtime readiness.
 
 Acceptance checks:
 
@@ -327,6 +346,7 @@ Acceptance checks:
 - [x] Pipeline quality metrics are visible in Studio.
 - [x] Provider-specific details do not leak into application services.
 - [x] Pipeline work is traceable through Missions.
+- [x] A QS/RFQ pilot source pack can be driven through deterministic ingestion, KO/relationship creation, review approval, package publish, runtime import, and deterministic Q&A readiness.
 
 ---
 
@@ -463,10 +483,16 @@ Checklist:
 - [x] Add published export retention policy surface.
 - [x] Decide relationship source evidence remains in structured provenance for the pilot.
 - [x] Document what is excluded from a Base PKA and belongs to runtime vault/client state.
+- [x] Add ZIP/archive-level governance export verification.
+- [x] Add package archive/ZIP import-readback validation.
+- [x] Add visible package import/readback report page for persisted package files.
+- [x] Add invalid archive/ZIP readback fixtures.
 - [x] Add tests for manifest generation and validation.
 - [x] Add runtime/browser coverage proving draft assembly is separate from release approval and publish.
 - [x] Add runtime/browser coverage for persisted package readback and invalid readback fixtures.
 - [~] Update docs for PKA export format.
+- [x] Produce a named QS/RFQ pilot package from pilot source records, not only generic seeded demo records.
+- [x] Add package contents checklist for the QS/RFQ pilot: manifest, KO set, graph, source index, governance, runtime config, prompt/rule/workflow/template placeholders.
 
 Acceptance checks:
 
@@ -475,55 +501,25 @@ Acceptance checks:
 - [x] Package includes governance status and source traceability.
 - [x] Package preserves licensing and usage policy metadata.
 - [ ] Unapproved required KOs cannot be released as approved.
+- [ ] The exported QS/RFQ pilot package can be handed to an app developer as the first concrete PKA artifact.
 
 ---
 
-### Sprint 7 - AI Workbench and Grounded Q&A
+### Sprint 7 - Runtime Contract and Grounded Q&A Harness
 
-**Goal:** Prove retrieval-first intelligence over approved knowledge.
+**Goal:** prove that a runtime app can inspect, import, and query a published PKA through a bounded context contract.
 
-**Primary outcome:** Users can ask questions and inspect retrieved evidence, uncertainty, and source links.
+**Primary outcome:** an AIFA/LADOS-style runtime harness can load the exported PKA, produce deterministic context bundles, evaluate answer readiness, and prepare grounded Q&A without using draft/unapproved knowledge.
 
-Checklist:
-
-- [ ] Add AI Workbench view.
-- [ ] Add question input.
-- [ ] Retrieve approved KOs.
-- [ ] Retrieve source evidence.
-- [ ] Retrieve related graph context.
-- [x] Define first PKA context bundle shape for model-ready retrieval results.
-- [ ] Generate grounded answer through provider abstraction.
-- [ ] Show evidence used.
-- [ ] Show uncertainty or unsupported-answer warning.
-- [ ] Prevent unsupported draft knowledge from being presented as approved.
-- [ ] Add prompt testing controls.
-- [ ] Add provider/model selection for local development if configured.
-- [ ] Add tests using fake provider and deterministic retrieval fixtures.
-- [ ] Update docs for grounded Q&A behavior.
-
-Acceptance checks:
-
-- [ ] Answer includes evidence.
-- [ ] Unsupported questions are handled honestly.
-- [ ] Draft/unapproved knowledge is clearly labeled or excluded.
-- [ ] Local AI path is available or explicitly stubbed with next steps.
-
----
-
-### Sprint 8 - LADOS-Compatible Runtime Test Harness
-
-**Goal:** Demonstrate that a PKA can be loaded by a compatible runtime harness.
-
-**Primary outcome:** A local test harness validates and queries an exported PKA.
+**Boundary:** no production AI assistant is built here until the deterministic context and citation contract is stable. No model calls are required for this sprint unless explicitly approved.
 
 Checklist:
 
 - [x] Define minimal runtime import contract.
-- [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
-- [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
 - [x] Define app-developer retrieval boundary: selected governed context only, not whole PKA or graph upload.
 - [x] Document MCP-style retrieval tool examples for PKA context bundles.
-- [~] Build local PKA loader/test harness.
+- [x] Add package installer contract document for AIFA/LADOS developers.
+- [x] Build local PKA loader/test harness.
 - [x] Validate manifest.
 - [x] Load ontology.
 - [x] Load Knowledge Objects.
@@ -531,46 +527,61 @@ Checklist:
 - [x] Load prompts/runtime configuration.
 - [x] Check rule, workflow, and template placeholder component boundaries.
 - [x] Report missing runtime capabilities.
-- [ ] Run a grounded Q&A demo using package content.
+- [x] Add runtime import/readback contract harness for selected persisted packages.
+- [x] Add deterministic runtime import fixtures for valid, missing-governance, malformed-archive, and capability-mismatch cases.
+- [x] Add ontology and runtime placeholder component checks to the runtime import harness.
+- [x] Add safe local JSON archive import handling under `storage/exports/<packageId>/imports/`.
+- [x] Add prompt, rule, workflow, and template placeholder checks to the runtime import harness.
+- [x] Add runtime import decision history/audit trail.
+- [x] Add runtime import decision filtering and drilldowns by importable vs blocked.
+- [x] Add missing-component fixtures for prompt, rule, workflow, and template component indexes.
+- [x] Prepare Runtime Q&A harness boundary without AI provider calls.
+- [x] Define first PKA context bundle shape for model-ready retrieval results.
+- [ ] Define future Runtime Knowledge Service contract shape for approved-knowledge queries.
+- [ ] Define runtime vault boundary for local PKA packages, client adaptations, business records, AI memory, workflow state, and user preferences.
+- [x] Add Runtime Q&A context bundle preview from published packages and approved Knowledge Objects.
+- [x] Add deterministic Runtime Q&A fixture questions with expected citation requirements.
+- [x] Add deterministic Runtime Q&A answer-readiness report for missing citations, package, approved KOs, and governed relationships.
+- [x] Add deterministic Runtime Q&A fixture-by-fixture evaluation against the context bundle.
+- [x] Run a deterministic grounded Q&A demo using package content and canned answers, with no AI/model calls.
+- [ ] Later, generate grounded answer through provider abstraction after deterministic harness is stable.
+- [ ] Show evidence used.
+- [ ] Show uncertainty or unsupported-answer warning.
+- [ ] Prevent unsupported draft knowledge from being presented as approved.
 - [ ] Demonstrate one workflow or assistant behavior.
-- [ ] Verify unapproved knowledge is not loaded or served as production-ready knowledge.
+- [x] Verify unapproved knowledge is not loaded or served as production-ready knowledge in import/readiness checks.
 - [x] Add tests for valid and invalid package imports.
-- [ ] Update docs for runtime contract.
+- [~] Update docs for runtime contract and Q&A behavior.
 
 Acceptance checks:
 
-- [ ] Exported PKA loads outside the main authoring flow.
+- [x] Exported PKA loads outside the main authoring flow.
 - [x] Runtime capability mismatch is clear.
-- [ ] Evidence-grounded answer demo works from package content.
+- [ ] Deterministic evidence-grounded answer demo works from package content.
 - [ ] At least one workflow or assistant behavior is demonstrated.
+- [ ] Draft/unapproved knowledge is clearly excluded from runtime answer context.
 
 ---
 
-### Sprint 9 - First Domain PKA Pilot
+### Sprint 8 - First Domain PKA Pilot: QS/RFQ from BOQ
 
-**Goal:** Build a small but complete first PKA using the system.
+**Goal:** build a small but complete first PKA using the system, with Quantity Surveying / RFQ from BOQ as the pilot domain.
 
-**Primary outcome:** A real domain pilot proves the core knowledge manufacturing loop.
+**Primary outcome:** the team can demonstrate a source-to-PKA lifecycle for a simple RFQ-from-BOQ PKA and identify product gaps from the actual workflow.
 
-Recommended pilot options:
-
-- Construction claims.
-- Civil engineering QA/QC.
-- Internal SOP assistant.
-- Quantity surveying knowledge assistant.
+**Pilot scope:** a simple proof-of-concept package that helps an app/runtime understand RFQ package completeness from Bill of Quantity material. This is not yet a full QS operating system.
 
 Checklist:
 
-- [ ] Choose pilot domain.
-- [ ] Define pilot scope.
-- [ ] Register source materials.
-- [ ] Create/extract KOs.
-- [ ] Review and approve pilot KOs.
-- [ ] Build relationships.
-- [ ] Run readiness checks.
-- [ ] Export PKA.
-- [ ] Validate in runtime harness.
-- [ ] Run demo scenario.
+- [x] Choose pilot domain: Quantity Surveying / RFQ from BOQ PKA proof of concept.
+- [x] Define pilot source pack: BOQ sample, RFQ checklist, tender clarification rules, submission completeness rules, evidence/citation examples.
+- [x] Register pilot source materials as local source artifacts.
+- [x] Add deterministic pipeline path over pilot sources.
+- [x] Add one-click local proof path to create or accept pilot KOs.
+- [x] Add one-click local proof path to review and approve pilot KOs.
+- [x] Add pilot relationships for BOQ/RFQ evidence and package completeness.
+- [x] Add one-click local proof path for governance checks, package publish, runtime import, and deterministic Q&A/context demo.
+- [ ] Run deterministic workflow demo: RFQ package completeness checklist.
 - [ ] Record gaps and next backlog.
 - [ ] Update documentation with pilot lessons.
 
@@ -580,10 +591,38 @@ Acceptance checks:
 - [ ] Governance gaps are visible.
 - [ ] Runtime demo is repeatable.
 - [ ] Next backlog is based on observed product gaps.
+- [ ] The demo explains clearly what Knowledge Factory manufactured: a governed Base PKA, not a chatbot, client vault, or runtime app.
 
 ---
 
-## 6. Cross-Sprint Quality Checklist
+### Sprint 9 - Local AI/Ollama Integration Gate
+
+**Goal:** add local AI only after the deterministic manufacturing, packaging, and runtime contract are stable.
+
+**Primary outcome:** Ollama becomes one provider behind the existing router for bounded drafting or grounded answer generation, without changing KF's governance model.
+
+Checklist:
+
+- [x] Keep provider/model router abstraction.
+- [x] Keep deterministic fake provider as the test baseline.
+- [x] Add Ollama adapter design notes without implementation.
+- [ ] Confirm local Ollama model availability and target use case.
+- [ ] Add Ollama adapter behind the provider router.
+- [ ] Add operator setting to choose deterministic fake provider vs Ollama for local development.
+- [ ] Use Ollama only for draft suggestions or Q&A demo output, never automatic approval.
+- [ ] Add tests that keep deterministic provider as the default CI/runtime verification path.
+- [ ] Update docs for local AI configuration and sensitive-knowledge rules.
+
+Acceptance checks:
+
+- [ ] Disabling Ollama leaves the deterministic product flow working.
+- [ ] Ollama output is draft or clearly model-generated.
+- [ ] No sensitive organizational knowledge is sent to external providers.
+- [ ] The first domain PKA demo remains repeatable without a local model.
+
+---
+
+## 7. Cross-Sprint Quality Checklist
 
 Apply these checks to every sprint:
 
@@ -599,7 +638,7 @@ Apply these checks to every sprint:
 
 ---
 
-## 7. Initial Backlog by Capability
+## 8. Initial Backlog by Capability
 
 ### Studio
 
@@ -667,7 +706,7 @@ Apply these checks to every sprint:
 
 ---
 
-## 8. Decision Log
+## 9. Decision Log
 
 | Date | Decision | Status | Notes |
 | --- | --- | --- | --- |
@@ -739,10 +778,31 @@ Apply these checks to every sprint:
 | 2026-07-17 | Runtime import component and safe archive import checks added | Accepted | `/runtime-import` now checks ontology loading and the `runtime/config.json` placeholder boundary. Local uploaded/imported JSON archives are stored under `storage/exports/<packageId>/imports/` with filename sanitizing, JSON archive validation, and a 1 MB local harness limit. AIFA/LADOS docs now describe capability mismatch behavior. Ollama remains deferred. |
 | 2026-07-17 | Runtime installer contract and import audit trail added | Accepted | `/runtime-import` now checks prompt, rule, workflow, and template placeholder boundaries and records `runtime_import.importable` or `runtime_import.blocked` decisions into governance history. `docs/implementation/PKA Package Installer Contract for Runtime Apps.md` defines deterministic installer expectations for AIFA/LADOS. Ollama remains deferred. |
 | 2026-07-17 | Runtime import decision drilldowns and missing-component fixtures added | Accepted | `/runtime-import` now filters decision history by all/importable/blocked and shows import decision drilldown metrics. Deterministic fixtures now cover missing `prompts/`, `rules/`, `workflows/`, and `templates/` component indexes. `docs/implementation/Ollama Adapter Design Notes.md` records the future Ollama adapter boundary without implementing it. |
+| 2026-07-17 | Sprint 3 suggestion review report added | Accepted | `/pipeline` now summarizes deterministic KO and relationship suggestion status mix, average confidence, missing evidence, and reviewer notes coverage with review signals. Next slice should return to source ingestion depth before runtime Q&A harness preparation. Ollama remains unimplemented. |
+| 2026-07-17 | Sprint 3 source coverage report added | Accepted | `/pipeline` now shows project-wide source coverage by extraction profile, chunk count, token estimate, suggestion coverage, and multi-chunk source depth. Runtime Q&A harness remains deferred until ingestion depth is stronger. |
+| 2026-07-17 | Source coverage drilldowns and Runtime Q&A preparation added | Accepted | `/pipeline` now drills into source coverage by extraction profile and tests multi-source/multi-chunk fixtures across repaired text and Markdown artifacts. `/runtime-qa` prepares the grounded Q&A context boundary without model calls. Ollama remains deferred. |
+| 2026-07-17 | Runtime Q&A context bundle preview added | Accepted | `/runtime-qa` now previews a deterministic PKA context bundle built only from published package metadata, approved Knowledge Objects, governed relationships, source evidence, runtime instructions, and fixture questions with citation requirements. No AI/model calls are made. |
+| 2026-07-17 | Runtime Q&A answer readiness report added | Accepted | `/runtime-qa` now blocks future answering when a published package, approved KOs, source citations, or governed relationships are missing. This remains deterministic and makes no AI/model calls. |
+| 2026-07-17 | Sprint plan reset to pilot PKA vertical slice | Accepted | The plan now treats QS/RFQ from BOQ as the controlling product milestone. Runtime import/Q&A work is grouped under a runtime contract sprint, Ollama is moved behind a later gate, and new tasks should support the first source-to-PKA-to-runtime demo. |
+| 2026-07-17 | QS/RFQ pilot vertical slice added | Accepted | The Pipeline now exposes a pilot source pack and one-click deterministic vertical slice that prepares BOQ/RFQ source artifacts, creates pilot KOs and relationships, approves/publishes the Base PKA, records runtime import, and shows deterministic Runtime Q&A fixture evaluation. |
+| 2026-07-17 | QS/RFQ pilot visual inspection completed | Accepted | Studio inspection confirmed published package, 4 approved KOs, 3 graph edges, zero model calls, ready answer readiness, and ready fixture evaluation. Professional/product gaps are recorded in `docs/implementation/QS RFQ Pilot Source Pack.md`. |
+| 2026-07-17 | QS/RFQ pilot hardening added | Accepted | Pilot runs are idempotent by default when the current published package is ready and contains the latest workflow/handoff files. Pipeline now shows a compact Pilot Run Report. The package export includes `workflows/rfq-package-issue-workflow.json` and `runtime/app-developer-handoff.json`. The source pack now includes a structural concrete BOQ trade section and a clarification/evidence register example. |
+| 2026-07-17 | QS/RFQ pilot hardening inspection completed | Accepted | Studio rerun confirmed idempotent pilot behavior, ready Pilot Run Report, published package handoff, and workflow/handoff files inside both `package-archive.json` and `package.zip`. Decision: deepen QS extraction/evidence modeling before building a dedicated RFQ workflow UI. Ollama remains deferred. |
+| 2026-07-17 | RFQ evidence register slice added | Accepted | Added `RfqEvidenceRegisterEntry` schema/migration placeholder, evidence categories/statuses, pilot register generation, Pipeline evidence-register panel, `sources/rfq-evidence-register.json` package export, `evidence_register` PKA component kind, and governed relationships for newly promoted structural/register KOs. Ollama remains deferred. |
+| 2026-07-17 | RFQ evidence register persistence and review controls added | Accepted | RFQ evidence register reads/writes now use Prisma when `DATABASE_URL` is active, with in-memory fallback retained. Pipeline now filters register entries by category/status/trade/gate, shows selected-entry detail, and supports reviewer accept/request-clarification/supersede actions with governance audit events. Next slice should build RFQ workflow gates on evidence readiness. |
+| 2026-07-17 | RFQ workflow gate readiness and handoff summaries added | Accepted | Pipeline now reports RFQ workflow gates from active evidence readiness, excluding superseded entries and blocking unresolved missing evidence, clarifications, and commercial exceptions with remediation prompts. Package governance handoff/readback now includes RFQ workflow gate summaries and RFQ evidence reviewer decision summaries. Ollama remains deferred. |
+| 2026-07-18 | RFQ workflow gate action forms added | Accepted | Pipeline now records audit-backed gate remediation actions with action type, owner, due date, status, and notes. Gate reports surface latest follow-up metadata. Package governance handoff/readback and runtime import now include RFQ workflow gate action summaries. Ollama remains deferred. |
+| 2026-07-18 | RFQ workflow gate actions promoted to Prisma table | Accepted | Added `RfqWorkflowGateAction` table/migration, DB-backed gate action create/list/filtering, action-to-evidence-entry links, Pipeline action history filters, and package/readback coverage for table-backed gate action summaries. Audit logs remain the immutable governance trail. Ollama remains deferred. |
+| 2026-07-18 | Dedicated RFQ workflow route and close controls added | Accepted | Added `/rfq-workflow` route with gate readiness, action metrics, project/gate/status/owner filters, action history, linked evidence entry controls, and update/close actions. Pipeline now links to the dedicated workflow surface. Relationship evidence remains deferred. |
+| 2026-07-18 | RFQ workflow ageing, audit drilldown, and blocked-action package checks added | Accepted | `/rfq-workflow` now shows overdue/due-today metrics, action ageing labels, and selected action audit history. PKA package validation, archive readback, ZIP readback, runtime import, and `governance/index.json` now include RFQ blocked/overdue gate action risk summaries before publish/handoff. |
+| 2026-07-18 | RFQ publish gate and relationship evidence decisions finalized | Accepted | Relationship evidence remains structured provenance on `KnowledgeRelationship` for the pilot; no dedicated relationship evidence table yet. Unresolved `blocked` RFQ workflow gate actions now hard-block `publishPkaPackage`. `/rfq-workflow` now filters action history by computed due state. Ollama remains deferred. |
+| 2026-07-18 | QS/RFQ app-developer readback checklist added | Accepted | `PKA Package Installer Contract for Runtime Apps` now includes the QS/RFQ pilot package files that AIFA/LADOS-style consumers must inspect, including RFQ evidence register, workflow, handoff, governance summaries, blocked-action risk, placeholder component boundaries, and the relationship evidence provenance decision. |
+| 2026-07-18 | QS/RFQ package handoff inspection and developer-consumption slice prepared | Accepted | Visual Studio inspection confirmed the published package path after the publish hard-block: Runtime Q&A ready, persisted `runtime/app-developer-handoff.json` visible, readback includes blocked-action risk summaries, runtime import is allowed, and `/rfq-workflow` due-state filtering works. The handoff JSON now includes installer checklist, governance requirements, RFQ risk policy, relationship evidence policy, feedback questions, and the next developer-consumption slice. |
+| 2026-07-18 | Runtime handoff consuming-app readback surface added | Accepted | Added `/runtime-handoff` to load `runtime/app-developer-handoff.json`, map installer checks to `installable`, `blocked`, or `installation_review_required`, expose relationship-evidence feedback prompts, and link back to persisted export/readback/runtime import. Contract and browser tests cover installable and missing-handoff blocked behavior. Ollama remains deferred. |
 
 ---
 
-## 9. Open Decisions
+## 10. Open Decisions
 
 - [x] Application framework: Next.js App Router with TypeScript.
 - [x] Package manager: pnpm via Corepack.
@@ -755,23 +815,24 @@ Apply these checks to every sprint:
 - [x] Canonical MVP lifecycle states: `draft`, `ai_generated`, `under_review`, `changes_requested`, `expert_validated`, `approved`, `published`, `deprecated`, `archived`, `rejected`.
 - [x] Minimal Mission model: Mission-backed traceability for meaningful project, source, pipeline, review, and packaging activity.
 - [x] Minimal organisation/workspace/project/identity/role model: single local org/workspace with seeded roles and ownership fields.
-- [x] First local AI integration depth behind provider/model router: deterministic fake provider in Sprint 0, Ollama adapter in Sprint 3.
-- [x] First pilot domain for Sprint 9: Quantity Surveying / RFQ from BOQ PKA proof of concept.
+- [x] First local AI integration depth behind provider/model router: deterministic fake provider first; Ollama is gated until the deterministic pilot path is stable.
+- [x] First pilot domain for Sprint 8: Quantity Surveying / RFQ from BOQ PKA proof of concept.
 - [x] PKA anatomy and runtime boundary: Base PKA is manufactured by KF; runtime products own client data, runtime state, and client-adapted PKA instances.
 - [x] App developer retrieval posture: cloud AI receives selected governed context, not whole PKAs, graphs, source libraries, or client vaults.
 - [x] Initial PKA context bundle contract: exported from `packages/pka` with AIFA and LADOS examples documented.
 - [x] Browser/runtime test runner direction: Playwright is approved for KF, but package installation and `pnpm check` wiring remain a separate tooling task.
 - [x] Knowledge Object version persistence: promote from audit-backed placeholders to dedicated `KnowledgeObjectVersion` records.
+- [x] Relationship evidence table timing: defer a dedicated table; keep structured `KnowledgeRelationship.provenance.sourceEvidence` until multi-source evidence lifecycle/export requirements are proven.
+- [x] RFQ blocked action publish behavior: unresolved `blocked` RFQ workflow gate actions hard-block `publishPkaPackage`; overdue actions remain visible package/readback risks.
 
 ---
 
-## 10. Current Next Actions
+## 11. Current Next Actions
 
-1. Review the accumulated runtime import/readback batch after commit and push.
-2. Continue deterministic Sprint 3 pipeline hardening with richer suggestion review/reporting.
-3. Add package installer import fixtures for unsupported package schema version when manifest versioning is introduced.
-4. Keep Ollama adapter unimplemented until deterministic review, package release, and runtime import flow remain stable after the committed batch.
-5. Decide whether the next sprint slice should return to source ingestion depth or start runtime Q&A harness preparation.
+1. Run a visual inspection of `/runtime-handoff` against the published QS/RFQ package.
+2. Add optional negative handoff fixtures if app-developer feedback asks for more installer failure cases.
+3. Gather pilot feedback on whether relationship evidence needs multi-source lifecycle support before adding a table.
+4. Keep broad runtime/import hardening and Ollama frozen unless they block the QS/RFQ pilot.
 
 ---
 

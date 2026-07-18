@@ -49,6 +49,8 @@ Current verification note, 2026-07-15:
 - `kf-postgres` is healthy on port `55432`.
 - Initial Prisma migration `20260715094912_init` has been applied.
 - Knowledge Object version migration `20260716090000_add_knowledge_object_versions` has been applied.
+- RFQ evidence register migration `20260717190000_add_rfq_evidence_register` has been applied.
+- RFQ workflow gate action migration `20260718090000_add_rfq_workflow_gate_actions` has been applied.
 
 ---
 

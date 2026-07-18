@@ -10,8 +10,11 @@ export const navigationItems = [
   { label: "Ontology", href: "/ontology" },
   { label: "Graph", href: "/ontology#graph-quality" },
   { label: "Pipeline", href: "/pipeline" },
+  { label: "RFQ Workflow", href: "/rfq-workflow" },
   { label: "PKA Builder", href: "/pka-builder" },
   { label: "Runtime Import", href: "/runtime-import" },
+  { label: "Runtime Handoff", href: "/runtime-handoff" },
+  { label: "Runtime Q&A", href: "/runtime-qa" },
   { label: "AI Workbench", href: "#ai-workbench" },
   { label: "Settings", href: "#settings" }
 ];
@@ -122,7 +125,7 @@ export const sources: SourceSummary[] = [
     usagePolicy: "Local development only",
     processingStatus: "created",
     boundary: "base_pka_input",
-    storagePath: "storage/sources/src-boq-sample",
+    storagePath: "storage/sources/src-boq-sample/source.md",
     createdAt: "2026-07-15"
   },
   {
@@ -138,7 +141,7 @@ export const sources: SourceSummary[] = [
     usagePolicy: "Reusable PKA component candidate",
     processingStatus: "queued",
     boundary: "base_pka_input",
-    storagePath: "storage/sources/src-rfq-template",
+    storagePath: "storage/sources/src-rfq-template/source.md",
     createdAt: "2026-07-15"
   },
   {
@@ -177,6 +180,59 @@ export type SourceEvidenceSummary = {
   excerpt?: string;
   locator?: string;
   confidence?: number;
+};
+
+export type RfqEvidenceCategory =
+  | "issued_evidence"
+  | "missing_evidence"
+  | "assumption"
+  | "addendum"
+  | "subcontractor_return"
+  | "commercial_exception";
+
+export const rfqEvidenceCategories = [
+  "issued_evidence",
+  "missing_evidence",
+  "assumption",
+  "addendum",
+  "subcontractor_return",
+  "commercial_exception"
+] as const satisfies RfqEvidenceCategory[];
+
+export type RfqEvidenceStatus =
+  | "draft"
+  | "under_review"
+  | "accepted"
+  | "clarification_required"
+  | "superseded";
+
+export const rfqEvidenceStatuses = [
+  "draft",
+  "under_review",
+  "accepted",
+  "clarification_required",
+  "superseded"
+] as const satisfies RfqEvidenceStatus[];
+
+export type RfqEvidenceRegisterEntrySummary = {
+  id: string;
+  projectId: string;
+  sourceId?: string;
+  sourceTitle?: string;
+  knowledgeObjectId?: string;
+  knowledgeObjectTitle?: string;
+  registerCode: string;
+  boqItemRef?: string;
+  tradeSection: string;
+  category: RfqEvidenceCategory;
+  status: RfqEvidenceStatus;
+  questionOrEvidence: string;
+  requiredResponseOwner: string;
+  evidenceReference?: string;
+  commercialImpact?: string;
+  pricingBasisChange: boolean;
+  workflowGate: "prepare" | "review" | "approve_issue" | "clarify" | "receive_compare";
+  createdAt: string;
 };
 
 export type SourceChunkSummary = {
@@ -264,6 +320,7 @@ export type GovernanceEventSummary = {
   subjectId: string;
   actorId?: string;
   detail: string;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 };
 

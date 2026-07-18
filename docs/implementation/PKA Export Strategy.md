@@ -206,9 +206,9 @@ Those exclusions belong to a runtime vault, client-adapted PKA instance, or cons
 
 Relationship source evidence remains stored as structured `KnowledgeRelationship.provenance.sourceEvidence` for the pilot.
 
-Decision: do not create a dedicated relationship evidence table yet.
+Decision: do not create a dedicated relationship evidence table yet. This decision was reaffirmed on 2026-07-18 after the RFQ workflow gate-action table stabilized.
 
-Do not promote it to a dedicated table until export and review feedback shows one of these needs:
+Do not promote it to a dedicated table until app-developer package feedback, export readback, or review workflow usage shows one of these needs:
 
 - multiple source evidence links per relationship,
 - independent relationship evidence review lifecycle,

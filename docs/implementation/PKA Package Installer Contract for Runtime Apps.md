@@ -106,6 +106,14 @@ The local KF Studio harness is:
 /runtime-import
 ```
 
+The consuming-app handoff readback surface is:
+
+```text
+/runtime-handoff
+```
+
+It loads `runtime/app-developer-handoff.json`, maps package handoff checks into `installable`, `blocked`, or `installation_review_required`, and keeps relationship-evidence table feedback visible before a consuming app turns package content into runtime behavior.
+
 It validates selected persisted package archives and safe imported JSON archives under:
 
 ```text
@@ -132,7 +140,33 @@ This harness is a contract test for runtime developers. It is not a substitute f
 
 ---
 
-## 7. Ollama Boundary
+## 7. QS/RFQ Pilot Package Readback Checklist
+
+For the QS/RFQ from BOQ pilot package, an AIFA/LADOS-style runtime developer should inspect these files before treating the package as installable:
+
+| File | Runtime expectation |
+| --- | --- |
+| `manifest.json` | Confirms package identity, version, domain, governance status, object/relationship vocabulary, and required runtime capabilities. |
+| `knowledge-objects/index.json` | Contains approved Knowledge Objects only; runtime apps should not load draft or under-review records as authoritative guidance. |
+| `graph/relationships.json` | Contains governed relationship edges for retrieval/traversal. Relationship evidence remains in structured provenance for the pilot. |
+| `sources/index.json` | Lists source references available for citation and evidence traceability. |
+| `sources/rfq-evidence-register.json` | Provides the structured RFQ evidence register used to assess package issue readiness. |
+| `governance/index.json` | Must include `releaseDecisionSummary`, `rfqEvidenceDecisionSummary`, `rfqWorkflowGateSummary`, `rfqWorkflowGateActionSummary`, and `rfqWorkflowGateActionRisk`. |
+| `workflows/rfq-package-issue-workflow.json` | Defines the pilot RFQ package issue workflow boundary; it is not yet a full runtime workflow engine. |
+| `runtime/app-developer-handoff.json` | Gives the concise handoff index and runtime integration notes for app developers. |
+| `runtime/config.json`, `prompts/index.json`, `rules/index.json`, `workflows/index.json`, `templates/index.json` | Placeholder component boundaries must be present even when not executable yet. |
+
+Blocked RFQ workflow actions are a publish-time failure in KF. If a runtime receives a package with `rfqWorkflowGateActionRisk.blockedCount > 0`, treat it as `blocked` or `installation_review_required` and ask for a corrected package. Overdue actions are not automatically invalid, but they must be shown to the runtime owner because they indicate unresolved time-sensitive commercial follow-up.
+
+Relationship evidence table decision for the pilot:
+
+- Do not expect a dedicated relationship evidence table or file yet.
+- Read relationship source evidence from `graph/relationships.json` provenance fields.
+- Request a dedicated relationship evidence component only if the runtime needs multi-source evidence sets, independent relationship-evidence review lifecycle, or separate graph-evidence indexing.
+
+---
+
+## 8. Ollama Boundary
 
 Ollama or another local model provider should not be required for package installation.
 

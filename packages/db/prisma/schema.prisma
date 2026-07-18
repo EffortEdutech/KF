@@ -116,6 +116,8 @@ model Project {
   knowledgeSuggestions KnowledgeSuggestion[]
   relationshipSuggestions RelationshipSuggestion[]
   knowledgeObjects KnowledgeObject[]
+  rfqEvidenceRegisterEntries RfqEvidenceRegisterEntry[]
+  rfqWorkflowGateActions RfqWorkflowGateAction[]
   packages       PkaPackage[]
 }
 
@@ -167,6 +169,7 @@ model Source {
   chunks         SourceChunk[]
   knowledgeSuggestions KnowledgeSuggestion[]
   relationshipSuggestions RelationshipSuggestion[]
+  rfqEvidenceRegisterEntries RfqEvidenceRegisterEntry[]
 }
 
 model SourceChunk {
@@ -271,6 +274,55 @@ model KnowledgeObject {
   reviews        Review[]
   versions       KnowledgeObjectVersion[]
   acceptedSuggestions KnowledgeSuggestion[]
+  rfqEvidenceRegisterEntries RfqEvidenceRegisterEntry[]
+}
+
+model RfqEvidenceRegisterEntry {
+  id                    String      @id @default(cuid())
+  projectId             String
+  sourceId              String?
+  knowledgeObjectId     String?
+  registerCode          String
+  boqItemRef            String?
+  tradeSection          String
+  category              String
+  status                String      @default("draft")
+  questionOrEvidence    String
+  requiredResponseOwner String
+  evidenceReference     String?
+  commercialImpact      String?
+  pricingBasisChange    Boolean     @default(false)
+  workflowGate          String
+  metadata              Json?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  project               Project     @relation(fields: [projectId], references: [id])
+  source                Source?     @relation(fields: [sourceId], references: [id])
+  knowledgeObject       KnowledgeObject? @relation(fields: [knowledgeObjectId], references: [id])
+
+  @@unique([projectId, registerCode])
+  @@index([projectId, category, status])
+  @@index([sourceId])
+  @@index([knowledgeObjectId])
+}
+
+model RfqWorkflowGateAction {
+  id               String   @id @default(cuid())
+  projectId        String
+  gate             String
+  actionType       String
+  owner            String
+  dueDate          DateTime?
+  status           String   @default("open")
+  notes            String?
+  evidenceEntryIds String[] @default([])
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  project          Project  @relation(fields: [projectId], references: [id])
+
+  @@index([projectId, gate, status])
+  @@index([projectId, owner])
 }
 
 model KnowledgeObjectVersion {

@@ -4,10 +4,13 @@ import { FakeModelProvider } from "@kf/ai";
 import type { LifecycleState, MissionStatus, MissionType, RelationshipType, Role } from "@kf/core";
 import { relationshipTypes } from "@kf/core";
 import { getPrismaClient } from "@kf/db";
-import type { PkaComponentManifestEntry } from "@kf/pka";
+import type { PkaComponentManifestEntry, PkaContextBundle } from "@kf/pka";
 import { pkaPackageFolders } from "@kf/pka";
 import type {
   GovernanceEventSummary,
+  RfqEvidenceCategory,
+  RfqEvidenceRegisterEntrySummary,
+  RfqEvidenceStatus,
   KnowledgeSuggestionSummary,
   KnowledgeObjectSummary,
   KnowledgeObjectVersionSnapshotSummary,
@@ -131,6 +134,64 @@ export type PipelineQualityMetrics = {
   retriedSourceCount: number;
   acceptanceRate: number;
   deferOrRejectRate: number;
+};
+
+export type PipelineSuggestionReviewReport = {
+  projectId?: string;
+  sourceId?: string;
+  totalSuggestions: number;
+  knowledgeSuggestionCount: number;
+  relationshipSuggestionCount: number;
+  pendingCount: number;
+  acceptedCount: number;
+  deferredCount: number;
+  rejectedCount: number;
+  lowConfidenceCount: number;
+  missingEvidenceCount: number;
+  reviewNotesCount: number;
+  averageConfidence?: number;
+  recommendedAction: string;
+};
+
+export type PipelineSourceCoverageItem = {
+  sourceId: string;
+  sourceTitle: string;
+  storagePath?: string;
+  processingStatus: MissionStatus;
+  extractionProfile:
+    | "markdown_artifact"
+    | "text_artifact"
+    | "artifact_directory"
+    | "metadata_fallback"
+    | "unsupported_artifact"
+    | "empty_fixture";
+  chunkCount: number;
+  totalTokenEstimate: number;
+  averageChunkTokens: number;
+  suggestionCount: number;
+  relationshipSuggestionCount: number;
+  coveredChunkCount: number;
+  uncoveredChunkCount: number;
+  coverageRate: number;
+  isMultiChunk: boolean;
+};
+
+export type PipelineSourceCoverageReport = {
+  projectId?: string;
+  extractionProfile?: PipelineSourceCoverageItem["extractionProfile"] | "all";
+  sourceCount: number;
+  ingestedSourceCount: number;
+  artifactSourceCount: number;
+  metadataFallbackSourceCount: number;
+  unsupportedSourceCount: number;
+  emptySourceCount: number;
+  multiChunkSourceCount: number;
+  totalChunks: number;
+  totalTokenEstimate: number;
+  totalSuggestions: number;
+  averageChunksPerIngestedSource: number;
+  profileCounts: Record<PipelineSourceCoverageItem["extractionProfile"], number>;
+  items: PipelineSourceCoverageItem[];
 };
 
 export type MissionInput = {
@@ -317,6 +378,35 @@ export type RuntimePkaImportReport = {
   items: PackageValidationItem[];
 };
 
+export type RuntimeHandoffInstallDecision = "installable" | "blocked" | "installation_review_required";
+
+export type RuntimeHandoffReadbackItem = {
+  id: string;
+  decision: "pass" | "blocked" | "installation_review_required" | "feedback_requested";
+  title: string;
+  detail: string;
+};
+
+export type RuntimeHandoffReadbackReport = {
+  packageId: string;
+  packageName?: string;
+  handoffPath: string;
+  decision: RuntimeHandoffInstallDecision;
+  blockedCount: number;
+  reviewRequiredCount: number;
+  feedbackQuestionCount: number;
+  summary?: string;
+  audience: string[];
+  relationshipEvidencePolicy?: {
+    currentShape?: string;
+    dedicatedTableStatus?: string;
+    promoteWhen: string[];
+  };
+  feedbackQuestions: string[];
+  nextDeveloperSlice: string[];
+  items: RuntimeHandoffReadbackItem[];
+};
+
 export type PkaManifestPreview = {
   packageId: string;
   name: string;
@@ -349,6 +439,231 @@ export type PkaPackageExportPreview = {
   folders: readonly string[];
   componentIndex: PkaComponentManifestEntry[];
   files: PkaExportFile[];
+};
+
+export type RuntimeQaFixtureQuestion = {
+  id: string;
+  question: string;
+  expectedCitationRequirement: string;
+  requiredContextTypes: string[];
+};
+
+export type RuntimeQaContextBundlePreview = PkaContextBundle & {
+  packageRecordId?: string;
+  packageStatus?: LifecycleState;
+  fixtureQuestions: RuntimeQaFixtureQuestion[];
+};
+
+export type RuntimeQaAnswerReadinessReport = {
+  projectId: string;
+  ready: boolean;
+  missingCitationCount: number;
+  missingPublishedPackageCount: number;
+  missingApprovedKnowledgeObjectCount: number;
+  missingGovernedRelationshipCount: number;
+  items: ReadinessHint[];
+};
+
+export type RuntimeQaFixtureEvaluation = {
+  id: string;
+  question: string;
+  status: "ready" | "blocked";
+  requiredContextTypes: string[];
+  missingContextTypes: string[];
+  citedKnowledgeObjectTitles: string[];
+  citedSourceEvidence: string[];
+  citedRelationshipCount: number;
+  deterministicAnswer: string;
+};
+
+export type RuntimeQaFixtureEvaluationReport = {
+  projectId: string;
+  ready: boolean;
+  evaluations: RuntimeQaFixtureEvaluation[];
+};
+
+export type RfqEvidenceRegisterReport = {
+  projectId: string;
+  ready: boolean;
+  totalEntries: number;
+  acceptedEntryCount: number;
+  clarificationRequiredCount: number;
+  categoryCounts: Record<RfqEvidenceCategory, number>;
+  statusCounts: Record<RfqEvidenceStatus, number>;
+  workflowGateReadiness: Array<{
+    gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+    status: "ready" | "warning";
+    requiredCategories: RfqEvidenceCategory[];
+    presentCategories: RfqEvidenceCategory[];
+    detail: string;
+  }>;
+};
+
+export type RfqWorkflowGateReport = {
+  projectId: string;
+  ready: boolean;
+  gates: Array<{
+    gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+    title: string;
+    status: "ready" | "warning" | "blocked";
+    detail: string;
+    activeEntryCount: number;
+    acceptedEntryCount: number;
+    clarificationRequiredCount: number;
+    missingEvidenceCount: number;
+    commercialExceptionCount: number;
+    supersededEntryCount: number;
+    requiredCategories: RfqEvidenceCategory[];
+    presentCategories: RfqEvidenceCategory[];
+    remediationPrompts: string[];
+    followUp?: {
+      actionId: string;
+      actionType: RfqWorkflowGateActionType;
+      owner: string;
+      dueDate?: string;
+      status: RfqWorkflowGateActionStatus;
+      notes?: string;
+      updatedAt: string;
+    };
+    entries: Array<{
+      id: string;
+      registerCode: string;
+      tradeSection: string;
+      category: RfqEvidenceCategory;
+      status: RfqEvidenceStatus;
+      questionOrEvidence: string;
+    }>;
+  }>;
+};
+
+export type RfqWorkflowGateActionType =
+  | "attach_missing_evidence"
+  | "request_clarification"
+  | "resolve_commercial_exception";
+
+export type RfqWorkflowGateActionStatus = "open" | "in_progress" | "resolved" | "blocked";
+export type RfqWorkflowGateActionDueState =
+  | "no_due_date"
+  | "due_future"
+  | "due_today"
+  | "overdue"
+  | "closed";
+
+export type RfqWorkflowGateActionInput = {
+  projectId: string;
+  gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+  actionType: RfqWorkflowGateActionType;
+  owner: string;
+  dueDate?: string;
+  status: RfqWorkflowGateActionStatus;
+  actor?: string;
+  notes?: string;
+  evidenceEntryIds?: string[];
+};
+
+export type RfqWorkflowGateActionUpdateInput = {
+  actionId: string;
+  status: RfqWorkflowGateActionStatus;
+  actor?: string;
+  owner?: string;
+  dueDate?: string;
+  notes?: string;
+  evidenceEntryIds?: string[];
+};
+
+export type RfqWorkflowGateActionRecord = {
+  id: string;
+  projectId: string;
+  gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+  actionType: RfqWorkflowGateActionType;
+  owner: string;
+  dueDate?: string;
+  status: RfqWorkflowGateActionStatus;
+  dueState: RfqWorkflowGateActionDueState;
+  ageDays: number;
+  dueInDays?: number;
+  overdueDays?: number;
+  notes?: string;
+  evidenceEntryIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RfqWorkflowGateActionFilter = {
+  projectId?: string;
+  gate?: RfqEvidenceRegisterEntrySummary["workflowGate"] | "all";
+  owner?: string;
+  status?: RfqWorkflowGateActionStatus | "all";
+  dueState?: RfqWorkflowGateActionDueState | "all";
+  evidenceEntryId?: string;
+};
+
+export type RfqEvidenceRegisterFilter = {
+  projectId?: string;
+  category?: RfqEvidenceCategory | "all";
+  status?: RfqEvidenceStatus | "all";
+  tradeSection?: string;
+  workflowGate?: RfqEvidenceRegisterEntrySummary["workflowGate"] | "all";
+  entryId?: string;
+};
+
+export type RfqEvidenceRegisterReviewInput = {
+  entryId: string;
+  status: Extract<RfqEvidenceStatus, "accepted" | "clarification_required" | "superseded">;
+  actor?: string;
+  notes?: string;
+};
+
+export type QsRfqPilotSourcePack = {
+  projectId: string;
+  title: string;
+  sourceIds: string[];
+  objective: string;
+  artifacts: Array<{
+    sourceId: string;
+    title: string;
+    storagePath: string;
+    purpose: string;
+  }>;
+  operatorRecipe: string[];
+};
+
+export type QsRfqPilotRunResult = {
+  projectId: string;
+  sourcePack: QsRfqPilotSourcePack;
+  mode: "created" | "reused_existing";
+  ingestedSourceIds: string[];
+  acceptedKnowledgeObjectIds: string[];
+  acceptedRelationshipIds: string[];
+  packageRecordId?: string;
+  packageId?: string;
+  packageStatus?: LifecycleState;
+  runtimeImportStatus?: RuntimePkaImportReport["status"];
+  evidenceRegisterReady: boolean;
+  runtimeQaReady: boolean;
+  fixtureEvaluationReady: boolean;
+};
+
+export type QsRfqPilotRunInput = {
+  actor?: string;
+  mode?: "reuse_existing" | "replace_version";
+};
+
+export type QsRfqPilotRunReport = {
+  projectId: string;
+  title: string;
+  status: "ready" | "incomplete";
+  summary: {
+    sourceCount: number;
+    ingestedSourceCount: number;
+    approvedKnowledgeObjectCount: number;
+    approvedRelationshipCount: number;
+    latestPackageStatus?: LifecycleState;
+    latestPackageId?: string;
+    runtimeQaReady: boolean;
+    fixtureEvaluationReady: boolean;
+  };
+  stages: ReadinessHint[];
 };
 
 export type PkaPersistedExportFile = {
@@ -433,6 +748,8 @@ type WorkspaceStore = {
   versionSnapshots: KnowledgeObjectVersionSnapshotSummary[];
   reviews: ReviewSummary[];
   pkaPackages: PkaPackageSummary[];
+  rfqEvidenceRegisterEntries: RfqEvidenceRegisterEntrySummary[];
+  rfqWorkflowGateActions: RfqWorkflowGateActionRecord[];
 };
 
 type PrismaProject = {
@@ -657,6 +974,45 @@ type PrismaPkaPackage = {
   createdAt: Date;
 };
 
+type PrismaRfqEvidenceRegisterEntry = {
+  id: string;
+  projectId: string;
+  sourceId: string | null;
+  knowledgeObjectId: string | null;
+  registerCode: string;
+  boqItemRef: string | null;
+  tradeSection: string;
+  category: string;
+  status: string;
+  questionOrEvidence: string;
+  requiredResponseOwner: string;
+  evidenceReference: string | null;
+  commercialImpact: string | null;
+  pricingBasisChange: boolean;
+  workflowGate: string;
+  createdAt: Date;
+  source: {
+    title: string;
+  } | null;
+  knowledgeObject: {
+    title: string;
+  } | null;
+};
+
+type PrismaRfqWorkflowGateAction = {
+  id: string;
+  projectId: string;
+  gate: string;
+  actionType: string;
+  owner: string;
+  dueDate: Date | null;
+  status: string;
+  notes: string | null;
+  evidenceEntryIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type AuditLogInput = {
   action: string;
   subjectType: string;
@@ -713,6 +1069,10 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 42);
+}
+
+function localUniqueId(prefix: string, seed: string) {
+  return `${prefix}-${slugify(seed)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function usePrismaStore() {
@@ -1049,7 +1409,9 @@ function workspaceStore() {
     auditLogs: [],
     versionSnapshots: [],
     reviews: [],
-    pkaPackages: []
+    pkaPackages: [],
+    rfqEvidenceRegisterEntries: [],
+    rfqWorkflowGateActions: []
   };
 
   globalThis.kfWorkspaceStore.missions ??= seedMissions.map((mission) => ({ ...mission }));
@@ -1064,6 +1426,8 @@ function workspaceStore() {
   globalThis.kfWorkspaceStore.versionSnapshots ??= [];
   globalThis.kfWorkspaceStore.reviews ??= [];
   globalThis.kfWorkspaceStore.pkaPackages ??= [];
+  globalThis.kfWorkspaceStore.rfqEvidenceRegisterEntries ??= [];
+  globalThis.kfWorkspaceStore.rfqWorkflowGateActions ??= [];
 
   return globalThis.kfWorkspaceStore;
 }
@@ -1085,6 +1449,8 @@ export async function resetWorkspaceForRuntimeTests() {
     await prisma.auditLog.deleteMany();
     await prisma.relationshipSuggestion.deleteMany();
     await prisma.knowledgeRelationship.deleteMany();
+    await prisma.rfqWorkflowGateAction.deleteMany();
+    await prisma.rfqEvidenceRegisterEntry.deleteMany();
     await prisma.sourceEvidence.deleteMany();
     await prisma.knowledgeSuggestion.deleteMany();
     await prisma.sourceChunk.deleteMany();
@@ -1258,6 +1624,11 @@ function mapKnowledgeRelationship(relationship: PrismaKnowledgeRelationship): Kn
 }
 
 function mapAuditLog(auditLog: PrismaAuditLog): GovernanceEventSummary {
+  const metadata =
+    auditLog.metadata && typeof auditLog.metadata === "object"
+      ? (auditLog.metadata as Record<string, unknown>)
+      : undefined;
+
   return {
     id: auditLog.id,
     actorId: auditLog.actorId ?? undefined,
@@ -1265,6 +1636,7 @@ function mapAuditLog(auditLog: PrismaAuditLog): GovernanceEventSummary {
     subjectType: auditLog.subjectType,
     subjectId: auditLog.subjectId,
     detail: metadataDetail(auditLog.metadata),
+    metadata,
     createdAt: auditLog.createdAt.toISOString().slice(0, 10)
   };
 }
@@ -1339,6 +1711,114 @@ function mapPkaPackage(pkaPackage: PrismaPkaPackage): PkaPackageSummary {
     publishedAt: pkaPackage.publishedAt?.toISOString().slice(0, 10),
     createdAt: pkaPackage.createdAt.toISOString().slice(0, 10)
   };
+}
+
+function mapRfqEvidenceRegisterEntry(entry: PrismaRfqEvidenceRegisterEntry): RfqEvidenceRegisterEntrySummary {
+  return {
+    id: entry.id,
+    projectId: entry.projectId,
+    sourceId: entry.sourceId ?? undefined,
+    sourceTitle: entry.source?.title,
+    knowledgeObjectId: entry.knowledgeObjectId ?? undefined,
+    knowledgeObjectTitle: entry.knowledgeObject?.title,
+    registerCode: entry.registerCode,
+    boqItemRef: entry.boqItemRef ?? undefined,
+    tradeSection: entry.tradeSection,
+    category: entry.category as RfqEvidenceCategory,
+    status: entry.status as RfqEvidenceStatus,
+    questionOrEvidence: entry.questionOrEvidence,
+    requiredResponseOwner: entry.requiredResponseOwner,
+    evidenceReference: entry.evidenceReference ?? undefined,
+    commercialImpact: entry.commercialImpact ?? undefined,
+    pricingBasisChange: entry.pricingBasisChange,
+    workflowGate: entry.workflowGate as RfqEvidenceRegisterEntrySummary["workflowGate"],
+    createdAt: entry.createdAt.toISOString().slice(0, 10)
+  };
+}
+
+function startOfUtcDay(date: Date) {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function parseDateOnly(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  if (!year || !month || !day) {
+    return undefined;
+  }
+
+  return Date.UTC(year, month - 1, day);
+}
+
+function withRfqWorkflowGateActionAge(
+  action: Omit<RfqWorkflowGateActionRecord, "dueState" | "ageDays" | "dueInDays" | "overdueDays">
+): RfqWorkflowGateActionRecord {
+  const today = startOfUtcDay(new Date());
+  const createdDay = parseDateOnly(action.createdAt) ?? today;
+  const dueDay = parseDateOnly(action.dueDate);
+  const ageDays = Math.max(0, Math.floor((today - createdDay) / 86_400_000));
+
+  if (action.status === "resolved") {
+    return {
+      ...action,
+      dueState: "closed",
+      ageDays
+    };
+  }
+
+  if (dueDay === undefined) {
+    return {
+      ...action,
+      dueState: "no_due_date",
+      ageDays
+    };
+  }
+
+  const dueDeltaDays = Math.floor((dueDay - today) / 86_400_000);
+
+  if (dueDeltaDays < 0) {
+    return {
+      ...action,
+      dueState: "overdue",
+      ageDays,
+      overdueDays: Math.abs(dueDeltaDays)
+    };
+  }
+
+  if (dueDeltaDays === 0) {
+    return {
+      ...action,
+      dueState: "due_today",
+      ageDays,
+      dueInDays: 0
+    };
+  }
+
+  return {
+    ...action,
+    dueState: "due_future",
+    ageDays,
+    dueInDays: dueDeltaDays
+  };
+}
+
+function mapRfqWorkflowGateAction(action: PrismaRfqWorkflowGateAction): RfqWorkflowGateActionRecord {
+  return withRfqWorkflowGateActionAge({
+    id: action.id,
+    projectId: action.projectId,
+    gate: action.gate as RfqEvidenceRegisterEntrySummary["workflowGate"],
+    actionType: action.actionType as RfqWorkflowGateActionType,
+    owner: action.owner,
+    dueDate: action.dueDate?.toISOString().slice(0, 10),
+    status: action.status as RfqWorkflowGateActionStatus,
+    notes: action.notes ?? undefined,
+    evidenceEntryIds: action.evidenceEntryIds,
+    createdAt: action.createdAt.toISOString().slice(0, 10),
+    updatedAt: action.updatedAt.toISOString().slice(0, 10)
+  });
 }
 
 function mapKnowledgeObject(knowledgeObject: PrismaKnowledgeObject): KnowledgeObjectSummary {
@@ -1513,6 +1993,275 @@ function sourceTextForIngestion(source: SourceSummary) {
   ].join("\n");
 }
 
+const qsRfqPilotProjectId = "kf-qs-rfq-pilot";
+const qsRfqPilotSourceIds = ["src-boq-sample", "src-rfq-template"] as const;
+const qsRfqPilotSuggestionTitles = new Set([
+  "BOQ item evidence required before RFQ issue",
+  "RFQ BOQ scope completeness check",
+  "Provisional BOQ quantity assumption rule",
+  "Structural BOQ RFQ evidence requirement",
+  "RFQ package issue template",
+  "RFQ return requirements checklist",
+  "Tender clarification log procedure",
+  "RFQ clarification and evidence register"
+]);
+const rfqEvidenceCategories: RfqEvidenceCategory[] = [
+  "issued_evidence",
+  "missing_evidence",
+  "assumption",
+  "addendum",
+  "subcontractor_return",
+  "commercial_exception"
+];
+const rfqEvidenceStatuses: RfqEvidenceStatus[] = [
+  "draft",
+  "under_review",
+  "accepted",
+  "clarification_required",
+  "superseded"
+];
+
+const qsRfqPilotArtifacts: Record<(typeof qsRfqPilotSourceIds)[number], string> = {
+  "src-boq-sample": "storage/sources/src-boq-sample/source.md",
+  "src-rfq-template": "storage/sources/src-rfq-template/source.md"
+};
+
+const qsRfqPilotArtifactContents: Record<(typeof qsRfqPilotSourceIds)[number], string> = {
+  "src-boq-sample": [
+    "# Sample BOQ for RFQ Package",
+    "",
+    "BOQ section: Architectural finishes package. Item A1 floor tiles to toilet areas, unit m2, provisional quantity 120, includes tile adhesive, grout, skirting trim, movement joints, and protection after laying.",
+    "Before issuing an RFQ, the BOQ item must be checked against drawings, specifications, quantity basis, unit, inclusions, exclusions, and provisional assumptions.",
+    "Evidence required for RFQ issue includes BOQ item code, description, unit, quantity, drawing reference, specification clause, pricing basis, and clarification log for missing scope.",
+    "If drawings or specifications are missing, the RFQ must mark the assumption and request subcontractor clarification instead of treating provisional quantity as certified final quantity.",
+    "",
+    "BOQ section: Structural concrete substructure package. Item S1 reinforced concrete pad footing, unit m3, provisional quantity 45, includes concrete grade C30/37, reinforcement fixing coordination, formwork to sides, blinding concrete, cube test allowance, curing, and disposal of excavated unsuitable material where instructed.",
+    "Before issuing the structural RFQ, the QS must check foundation layout drawings, structural details, geotechnical assumptions, concrete specification, rebar schedule responsibility, temporary works exclusions, testing requirements, and whether excavation support is priced separately.",
+    "Structural BOQ evidence required for quotation comparison includes drawing revision, specification clause, footing dimensions or take-off basis, reinforcement assumption, concrete grade, testing allowance, disposal scope, and clarification status for ground condition risk."
+  ].join("\n"),
+  "src-rfq-template": [
+    "# RFQ Template Structure",
+    "",
+    "An RFQ package should include trade scope summary, BOQ extract, drawings and specifications list, pricing return format, submission deadline, commercial terms, exclusions schedule, and clarification response process.",
+    "The RFQ checklist requires each quoted BOQ item to carry item code, description, unit, quantity, rate column, amount formula, assumptions, exclusions, lead time, validity period, and evidence attachments.",
+    "Tender clarifications must be logged with question, originator, response, date, affected BOQ item, affected drawing or specification, and whether an addendum is required.",
+    "The procurement team should not issue an RFQ package until missing drawings, missing specifications, scope exclusions, alternative proposal rules, and return-document requirements are identified.",
+    "",
+    "Clarification and evidence register example: register ID RFQ-CLR-001, source BOQ item A1/S1, question raised by subcontractor, required response owner QS, evidence reference drawing/specification/addendum, commercial impact, due date, response status, and whether the response changes the pricing basis.",
+    "The evidence register must separate issued evidence, missing evidence, assumptions, addenda, and subcontractor-return documents so the runtime can cite approved package knowledge without mixing it with client vault state or live tender correspondence."
+  ].join("\n")
+};
+
+export function getQsRfqPilotSourcePack(): QsRfqPilotSourcePack {
+  return {
+    projectId: qsRfqPilotProjectId,
+    title: "QS/RFQ from BOQ Pilot Source Pack",
+    sourceIds: [...qsRfqPilotSourceIds],
+    objective:
+      "Manufacture a small governed Base PKA that helps a runtime understand RFQ package completeness from BOQ material.",
+    artifacts: [
+      {
+        sourceId: "src-boq-sample",
+        title: "Sample BOQ for RFQ Package",
+        storagePath: qsRfqPilotArtifacts["src-boq-sample"],
+        purpose: "Provides BOQ item, measurement basis, inclusion/exclusion, and evidence requirements."
+      },
+      {
+        sourceId: "src-rfq-template",
+        title: "RFQ Template Structure",
+        storagePath: qsRfqPilotArtifacts["src-rfq-template"],
+        purpose: "Provides RFQ return requirements, clarification log rules, and issue-readiness checks."
+      }
+    ],
+    operatorRecipe: [
+      "Prepare the local pilot source artifacts.",
+      "Run deterministic ingestion for the BOQ and RFQ template sources.",
+      "Accept the source-backed KO suggestions needed for package completeness.",
+      "Accept relationship suggestions and add cross-source RFQ workflow support relationships.",
+      "Approve pilot KOs and governed relationships with reviewer accountability.",
+      "Assemble, review, approve, and publish the QS/RFQ Base PKA.",
+      "Validate runtime import and inspect deterministic Runtime Q&A context readiness."
+    ]
+  };
+}
+
+function rfqEvidenceRegisterDrafts(
+  knowledgeObjects: KnowledgeObjectSummary[]
+): Omit<RfqEvidenceRegisterEntrySummary, "id" | "createdAt">[] {
+  const knowledgeObjectByTitle = new Map(knowledgeObjects.map((knowledgeObject) => [knowledgeObject.title, knowledgeObject]));
+  const firstEvidence = (title: string) => knowledgeObjectByTitle.get(title)?.evidenceLinks[0];
+
+  return [
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("BOQ item evidence required before RFQ issue")?.sourceId,
+      sourceTitle: firstEvidence("BOQ item evidence required before RFQ issue")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("BOQ item evidence required before RFQ issue")?.id,
+      knowledgeObjectTitle: "BOQ item evidence required before RFQ issue",
+      registerCode: "RFQ-EV-001",
+      boqItemRef: "A1",
+      tradeSection: "Architectural finishes",
+      category: "issued_evidence",
+      status: "accepted",
+      questionOrEvidence:
+        "BOQ item code, description, unit, quantity, drawing/specification reference, pricing basis, and clarification status are required before RFQ issue.",
+      requiredResponseOwner: "knowledge_engineer",
+      evidenceReference: firstEvidence("BOQ item evidence required before RFQ issue")?.locator,
+      commercialImpact: "Incomplete evidence weakens quotation comparability and may cause scope exclusions.",
+      pricingBasisChange: false,
+      workflowGate: "prepare"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("RFQ BOQ scope completeness check")?.sourceId,
+      sourceTitle: firstEvidence("RFQ BOQ scope completeness check")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("RFQ BOQ scope completeness check")?.id,
+      knowledgeObjectTitle: "RFQ BOQ scope completeness check",
+      registerCode: "RFQ-EV-002",
+      boqItemRef: "A1",
+      tradeSection: "Architectural finishes",
+      category: "assumption",
+      status: "under_review",
+      questionOrEvidence:
+        "Check inclusions, exclusions, provisional assumptions, and related-scope items before sending the RFQ to subcontractors.",
+      requiredResponseOwner: "reviewer",
+      evidenceReference: firstEvidence("RFQ BOQ scope completeness check")?.locator,
+      commercialImpact: "Unreviewed assumptions may shift scope risk into subcontractor exclusions.",
+      pricingBasisChange: true,
+      workflowGate: "review"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("Provisional BOQ quantity assumption rule")?.sourceId,
+      sourceTitle: firstEvidence("Provisional BOQ quantity assumption rule")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("Provisional BOQ quantity assumption rule")?.id,
+      knowledgeObjectTitle: "Provisional BOQ quantity assumption rule",
+      registerCode: "RFQ-EV-003",
+      boqItemRef: "A1/S1",
+      tradeSection: "Cross-trade assumption",
+      category: "assumption",
+      status: "clarification_required",
+      questionOrEvidence:
+        "If drawings or specifications are missing, mark the quantity or scope as provisional and request clarification.",
+      requiredResponseOwner: "domain_expert",
+      evidenceReference: firstEvidence("Provisional BOQ quantity assumption rule")?.locator,
+      commercialImpact: "Provisional quantities must not be treated as certified final quantities.",
+      pricingBasisChange: true,
+      workflowGate: "clarify"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("Structural BOQ RFQ evidence requirement")?.sourceId,
+      sourceTitle: firstEvidence("Structural BOQ RFQ evidence requirement")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("Structural BOQ RFQ evidence requirement")?.id,
+      knowledgeObjectTitle: "Structural BOQ RFQ evidence requirement",
+      registerCode: "RFQ-EV-004",
+      boqItemRef: "S1",
+      tradeSection: "Structural concrete substructure",
+      category: "issued_evidence",
+      status: "accepted",
+      questionOrEvidence:
+        "Structural concrete BOQ items need drawing revision, specification clause, take-off basis, testing allowance, disposal scope, and ground-risk clarification.",
+      requiredResponseOwner: "domain_expert",
+      evidenceReference: firstEvidence("Structural BOQ RFQ evidence requirement")?.locator,
+      commercialImpact: "Ground-risk and testing gaps can materially affect subcontract quotations.",
+      pricingBasisChange: true,
+      workflowGate: "review"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("Tender clarification log procedure")?.sourceId,
+      sourceTitle: firstEvidence("Tender clarification log procedure")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("Tender clarification log procedure")?.id,
+      knowledgeObjectTitle: "Tender clarification log procedure",
+      registerCode: "RFQ-EV-005",
+      boqItemRef: "A1/S1",
+      tradeSection: "Tender clarification",
+      category: "addendum",
+      status: "under_review",
+      questionOrEvidence:
+        "Clarifications must track question, originator, response, affected BOQ item, affected drawing/specification, and addendum requirement.",
+      requiredResponseOwner: "reviewer",
+      evidenceReference: firstEvidence("Tender clarification log procedure")?.locator,
+      commercialImpact: "Uncontrolled clarification responses can change pricing basis without governance.",
+      pricingBasisChange: true,
+      workflowGate: "clarify"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("RFQ clarification and evidence register")?.sourceId,
+      sourceTitle: firstEvidence("RFQ clarification and evidence register")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("RFQ clarification and evidence register")?.id,
+      knowledgeObjectTitle: "RFQ clarification and evidence register",
+      registerCode: "RFQ-EV-006",
+      boqItemRef: "A1/S1",
+      tradeSection: "RFQ evidence control",
+      category: "missing_evidence",
+      status: "clarification_required",
+      questionOrEvidence:
+        "Separate issued evidence, missing evidence, assumptions, addenda, and subcontractor-return documents before runtime citation.",
+      requiredResponseOwner: "knowledge_engineer",
+      evidenceReference: firstEvidence("RFQ clarification and evidence register")?.locator,
+      commercialImpact: "Missing-evidence items should block final RFQ issue until clarified or approved as assumptions.",
+      pricingBasisChange: true,
+      workflowGate: "approve_issue"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("RFQ return requirements checklist")?.sourceId,
+      sourceTitle: firstEvidence("RFQ return requirements checklist")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("RFQ return requirements checklist")?.id,
+      knowledgeObjectTitle: "RFQ return requirements checklist",
+      registerCode: "RFQ-EV-007",
+      boqItemRef: "quotation-return",
+      tradeSection: "Subcontractor return",
+      category: "subcontractor_return",
+      status: "under_review",
+      questionOrEvidence:
+        "Quotation returns should include rate, amount formula, assumptions, exclusions, lead time, validity, and evidence attachments.",
+      requiredResponseOwner: "reviewer",
+      evidenceReference: firstEvidence("RFQ return requirements checklist")?.locator,
+      commercialImpact: "Incomplete return documents reduce quotation comparability.",
+      pricingBasisChange: false,
+      workflowGate: "receive_compare"
+    },
+    {
+      projectId: qsRfqPilotProjectId,
+      sourceId: firstEvidence("RFQ package issue template")?.sourceId,
+      sourceTitle: firstEvidence("RFQ package issue template")?.sourceTitle,
+      knowledgeObjectId: knowledgeObjectByTitle.get("RFQ package issue template")?.id,
+      knowledgeObjectTitle: "RFQ package issue template",
+      registerCode: "RFQ-EV-008",
+      boqItemRef: "package",
+      tradeSection: "Commercial package",
+      category: "commercial_exception",
+      status: "under_review",
+      questionOrEvidence:
+        "Commercial terms, exclusions schedule, alternative proposal rules, and return-document requirements must be identified before issue.",
+      requiredResponseOwner: "publisher",
+      evidenceReference: firstEvidence("RFQ package issue template")?.locator,
+      commercialImpact: "Commercial exceptions may require explicit negotiation or package exclusion before award recommendation.",
+      pricingBasisChange: true,
+      workflowGate: "approve_issue"
+    }
+  ];
+}
+
+async function prepareQsRfqPilotSourceArtifacts() {
+  for (const sourceId of qsRfqPilotSourceIds) {
+    const storagePath = qsRfqPilotArtifacts[sourceId];
+    const absolutePath = safeWorkspacePath(storagePath);
+
+    if (!absolutePath) {
+      throw new Error(`Unsafe pilot artifact path: ${storagePath}`);
+    }
+
+    await mkdir(dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, `${qsRfqPilotArtifactContents[sourceId]}\n`, "utf8");
+    await setSourceStoragePath(sourceId, storagePath);
+  }
+}
+
 function safeWorkspacePath(path: string) {
   const cwd = process.cwd();
   const workspaceRoot = cwd.endsWith(`${"apps"}\\studio`) || cwd.endsWith("apps/studio")
@@ -1647,6 +2396,32 @@ function chunkSourceText(content: string, maxLength = 260) {
   return chunks.length > 0 ? chunks : [content.slice(0, maxLength)];
 }
 
+function sourceExtractionProfile(source: SourceSummary): PipelineSourceCoverageItem["extractionProfile"] {
+  if (!source.storagePath) {
+    return "metadata_fallback";
+  }
+
+  const extension = extname(source.storagePath).toLowerCase();
+
+  if (source.storagePath.endsWith("-empty.txt")) {
+    return "empty_fixture";
+  }
+
+  if (extension === ".md") {
+    return "markdown_artifact";
+  }
+
+  if (extension === ".txt") {
+    return "text_artifact";
+  }
+
+  if (extension) {
+    return "unsupported_artifact";
+  }
+
+  return "artifact_directory";
+}
+
 function objectTypeForChunk(index: number): KnowledgeSuggestionSummary["objectType"] {
   const types: KnowledgeSuggestionSummary["objectType"][] = ["concept", "rule", "procedure", "checklist_item"];
   return types[index % types.length];
@@ -1657,7 +2432,120 @@ function suggestionTitleForChunk(source: SourceSummary, objectType: KnowledgeSug
   return `${source.title} ${label} ${index + 1}`;
 }
 
+function buildQsRfqPilotSuggestionFromChunk(source: SourceSummary, chunk: SourceChunkSummary) {
+  const pilotSuggestions: Record<string, Array<{
+    title: string;
+    objectType: KnowledgeSuggestionSummary["objectType"];
+    description: string;
+    confidence: number;
+    tags: string[];
+    reviewNotes: string;
+  }>> = {
+    "src-boq-sample": [
+      {
+        title: "BOQ item evidence required before RFQ issue",
+        objectType: "rule",
+        description:
+          "Before issuing an RFQ, each BOQ item should carry item code, description, unit, quantity, drawing or specification reference, pricing basis, and clarification status.",
+        confidence: 86,
+        tags: ["qs", "boq", "rfq", "evidence", "pilot"],
+        reviewNotes: "QS pilot fixture. Human reviewer must confirm project-specific drawings and specification references."
+      },
+      {
+        title: "RFQ BOQ scope completeness check",
+        objectType: "checklist_item",
+        description:
+          "Check BOQ scope against drawings, specifications, inclusions, exclusions, provisional assumptions, and related-scope items before sending the RFQ to subcontractors.",
+        confidence: 84,
+        tags: ["qs", "boq", "scope-completeness", "rfq", "pilot"],
+        reviewNotes: "QS pilot fixture. Treat provisional quantities as assumptions until verified by a human QS."
+      },
+      {
+        title: "Provisional BOQ quantity assumption rule",
+        objectType: "rule",
+        description:
+          "If drawings or specifications are missing, the RFQ should mark the quantity or scope as provisional and request clarification instead of treating it as certified final quantity.",
+        confidence: 82,
+        tags: ["qs", "boq", "assumption", "clarification", "pilot"],
+        reviewNotes: "QS pilot fixture. Contract and tender instructions remain the root records."
+      },
+      {
+        title: "Structural BOQ RFQ evidence requirement",
+        objectType: "rule",
+        description:
+          "Structural concrete BOQ items should carry drawing revision, specification clause, take-off basis, testing allowance, disposal scope, and ground-risk clarification before quotation comparison.",
+        confidence: 84,
+        tags: ["qs", "boq", "structural", "evidence", "pilot"],
+        reviewNotes: "QS pilot fixture. Structural trade assumptions need human QS and engineer review before production use."
+      }
+    ],
+    "src-rfq-template": [
+      {
+        title: "RFQ package issue template",
+        objectType: "template",
+        description:
+          "A basic RFQ package should include trade scope summary, BOQ extract, drawings/specifications list, pricing return format, deadline, commercial terms, exclusions schedule, and clarification process.",
+        confidence: 86,
+        tags: ["qs", "rfq", "template", "procurement", "pilot"],
+        reviewNotes: "QS pilot fixture. Template is a Base PKA component candidate and not client runtime state."
+      },
+      {
+        title: "RFQ return requirements checklist",
+        objectType: "checklist_item",
+        description:
+          "Each quotation return should provide item code, description, unit, quantity, rate, amount formula, assumptions, exclusions, lead time, validity period, and evidence attachments.",
+        confidence: 85,
+        tags: ["qs", "rfq", "return-requirements", "checklist", "pilot"],
+        reviewNotes: "QS pilot fixture. Review against company procurement policy before production use."
+      },
+      {
+        title: "Tender clarification log procedure",
+        objectType: "procedure",
+        description:
+          "Record each clarification with question, originator, response, date, affected BOQ item, affected drawing/specification, and whether an addendum is required.",
+        confidence: 83,
+        tags: ["qs", "rfq", "clarification", "procedure", "pilot"],
+        reviewNotes: "QS pilot fixture. Human reviewer should confirm authority and response ownership."
+      },
+      {
+        title: "RFQ clarification and evidence register",
+        objectType: "template",
+        description:
+          "The RFQ register should separate issued evidence, missing evidence, assumptions, addenda, and subcontractor-return documents for governed runtime citation.",
+        confidence: 84,
+        tags: ["qs", "rfq", "evidence-register", "clarification", "pilot"],
+        reviewNotes: "QS pilot fixture. Runtime apps must not treat live tender correspondence as Base PKA knowledge."
+      }
+    ]
+  };
+
+  const sourceSuggestions = pilotSuggestions[source.id];
+  const pilotSuggestion = sourceSuggestions?.[chunk.chunkIndex];
+
+  if (!pilotSuggestion) {
+    return undefined;
+  }
+
+  return {
+    title: pilotSuggestion.title,
+    objectType: pilotSuggestion.objectType,
+    domain: source.domain,
+    description: `${pilotSuggestion.description} Source-backed excerpt: ${chunk.content}`,
+    confidence: pilotSuggestion.confidence,
+    suggestedTags: pilotSuggestion.tags,
+    evidenceExcerpt: chunk.content,
+    evidenceLocator: chunk.locator,
+    reviewNotes: pilotSuggestion.reviewNotes
+  };
+}
+
 async function buildSuggestionFromChunk(source: SourceSummary, chunk: SourceChunkSummary) {
+  const pilotSuggestion = buildQsRfqPilotSuggestionFromChunk(source, chunk);
+
+  if (pilotSuggestion) {
+    return pilotSuggestion;
+  }
+
   const provider = new FakeModelProvider();
   const objectType = objectTypeForChunk(chunk.chunkIndex);
   const title = suggestionTitleForChunk(source, objectType, chunk.chunkIndex);
@@ -1690,6 +2578,20 @@ async function buildRelationshipSuggestionFromSuggestions(
   fromSuggestion: KnowledgeSuggestionSummary,
   toSuggestion: KnowledgeSuggestionSummary
 ) {
+  if (qsRfqPilotSourceIds.includes(source.id as (typeof qsRfqPilotSourceIds)[number])) {
+    const type: RelationshipType = source.id === "src-boq-sample" ? "supports" : "used_in";
+
+    return {
+      type,
+      rationale:
+        `${fromSuggestion.title} ${type.replaceAll("_", " ")} ${toSuggestion.title} as part of the QS/RFQ pilot evidence chain for RFQ package completeness.`,
+      confidence: normaliseConfidence(82),
+      evidenceExcerpt: fromSuggestion.evidenceExcerpt ?? toSuggestion.evidenceExcerpt,
+      evidenceLocator: fromSuggestion.evidenceLocator ?? toSuggestion.evidenceLocator,
+      reviewNotes: "QS pilot relationship fixture requires reviewer approval before package release."
+    };
+  }
+
   const provider = new FakeModelProvider();
   const response = await provider.generate({
     capability: "relationship_suggestion",
@@ -1977,6 +2879,890 @@ export async function getPipelineQualityMetrics(filters: { projectId?: string; s
   } satisfies PipelineQualityMetrics;
 }
 
+export async function getPipelineSuggestionReviewReport(
+  filters: { projectId?: string; sourceId?: string } = {}
+): Promise<PipelineSuggestionReviewReport> {
+  const [knowledgeSuggestions, relationshipSuggestions] = await Promise.all([
+    listKnowledgeSuggestions({ ...filters, status: "all" }),
+    listRelationshipSuggestions({ ...filters, status: "all" })
+  ]);
+  const allSuggestions = [...knowledgeSuggestions, ...relationshipSuggestions];
+  const confidenceValues = allSuggestions
+    .map((suggestion) => suggestion.confidence)
+    .filter((confidence): confidence is number => typeof confidence === "number");
+  const pendingCount = allSuggestions.filter((suggestion) => suggestion.status === "pending").length;
+  const acceptedCount = allSuggestions.filter((suggestion) => suggestion.status === "accepted").length;
+  const deferredCount = allSuggestions.filter((suggestion) => suggestion.status === "deferred").length;
+  const rejectedCount = allSuggestions.filter((suggestion) => suggestion.status === "rejected").length;
+  const lowConfidenceCount = allSuggestions.filter(
+    (suggestion) => typeof suggestion.confidence === "number" && suggestion.confidence < 70
+  ).length;
+  const missingEvidenceCount = allSuggestions.filter((suggestion) => !suggestion.evidenceExcerpt?.trim()).length;
+  const reviewNotesCount = allSuggestions.filter((suggestion) => suggestion.reviewNotes?.trim()).length;
+  const averageConfidence =
+    confidenceValues.length > 0
+      ? Math.round(confidenceValues.reduce((total, confidence) => total + confidence, 0) / confidenceValues.length)
+      : undefined;
+  const recommendedAction =
+    allSuggestions.length === 0
+      ? "Run ingestion before reviewing suggestions."
+      : pendingCount > 0
+        ? "Review pending suggestions before accepting them into governed draft records."
+        : lowConfidenceCount > 0 || missingEvidenceCount > 0
+          ? "Inspect low-confidence or missing-evidence suggestions before release planning."
+          : "Suggestion review queue is deterministic and ready for downstream governance.";
+
+  return {
+    projectId: filters.projectId,
+    sourceId: filters.sourceId,
+    totalSuggestions: allSuggestions.length,
+    knowledgeSuggestionCount: knowledgeSuggestions.length,
+    relationshipSuggestionCount: relationshipSuggestions.length,
+    pendingCount,
+    acceptedCount,
+    deferredCount,
+    rejectedCount,
+    lowConfidenceCount,
+    missingEvidenceCount,
+    reviewNotesCount,
+    averageConfidence,
+    recommendedAction
+  };
+}
+
+function normalizeRfqEvidenceRegisterFilter(
+  filters?: string | RfqEvidenceRegisterFilter
+): RfqEvidenceRegisterFilter {
+  return typeof filters === "string" ? { projectId: filters } : filters ?? {};
+}
+
+function filterRfqEvidenceRegisterEntries(
+  entries: RfqEvidenceRegisterEntrySummary[],
+  filters: RfqEvidenceRegisterFilter = {}
+) {
+  const tradeSection = filters.tradeSection?.trim().toLowerCase();
+
+  return entries.filter((entry) => {
+    if (filters.projectId && entry.projectId !== filters.projectId) {
+      return false;
+    }
+    if (filters.entryId && entry.id !== filters.entryId) {
+      return false;
+    }
+    if (filters.category && filters.category !== "all" && entry.category !== filters.category) {
+      return false;
+    }
+    if (filters.status && filters.status !== "all" && entry.status !== filters.status) {
+      return false;
+    }
+    if (filters.workflowGate && filters.workflowGate !== "all" && entry.workflowGate !== filters.workflowGate) {
+      return false;
+    }
+    if (tradeSection && !entry.tradeSection.toLowerCase().includes(tradeSection)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export async function listRfqEvidenceRegisterEntries(filters?: string | RfqEvidenceRegisterFilter) {
+  const normalizedFilters = normalizeRfqEvidenceRegisterFilter(filters);
+
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const entries = await getPrismaClient().rfqEvidenceRegisterEntry.findMany({
+      where: {
+        projectId: normalizedFilters.projectId,
+        id: normalizedFilters.entryId,
+        category:
+          normalizedFilters.category && normalizedFilters.category !== "all"
+            ? normalizedFilters.category
+            : undefined,
+        status:
+          normalizedFilters.status && normalizedFilters.status !== "all"
+            ? normalizedFilters.status
+            : undefined,
+        workflowGate:
+          normalizedFilters.workflowGate && normalizedFilters.workflowGate !== "all"
+            ? normalizedFilters.workflowGate
+            : undefined,
+        tradeSection: normalizedFilters.tradeSection
+          ? { contains: normalizedFilters.tradeSection, mode: "insensitive" }
+          : undefined
+      },
+      include: {
+        source: { select: { title: true } },
+        knowledgeObject: { select: { title: true } }
+      },
+      orderBy: [{ registerCode: "asc" }]
+    });
+
+    return entries.map(mapRfqEvidenceRegisterEntry);
+  }
+
+  return filterRfqEvidenceRegisterEntries(workspaceStore().rfqEvidenceRegisterEntries, normalizedFilters);
+}
+
+async function upsertRfqEvidenceRegisterEntry(
+  input: Omit<RfqEvidenceRegisterEntrySummary, "id" | "createdAt">,
+  actor = "knowledge_engineer"
+) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const prisma = getPrismaClient();
+    const existing = await prisma.rfqEvidenceRegisterEntry.findUnique({
+      where: {
+        projectId_registerCode: {
+          projectId: input.projectId,
+          registerCode: input.registerCode
+        }
+      },
+      select: { id: true }
+    });
+    const entry = await prisma.rfqEvidenceRegisterEntry.upsert({
+      where: {
+        projectId_registerCode: {
+          projectId: input.projectId,
+          registerCode: input.registerCode
+        }
+      },
+      create: {
+        projectId: input.projectId,
+        sourceId: input.sourceId,
+        knowledgeObjectId: input.knowledgeObjectId,
+        registerCode: input.registerCode,
+        boqItemRef: input.boqItemRef,
+        tradeSection: input.tradeSection,
+        category: input.category,
+        status: input.status,
+        questionOrEvidence: input.questionOrEvidence,
+        requiredResponseOwner: input.requiredResponseOwner,
+        evidenceReference: input.evidenceReference,
+        commercialImpact: input.commercialImpact,
+        pricingBasisChange: input.pricingBasisChange,
+        workflowGate: input.workflowGate,
+        metadata: {
+          createdBy: actor,
+          sourceTitle: input.sourceTitle,
+          knowledgeObjectTitle: input.knowledgeObjectTitle
+        }
+      },
+      update: {
+        sourceId: input.sourceId,
+        knowledgeObjectId: input.knowledgeObjectId,
+        boqItemRef: input.boqItemRef,
+        tradeSection: input.tradeSection,
+        category: input.category,
+        status: input.status,
+        questionOrEvidence: input.questionOrEvidence,
+        requiredResponseOwner: input.requiredResponseOwner,
+        evidenceReference: input.evidenceReference,
+        commercialImpact: input.commercialImpact,
+        pricingBasisChange: input.pricingBasisChange,
+        workflowGate: input.workflowGate,
+        metadata: {
+          updatedBy: actor,
+          sourceTitle: input.sourceTitle,
+          knowledgeObjectTitle: input.knowledgeObjectTitle
+        }
+      },
+      include: {
+        source: { select: { title: true } },
+        knowledgeObject: { select: { title: true } }
+      }
+    });
+    const mappedEntry = mapRfqEvidenceRegisterEntry(entry);
+
+    await recordAuditLog({
+      action: existing ? "rfq_evidence_register.updated" : "rfq_evidence_register.created",
+      subjectType: "RfqEvidenceRegisterEntry",
+      subjectId: mappedEntry.id,
+      actorId: actor,
+      detail: `${existing ? "Updated" : "Created"} RFQ evidence register entry ${mappedEntry.registerCode}: ${mappedEntry.tradeSection}`,
+      metadata: {
+        projectId: mappedEntry.projectId,
+        registerCode: mappedEntry.registerCode,
+        category: mappedEntry.category,
+        status: mappedEntry.status,
+        workflowGate: mappedEntry.workflowGate,
+        knowledgeObjectId: mappedEntry.knowledgeObjectId
+      }
+    });
+
+    return mappedEntry;
+  }
+
+  const store = workspaceStore();
+  const existingIndex = store.rfqEvidenceRegisterEntries.findIndex(
+    (entry) => entry.projectId === input.projectId && entry.registerCode === input.registerCode
+  );
+  const entry: RfqEvidenceRegisterEntrySummary = {
+    ...(existingIndex >= 0
+      ? store.rfqEvidenceRegisterEntries[existingIndex]
+      : {
+          id: localUniqueId("rfqev", input.registerCode),
+          createdAt: new Date().toISOString().slice(0, 10)
+        }),
+    ...input
+  };
+
+  if (existingIndex >= 0) {
+    store.rfqEvidenceRegisterEntries[existingIndex] = entry;
+  } else {
+    store.rfqEvidenceRegisterEntries.unshift(entry);
+  }
+
+  await recordAuditLog({
+    action: existingIndex >= 0 ? "rfq_evidence_register.updated" : "rfq_evidence_register.created",
+    subjectType: "RfqEvidenceRegisterEntry",
+    subjectId: entry.id,
+    actorId: actor,
+    detail: `${existingIndex >= 0 ? "Updated" : "Created"} RFQ evidence register entry ${entry.registerCode}: ${entry.tradeSection}`,
+    metadata: {
+      projectId: entry.projectId,
+      registerCode: entry.registerCode,
+      category: entry.category,
+      status: entry.status,
+      workflowGate: entry.workflowGate,
+      knowledgeObjectId: entry.knowledgeObjectId
+    }
+  });
+
+  return entry;
+}
+
+export async function updateRfqEvidenceRegisterEntryStatus(input: RfqEvidenceRegisterReviewInput) {
+  const actor = input.actor ?? "reviewer";
+
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const entry = await getPrismaClient().rfqEvidenceRegisterEntry.update({
+      where: { id: input.entryId },
+      data: {
+        status: input.status,
+        metadata: {
+          lastReviewActor: actor,
+          lastReviewNotes: input.notes,
+          lastReviewStatus: input.status,
+          lastReviewedAt: new Date().toISOString()
+        }
+      },
+      include: {
+        source: { select: { title: true } },
+        knowledgeObject: { select: { title: true } }
+      }
+    });
+    const mappedEntry = mapRfqEvidenceRegisterEntry(entry);
+
+    await recordAuditLog({
+      action: `rfq_evidence_register.${input.status}`,
+      subjectType: "RfqEvidenceRegisterEntry",
+      subjectId: mappedEntry.id,
+      actorId: actor,
+      detail: `Marked RFQ evidence register entry ${mappedEntry.registerCode} as ${input.status.replaceAll("_", " ")}.`,
+      metadata: {
+        projectId: mappedEntry.projectId,
+        registerCode: mappedEntry.registerCode,
+        status: mappedEntry.status,
+        notes: input.notes
+      }
+    });
+
+    return mappedEntry;
+  }
+
+  const entry = workspaceStore().rfqEvidenceRegisterEntries.find((item) => item.id === input.entryId);
+
+  if (!entry) {
+    throw new Error(`RFQ evidence register entry not found: ${input.entryId}`);
+  }
+
+  entry.status = input.status;
+  await recordAuditLog({
+    action: `rfq_evidence_register.${input.status}`,
+    subjectType: "RfqEvidenceRegisterEntry",
+    subjectId: entry.id,
+    actorId: actor,
+    detail: `Marked RFQ evidence register entry ${entry.registerCode} as ${input.status.replaceAll("_", " ")}.`,
+    metadata: {
+      projectId: entry.projectId,
+      registerCode: entry.registerCode,
+      status: entry.status,
+      notes: input.notes
+    }
+  });
+
+  return entry;
+}
+
+async function ensureQsRfqPilotEvidenceRegister(actor = "knowledge_engineer") {
+  const approvedPilotObjects = (await listKnowledgeObjects({ projectId: qsRfqPilotProjectId })).filter(
+    (knowledgeObject) =>
+      approvedKnowledgeObject(knowledgeObject.status) && qsRfqPilotSuggestionTitles.has(knowledgeObject.title)
+  );
+  const entries: RfqEvidenceRegisterEntrySummary[] = [];
+
+  for (const draft of rfqEvidenceRegisterDrafts(approvedPilotObjects)) {
+    entries.push(await upsertRfqEvidenceRegisterEntry(draft, actor));
+  }
+
+  return entries;
+}
+
+export async function getRfqEvidenceRegisterReport(projectId: string): Promise<RfqEvidenceRegisterReport> {
+  const entries = await listRfqEvidenceRegisterEntries({ projectId });
+  const activeEntries = entries.filter((entry) => entry.status !== "superseded");
+  const categoryCounts = Object.fromEntries(rfqEvidenceCategories.map((category) => [category, 0])) as Record<
+    RfqEvidenceCategory,
+    number
+  >;
+  const statusCounts = Object.fromEntries(rfqEvidenceStatuses.map((status) => [status, 0])) as Record<
+    RfqEvidenceStatus,
+    number
+  >;
+
+  for (const entry of entries) {
+    categoryCounts[entry.category] += 1;
+    statusCounts[entry.status] += 1;
+  }
+
+  const workflowGateRequirements: Array<{
+    gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+    requiredCategories: RfqEvidenceCategory[];
+  }> = [
+    { gate: "prepare", requiredCategories: ["issued_evidence"] },
+    { gate: "review", requiredCategories: ["issued_evidence", "assumption"] },
+    { gate: "approve_issue", requiredCategories: ["missing_evidence", "commercial_exception"] },
+    { gate: "clarify", requiredCategories: ["assumption", "addendum"] },
+    { gate: "receive_compare", requiredCategories: ["subcontractor_return"] }
+  ];
+  const workflowGateReadiness = workflowGateRequirements.map((requirement) => {
+    const presentCategories = Array.from(
+      new Set(
+        activeEntries
+          .filter((entry) => entry.workflowGate === requirement.gate)
+          .map((entry) => entry.category)
+      )
+    );
+    const missingCategories = requirement.requiredCategories.filter(
+      (category) => !presentCategories.includes(category)
+    );
+
+    return {
+      gate: requirement.gate,
+      status: missingCategories.length === 0 ? ("ready" as const) : ("warning" as const),
+      requiredCategories: requirement.requiredCategories,
+      presentCategories,
+      detail:
+        missingCategories.length === 0
+          ? `${requirement.gate.replaceAll("_", " ")} gate has required evidence categories.`
+          : `${requirement.gate.replaceAll("_", " ")} gate is missing ${missingCategories.join(", ")}.`
+    };
+  });
+
+  return {
+    projectId,
+    ready: activeEntries.length > 0 && workflowGateReadiness.every((gate) => gate.status === "ready"),
+    totalEntries: entries.length,
+    acceptedEntryCount: entries.filter((entry) => entry.status === "accepted").length,
+    clarificationRequiredCount: entries.filter((entry) => entry.status === "clarification_required").length,
+    categoryCounts,
+    statusCounts,
+    workflowGateReadiness
+  };
+}
+
+const rfqWorkflowGateDefinitions: Array<{
+  gate: RfqEvidenceRegisterEntrySummary["workflowGate"];
+  title: string;
+  requiredCategories: RfqEvidenceCategory[];
+}> = [
+  { gate: "prepare", title: "Prepare RFQ package", requiredCategories: ["issued_evidence"] },
+  { gate: "review", title: "Review package completeness", requiredCategories: ["issued_evidence", "assumption"] },
+  { gate: "approve_issue", title: "Approve and issue RFQ", requiredCategories: ["missing_evidence", "commercial_exception"] },
+  { gate: "clarify", title: "Manage tender clarifications", requiredCategories: ["assumption", "addendum"] },
+  { gate: "receive_compare", title: "Receive and compare quotation", requiredCategories: ["subcontractor_return"] }
+];
+
+function rfqEvidenceCategoryLabel(category: RfqEvidenceCategory) {
+  return category.replaceAll("_", " ");
+}
+
+function rfqWorkflowGateActionLabel(actionType: RfqWorkflowGateActionType) {
+  if (actionType === "attach_missing_evidence") {
+    return "Attach missing evidence";
+  }
+  if (actionType === "request_clarification") {
+    return "Request clarification";
+  }
+  return "Resolve commercial exception";
+}
+
+function rfqWorkflowGateActionSummary(events: GovernanceEventSummary[]) {
+  return events
+    .filter((event) => event.subjectType === "RfqWorkflowGate")
+    .filter((event) => event.action.startsWith("rfq_workflow_gate."))
+    .map((event) => ({
+      actionId: event.id,
+      action: event.action,
+      projectId: metadataString(event.metadata, "projectId"),
+      gate: metadataString(event.metadata, "gate"),
+      actionType: metadataString(event.metadata, "actionType") as RfqWorkflowGateActionType | undefined,
+      owner: metadataString(event.metadata, "owner"),
+      dueDate: metadataString(event.metadata, "dueDate"),
+      status: metadataString(event.metadata, "status") as RfqWorkflowGateActionStatus | undefined,
+      actorId: event.actorId,
+      detail: event.detail,
+      notes: metadataString(event.metadata, "notes"),
+      createdAt: event.createdAt
+    }));
+}
+
+function rfqWorkflowGateActionRiskSummary(actions: RfqWorkflowGateActionRecord[]) {
+  const unresolvedActions = actions.filter((action) => action.status !== "resolved");
+  const blockedActions = unresolvedActions.filter((action) => action.status === "blocked");
+  const overdueActions = unresolvedActions.filter((action) => action.dueState === "overdue");
+  const dueTodayActions = unresolvedActions.filter((action) => action.dueState === "due_today");
+
+  return {
+    unresolvedCount: unresolvedActions.length,
+    blockedCount: blockedActions.length,
+    overdueCount: overdueActions.length,
+    dueTodayCount: dueTodayActions.length,
+    blocksPublish: blockedActions.length > 0,
+    items: [...blockedActions, ...overdueActions]
+      .filter((action, index, actionsByRisk) => actionsByRisk.findIndex((item) => item.id === action.id) === index)
+      .map((action) => ({
+        actionId: action.id,
+        gate: action.gate,
+        actionType: action.actionType,
+        owner: action.owner,
+        status: action.status,
+        dueDate: action.dueDate,
+        dueState: action.dueState,
+        overdueDays: action.overdueDays,
+        ageDays: action.ageDays,
+        notes: action.notes,
+        evidenceEntryIds: action.evidenceEntryIds
+      }))
+  };
+}
+
+async function assertNoBlockedRfqWorkflowGateActionsBeforePublish(projectId: string) {
+  const blockedActions = await listRfqWorkflowGateActions({
+    projectId,
+    status: "blocked"
+  });
+
+  if (blockedActions.length > 0) {
+    throw new Error(
+      `Resolve ${blockedActions.length} blocked RFQ workflow gate action(s) before publishing the PKA package.`
+    );
+  }
+}
+
+function filterRfqWorkflowGateActions(
+  actions: RfqWorkflowGateActionRecord[],
+  filters: RfqWorkflowGateActionFilter = {}
+) {
+  const owner = filters.owner?.trim().toLowerCase();
+
+  return actions.filter((action) => {
+    if (filters.projectId && action.projectId !== filters.projectId) {
+      return false;
+    }
+    if (filters.gate && filters.gate !== "all" && action.gate !== filters.gate) {
+      return false;
+    }
+    if (filters.status && filters.status !== "all" && action.status !== filters.status) {
+      return false;
+    }
+    if (filters.dueState && filters.dueState !== "all" && action.dueState !== filters.dueState) {
+      return false;
+    }
+    if (owner && !action.owner.toLowerCase().includes(owner)) {
+      return false;
+    }
+    if (filters.evidenceEntryId && !action.evidenceEntryIds.includes(filters.evidenceEntryId)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export async function listRfqWorkflowGateActions(
+  filters: RfqWorkflowGateActionFilter = {}
+): Promise<RfqWorkflowGateActionRecord[]> {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const actions = await getPrismaClient().rfqWorkflowGateAction.findMany({
+      where: {
+        projectId: filters.projectId,
+        gate: filters.gate && filters.gate !== "all" ? filters.gate : undefined,
+        status: filters.status && filters.status !== "all" ? filters.status : undefined,
+        owner: filters.owner ? { contains: filters.owner, mode: "insensitive" } : undefined,
+        evidenceEntryIds: filters.evidenceEntryId ? { has: filters.evidenceEntryId } : undefined
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    return filterRfqWorkflowGateActions(actions.map(mapRfqWorkflowGateAction), {
+      dueState: filters.dueState
+    });
+  }
+
+  return filterRfqWorkflowGateActions(
+    workspaceStore().rfqWorkflowGateActions.map((action) =>
+      withRfqWorkflowGateActionAge({
+        id: action.id,
+        projectId: action.projectId,
+        gate: action.gate,
+        actionType: action.actionType,
+        owner: action.owner,
+        dueDate: action.dueDate,
+        status: action.status,
+        notes: action.notes,
+        evidenceEntryIds: action.evidenceEntryIds,
+        createdAt: action.createdAt,
+        updatedAt: action.updatedAt
+      })
+    ),
+    filters
+  );
+}
+
+export async function recordRfqWorkflowGateAction(input: RfqWorkflowGateActionInput) {
+  const actor = input.actor ?? "reviewer";
+  const detail = `${rfqWorkflowGateActionLabel(input.actionType)} for ${input.gate.replaceAll("_", " ")} gate assigned to ${input.owner}${input.dueDate ? ` by ${input.dueDate}` : ""}.`;
+  let actionRecord: RfqWorkflowGateActionRecord;
+
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const action = await getPrismaClient().rfqWorkflowGateAction.create({
+      data: {
+        projectId: input.projectId,
+        gate: input.gate,
+        actionType: input.actionType,
+        owner: input.owner,
+        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+        status: input.status,
+        notes: input.notes,
+        evidenceEntryIds: input.evidenceEntryIds ?? [],
+        metadata: {
+          actor,
+          evidenceEntryIds: input.evidenceEntryIds ?? []
+        }
+      }
+    });
+    actionRecord = mapRfqWorkflowGateAction(action);
+  } else {
+    actionRecord = withRfqWorkflowGateActionAge({
+      id: localUniqueId("rfqgate", `${input.projectId}-${input.gate}`),
+      projectId: input.projectId,
+      gate: input.gate,
+      actionType: input.actionType,
+      owner: input.owner,
+      dueDate: input.dueDate,
+      status: input.status,
+      notes: input.notes,
+      evidenceEntryIds: input.evidenceEntryIds ?? [],
+      createdAt: new Date().toISOString().slice(0, 10),
+      updatedAt: new Date().toISOString().slice(0, 10)
+    });
+    workspaceStore().rfqWorkflowGateActions.unshift(actionRecord);
+  }
+
+  await recordAuditLog({
+    action: `rfq_workflow_gate.${input.status}`,
+    subjectType: "RfqWorkflowGate",
+    subjectId: actionRecord.id,
+    actorId: actor,
+    detail,
+    metadata: {
+      actionId: actionRecord.id,
+      projectId: input.projectId,
+      gate: input.gate,
+      actionType: input.actionType,
+      owner: input.owner,
+      dueDate: input.dueDate,
+      status: input.status,
+      notes: input.notes,
+      evidenceEntryIds: input.evidenceEntryIds ?? []
+    }
+  });
+
+  return actionRecord;
+}
+
+export async function updateRfqWorkflowGateAction(input: RfqWorkflowGateActionUpdateInput) {
+  const actor = input.actor ?? "reviewer";
+  let actionRecord: RfqWorkflowGateActionRecord;
+
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const action = await getPrismaClient().rfqWorkflowGateAction.update({
+      where: { id: input.actionId },
+      data: {
+        status: input.status,
+        owner: input.owner,
+        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+        notes: input.notes,
+        evidenceEntryIds: input.evidenceEntryIds,
+        metadata: {
+          updatedBy: actor,
+          evidenceEntryIds: input.evidenceEntryIds
+        }
+      }
+    });
+    actionRecord = mapRfqWorkflowGateAction(action);
+  } else {
+    const action = workspaceStore().rfqWorkflowGateActions.find((item) => item.id === input.actionId);
+
+    if (!action) {
+      throw new Error(`RFQ workflow gate action not found: ${input.actionId}`);
+    }
+
+    action.status = input.status;
+    action.owner = input.owner ?? action.owner;
+    action.dueDate = input.dueDate ?? action.dueDate;
+    action.notes = input.notes ?? action.notes;
+    action.evidenceEntryIds = input.evidenceEntryIds ?? action.evidenceEntryIds;
+    action.updatedAt = new Date().toISOString().slice(0, 10);
+    actionRecord = withRfqWorkflowGateActionAge({
+      id: action.id,
+      projectId: action.projectId,
+      gate: action.gate,
+      actionType: action.actionType,
+      owner: action.owner,
+      dueDate: action.dueDate,
+      status: action.status,
+      notes: action.notes,
+      evidenceEntryIds: action.evidenceEntryIds,
+      createdAt: action.createdAt,
+      updatedAt: action.updatedAt
+    });
+  }
+
+  await recordAuditLog({
+    action: `rfq_workflow_gate.${input.status}`,
+    subjectType: "RfqWorkflowGate",
+    subjectId: actionRecord.id,
+    actorId: actor,
+    detail: `Updated RFQ workflow gate action ${actionRecord.gate.replaceAll("_", " ")} to ${input.status.replaceAll("_", " ")}.`,
+    metadata: {
+      actionId: actionRecord.id,
+      projectId: actionRecord.projectId,
+      gate: actionRecord.gate,
+      actionType: actionRecord.actionType,
+      owner: actionRecord.owner,
+      dueDate: actionRecord.dueDate,
+      status: actionRecord.status,
+      notes: actionRecord.notes,
+      evidenceEntryIds: actionRecord.evidenceEntryIds
+    }
+  });
+
+  return actionRecord;
+}
+
+export async function getRfqWorkflowGateReport(projectId: string): Promise<RfqWorkflowGateReport> {
+  const entries = await listRfqEvidenceRegisterEntries({ projectId });
+  const gateActions = await listRfqWorkflowGateActions({ projectId });
+  const gates = rfqWorkflowGateDefinitions.map((definition) => {
+    const gateEntries = entries.filter((entry) => entry.workflowGate === definition.gate);
+    const activeEntries = gateEntries.filter((entry) => entry.status !== "superseded");
+    const presentCategories = Array.from(new Set(activeEntries.map((entry) => entry.category)));
+    const missingCategories = definition.requiredCategories.filter(
+      (category) => !presentCategories.includes(category)
+    );
+    const unresolvedStatusEntries = activeEntries.filter((entry) =>
+      ["draft", "under_review", "clarification_required"].includes(entry.status)
+    );
+    const unresolvedMissingEvidence = activeEntries.filter(
+      (entry) => entry.category === "missing_evidence" && entry.status !== "accepted"
+    );
+    const unresolvedCommercialExceptions = activeEntries.filter(
+      (entry) => entry.category === "commercial_exception" && entry.status !== "accepted"
+    );
+    const remediationPrompts: string[] = [];
+    const latestAction = gateActions.find((event) => event.gate === definition.gate);
+
+    if (missingCategories.length > 0) {
+      remediationPrompts.push(
+        `Add or accept ${missingCategories.map(rfqEvidenceCategoryLabel).join(", ")} records before this gate can proceed.`
+      );
+    }
+    if (unresolvedStatusEntries.length > 0) {
+      remediationPrompts.push(
+        `Resolve reviewer decisions for ${unresolvedStatusEntries
+          .map((entry) => entry.registerCode)
+          .join(", ")}.`
+      );
+    }
+    if (unresolvedMissingEvidence.length > 0) {
+      remediationPrompts.push(
+        `Attach evidence, confirm an assumption, or request clarification for missing-evidence item(s): ${unresolvedMissingEvidence
+          .map((entry) => entry.registerCode)
+          .join(", ")}.`
+      );
+    }
+    if (unresolvedCommercialExceptions.length > 0) {
+      remediationPrompts.push(
+        `Escalate commercial exception item(s) ${unresolvedCommercialExceptions
+          .map((entry) => entry.registerCode)
+          .join(", ")} for reviewer or publisher decision before RFQ issue.`
+      );
+    }
+
+    const status =
+      missingCategories.length > 0 ||
+      unresolvedMissingEvidence.length > 0 ||
+      unresolvedCommercialExceptions.length > 0 ||
+      activeEntries.some((entry) => entry.status === "clarification_required") ||
+      latestAction?.status === "blocked"
+        ? ("blocked" as const)
+        : unresolvedStatusEntries.length > 0 || latestAction?.status === "open" || latestAction?.status === "in_progress"
+          ? ("warning" as const)
+          : ("ready" as const);
+
+    return {
+      gate: definition.gate,
+      title: definition.title,
+      status,
+      detail:
+        status === "ready"
+          ? `${definition.title} gate is ready from active evidence records.`
+          : `${definition.title} gate needs ${remediationPrompts.length} remediation action(s).`,
+      activeEntryCount: activeEntries.length,
+      acceptedEntryCount: activeEntries.filter((entry) => entry.status === "accepted").length,
+      clarificationRequiredCount: activeEntries.filter((entry) => entry.status === "clarification_required").length,
+      missingEvidenceCount: activeEntries.filter((entry) => entry.category === "missing_evidence").length,
+      commercialExceptionCount: activeEntries.filter((entry) => entry.category === "commercial_exception").length,
+      supersededEntryCount: gateEntries.length - activeEntries.length,
+      requiredCategories: definition.requiredCategories,
+      presentCategories,
+      remediationPrompts,
+      followUp:
+        latestAction?.actionType && latestAction.owner && latestAction.status
+          ? {
+              actionId: latestAction.id,
+              actionType: latestAction.actionType,
+              owner: latestAction.owner,
+              dueDate: latestAction.dueDate,
+              status: latestAction.status,
+              notes: latestAction.notes,
+              updatedAt: latestAction.updatedAt
+            }
+          : undefined,
+      entries: activeEntries.map((entry) => ({
+        id: entry.id,
+        registerCode: entry.registerCode,
+        tradeSection: entry.tradeSection,
+        category: entry.category,
+        status: entry.status,
+        questionOrEvidence: entry.questionOrEvidence
+      }))
+    };
+  });
+
+  return {
+    projectId,
+    ready: gates.every((gate) => gate.status === "ready"),
+    gates
+  };
+}
+
+export async function getPipelineSourceCoverageReport(
+  filters: { projectId?: string; extractionProfile?: PipelineSourceCoverageItem["extractionProfile"] | "all" } = {}
+): Promise<PipelineSourceCoverageReport> {
+  const [sources, chunks, knowledgeSuggestions, relationshipSuggestions] = await Promise.all([
+    filters.projectId ? listSourcesByProject(filters.projectId) : listSources(),
+    listSourceChunks({ projectId: filters.projectId }),
+    listKnowledgeSuggestions({ projectId: filters.projectId, status: "all" }),
+    listRelationshipSuggestions({ projectId: filters.projectId, status: "all" })
+  ]);
+
+  const allItems = sources.map((source) => {
+    const sourceChunks = chunks.filter((chunk) => chunk.sourceId === source.id);
+    const sourceSuggestions = knowledgeSuggestions.filter((suggestion) => suggestion.sourceId === source.id);
+    const sourceRelationshipSuggestions = relationshipSuggestions.filter((suggestion) => suggestion.sourceId === source.id);
+    const coveredChunkIds = new Set(
+      [...sourceSuggestions, ...sourceRelationshipSuggestions]
+        .map((suggestion) => suggestion.sourceChunkId)
+        .filter((sourceChunkId): sourceChunkId is string => Boolean(sourceChunkId))
+    );
+    const totalTokenEstimate = sourceChunks.reduce((total, chunk) => total + (chunk.tokenEstimate ?? 0), 0);
+    const coveredChunkCount = sourceChunks.filter((chunk) => coveredChunkIds.has(chunk.id)).length;
+    const uncoveredChunkCount = Math.max(0, sourceChunks.length - coveredChunkCount);
+
+    return {
+      sourceId: source.id,
+      sourceTitle: source.title,
+      storagePath: source.storagePath,
+      processingStatus: source.processingStatus,
+      extractionProfile: sourceExtractionProfile(source),
+      chunkCount: sourceChunks.length,
+      totalTokenEstimate,
+      averageChunkTokens:
+        sourceChunks.length > 0 ? Math.round(totalTokenEstimate / sourceChunks.length) : 0,
+      suggestionCount: sourceSuggestions.length,
+      relationshipSuggestionCount: sourceRelationshipSuggestions.length,
+      coveredChunkCount,
+      uncoveredChunkCount,
+      coverageRate: sourceChunks.length > 0 ? Math.round((coveredChunkCount / sourceChunks.length) * 100) : 0,
+      isMultiChunk: sourceChunks.length > 1
+    } satisfies PipelineSourceCoverageItem;
+  });
+  const items =
+    filters.extractionProfile && filters.extractionProfile !== "all"
+      ? allItems.filter((item) => item.extractionProfile === filters.extractionProfile)
+      : allItems;
+  const profileCounts = allItems.reduce(
+    (counts, item) => {
+      counts[item.extractionProfile] += 1;
+      return counts;
+    },
+    {
+      markdown_artifact: 0,
+      text_artifact: 0,
+      artifact_directory: 0,
+      metadata_fallback: 0,
+      unsupported_artifact: 0,
+      empty_fixture: 0
+    } satisfies Record<PipelineSourceCoverageItem["extractionProfile"], number>
+  );
+
+  const ingestedSourceCount = items.filter((item) => item.chunkCount > 0).length;
+  const artifactSourceCount = items.filter((item) =>
+    ["markdown_artifact", "text_artifact", "artifact_directory"].includes(item.extractionProfile)
+  ).length;
+  const totalChunks = items.reduce((total, item) => total + item.chunkCount, 0);
+
+  return {
+    projectId: filters.projectId,
+    extractionProfile: filters.extractionProfile ?? "all",
+    sourceCount: items.length,
+    ingestedSourceCount,
+    artifactSourceCount,
+    metadataFallbackSourceCount: items.filter((item) => item.extractionProfile === "metadata_fallback").length,
+    unsupportedSourceCount: items.filter((item) => item.extractionProfile === "unsupported_artifact").length,
+    emptySourceCount: items.filter((item) => item.extractionProfile === "empty_fixture").length,
+    multiChunkSourceCount: items.filter((item) => item.isMultiChunk).length,
+    totalChunks,
+    totalTokenEstimate: items.reduce((total, item) => total + item.totalTokenEstimate, 0),
+    totalSuggestions: items.reduce(
+      (total, item) => total + item.suggestionCount + item.relationshipSuggestionCount,
+      0
+    ),
+    averageChunksPerIngestedSource:
+      ingestedSourceCount > 0 ? Math.round((totalChunks / ingestedSourceCount) * 10) / 10 : 0,
+    profileCounts,
+    items
+  };
+}
+
 export async function listMissions() {
   if (usePrismaStore()) {
     await ensureLocalWorkspace();
@@ -2122,6 +3908,290 @@ export async function listPkaPackages(projectId?: string) {
   );
 }
 
+export function listRuntimeQaFixtureQuestions(): RuntimeQaFixtureQuestion[] {
+  return [
+    {
+      id: "runtime-qa-rfq-package-completeness",
+      question: "What should be checked before issuing an RFQ package from a BOQ?",
+      expectedCitationRequirement:
+        "Answer must cite at least one approved Knowledge Object and one source evidence excerpt.",
+      requiredContextTypes: ["knowledge_object", "source_evidence"]
+    },
+    {
+      id: "runtime-qa-relationship-support",
+      question: "Which approved knowledge supports the RFQ completeness workflow?",
+      expectedCitationRequirement:
+        "Answer must cite one approved Knowledge Object and any available governed relationship edge.",
+      requiredContextTypes: ["knowledge_object", "relationship"]
+    },
+    {
+      id: "runtime-qa-boundary-check",
+      question: "Can draft pipeline suggestions be used as runtime answer context?",
+      expectedCitationRequirement:
+        "Answer must cite the runtime instruction that limits context to published packages and approved knowledge.",
+      requiredContextTypes: ["runtime_instruction"]
+    }
+  ];
+}
+
+function latestPublishedPackage(packages: PkaPackageSummary[]) {
+  return packages.find((pkaPackage) => pkaPackage.status === "published");
+}
+
+export async function getRuntimeQaContextBundlePreview(projectId: string): Promise<RuntimeQaContextBundlePreview> {
+  const [packages, knowledgeObjects, relationships] = await Promise.all([
+    listPkaPackages(projectId),
+    listKnowledgeObjects({ projectId }),
+    listKnowledgeRelationships({ projectId })
+  ]);
+  const publishedPackage = latestPublishedPackage(packages);
+  const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
+    approvedKnowledgeObject(knowledgeObject.status)
+  );
+  const approvedIds = new Set(approvedKnowledgeObjects.map((knowledgeObject) => knowledgeObject.id));
+  const approvedRelationships = relationships.filter(
+    (relationship) =>
+      approvedKnowledgeObject(relationship.status) &&
+      approvedIds.has(relationship.fromId) &&
+      approvedIds.has(relationship.toId)
+  );
+  const sourceEvidenceById = new Map<string, SourceEvidenceSummary>();
+
+  for (const knowledgeObject of approvedKnowledgeObjects) {
+    for (const evidence of knowledgeObject.evidenceLinks) {
+      sourceEvidenceById.set(evidence.id, evidence);
+    }
+  }
+
+  const manifest = publishedPackage?.manifest ?? {};
+
+  return {
+    query: "deterministic runtime Q&A context preview",
+    pka: {
+      packageId:
+        typeof manifest.packageId === "string"
+          ? manifest.packageId
+          : publishedPackage?.packageId ?? "unpublished-package",
+      version:
+        typeof manifest.version === "string"
+          ? manifest.version
+          : publishedPackage?.version ?? "0.0.0",
+      domain:
+        typeof manifest.domain === "string"
+          ? manifest.domain
+          : approvedKnowledgeObjects[0]?.domain ?? "unknown",
+      name:
+        typeof manifest.name === "string"
+          ? manifest.name
+          : publishedPackage?.name
+    },
+    packageRecordId: publishedPackage?.id,
+    packageStatus: publishedPackage?.status,
+    retrievedAt: new Date().toISOString(),
+    governanceMode: "published_only",
+    knowledgeObjects: approvedKnowledgeObjects.map((knowledgeObject) => ({
+      id: knowledgeObject.id,
+      title: knowledgeObject.title,
+      type: knowledgeObject.objectType,
+      status: knowledgeObject.status,
+      summary: knowledgeObject.description,
+      confidence: knowledgeObject.confidence,
+      sourceRefs: knowledgeObject.evidenceLinks.map((evidence) => evidence.sourceId)
+    })),
+    relationships: approvedRelationships.map((relationship) => ({
+      fromId: relationship.fromId,
+      toId: relationship.toId,
+      type: relationship.type,
+      confidence: relationship.confidence,
+      provenanceRefs: [
+        relationship.provenanceNote,
+        relationship.evidenceSourceId,
+        relationship.evidenceLocator
+      ].filter((value): value is string => Boolean(value))
+    })),
+    rules: [],
+    workflows: [],
+    templates: [],
+    sourceEvidence: Array.from(sourceEvidenceById.values()).map((evidence) => ({
+      sourceId: evidence.sourceId,
+      title: evidence.sourceTitle,
+      excerpt: evidence.excerpt,
+      locator: evidence.locator
+    })),
+    runtimeInstructions: [
+      "Use published package context only.",
+      "Use approved, expert_validated, or published Knowledge Objects only.",
+      "Every answer must cite source evidence when source evidence is available.",
+      "Do not use draft KOs, unapproved suggestions, client vault state, or runtime user data."
+    ],
+    limitations: [
+      "This is a deterministic context preview, not an AI answer.",
+      "No provider, model router, Ollama adapter, embedding, or retrieval ranking is executed.",
+      publishedPackage ? "Published package metadata is available." : "No published package is available yet."
+    ],
+    fixtureQuestions: listRuntimeQaFixtureQuestions()
+  };
+}
+
+export async function getRuntimeQaAnswerReadinessReport(
+  projectId: string
+): Promise<RuntimeQaAnswerReadinessReport> {
+  const contextBundle = await getRuntimeQaContextBundlePreview(projectId);
+  const items: ReadinessHint[] = [];
+
+  if (!contextBundle.packageRecordId) {
+    items.push({
+      id: "runtime-qa-missing-published-package",
+      level: "warning",
+      title: "Published package missing",
+      detail: "Runtime Q&A requires a published package before answer context can be considered ready."
+    });
+  }
+
+  if (contextBundle.knowledgeObjects.length === 0) {
+    items.push({
+      id: "runtime-qa-missing-approved-knowledge-objects",
+      level: "warning",
+      title: "Approved Knowledge Objects missing",
+      detail: "Runtime Q&A requires approved, expert_validated, or published Knowledge Objects."
+    });
+  }
+
+  const citationRequired = contextBundle.fixtureQuestions.some((fixture) =>
+    fixture.requiredContextTypes.includes("source_evidence")
+  );
+  if (citationRequired && contextBundle.sourceEvidence.length === 0) {
+    items.push({
+      id: "runtime-qa-missing-citations",
+      level: "warning",
+      title: "Citation candidates missing",
+      detail: "At least one fixture question requires source evidence citation, but the context bundle has no source evidence."
+    });
+  }
+
+  const relationshipRequired = contextBundle.fixtureQuestions.some((fixture) =>
+    fixture.requiredContextTypes.includes("relationship")
+  );
+  if (relationshipRequired && contextBundle.relationships.length === 0) {
+    items.push({
+      id: "runtime-qa-missing-governed-relationships",
+      level: "warning",
+      title: "Governed relationship context missing",
+      detail: "At least one fixture question requires governed relationship context between approved Knowledge Objects."
+    });
+  }
+
+  if (items.length === 0) {
+    items.push({
+      id: "runtime-qa-answer-context-ready",
+      level: "ready",
+      title: "Runtime Q&A answer context ready",
+      detail: "Published package, approved knowledge, source citations, and governed relationship context are available."
+    });
+  }
+
+  return {
+    projectId,
+    ready: items.every((item) => item.level !== "warning"),
+    missingCitationCount: items.filter((item) => item.id === "runtime-qa-missing-citations").length,
+    missingPublishedPackageCount: items.filter((item) => item.id === "runtime-qa-missing-published-package").length,
+    missingApprovedKnowledgeObjectCount: items.filter(
+      (item) => item.id === "runtime-qa-missing-approved-knowledge-objects"
+    ).length,
+    missingGovernedRelationshipCount: items.filter(
+      (item) => item.id === "runtime-qa-missing-governed-relationships"
+    ).length,
+    items
+  };
+}
+
+function deterministicRuntimeAnswerForFixture(
+  fixture: RuntimeQaFixtureQuestion,
+  contextBundle: RuntimeQaContextBundlePreview,
+  missingContextTypes: string[]
+) {
+  if (missingContextTypes.length > 0) {
+    return `Blocked deterministically. Missing context: ${missingContextTypes.join(", ")}.`;
+  }
+
+  const firstKo = contextBundle.knowledgeObjects[0];
+  const secondKo = contextBundle.knowledgeObjects[1] ?? firstKo;
+  const firstEvidence = contextBundle.sourceEvidence[0];
+  const firstRelationship = contextBundle.relationships[0];
+
+  if (fixture.id === "runtime-qa-rfq-package-completeness") {
+    return [
+      "Before issuing an RFQ package from a BOQ, check that BOQ item code, description, unit, quantity, drawing/specification references, pricing basis, assumptions, exclusions, and clarification status are complete.",
+      `Cites KO: ${firstKo.title}.`,
+      `Cites source evidence: ${firstEvidence.title}${firstEvidence.locator ? ` (${firstEvidence.locator})` : ""}.`
+    ].join(" ");
+  }
+
+  if (fixture.id === "runtime-qa-relationship-support") {
+    return [
+      `${firstKo.title} and ${secondKo.title} form the governed support path for the RFQ completeness workflow.`,
+      firstRelationship
+        ? `Cites relationship: ${firstRelationship.fromId} ${firstRelationship.type} ${firstRelationship.toId}.`
+        : "No relationship citation available."
+    ].join(" ");
+  }
+
+  return [
+    "Draft pipeline suggestions cannot be used as runtime answer context.",
+    `Cites runtime instruction: ${contextBundle.runtimeInstructions[3] ?? contextBundle.runtimeInstructions[0]}.`
+  ].join(" ");
+}
+
+export async function getRuntimeQaFixtureEvaluationReport(
+  projectId: string
+): Promise<RuntimeQaFixtureEvaluationReport> {
+  const contextBundle = await getRuntimeQaContextBundlePreview(projectId);
+  const evaluations = contextBundle.fixtureQuestions.map((fixture) => {
+    const missingContextTypes = fixture.requiredContextTypes.filter((contextType) => {
+      if (contextType === "knowledge_object") {
+        return contextBundle.knowledgeObjects.length === 0;
+      }
+
+      if (contextType === "source_evidence") {
+        return contextBundle.sourceEvidence.length === 0;
+      }
+
+      if (contextType === "relationship") {
+        return contextBundle.relationships.length === 0;
+      }
+
+      if (contextType === "runtime_instruction") {
+        return contextBundle.runtimeInstructions.length === 0;
+      }
+
+      return true;
+    });
+
+    const status: RuntimeQaFixtureEvaluation["status"] =
+      missingContextTypes.length === 0 ? "ready" : "blocked";
+
+    return {
+      id: fixture.id,
+      question: fixture.question,
+      status,
+      requiredContextTypes: fixture.requiredContextTypes,
+      missingContextTypes,
+      citedKnowledgeObjectTitles: contextBundle.knowledgeObjects.slice(0, 2).map((knowledgeObject) => knowledgeObject.title),
+      citedSourceEvidence: contextBundle.sourceEvidence
+        .slice(0, 2)
+        .map((evidence) => `${evidence.title}${evidence.locator ? ` / ${evidence.locator}` : ""}`),
+      citedRelationshipCount: contextBundle.relationships.length,
+      deterministicAnswer: deterministicRuntimeAnswerForFixture(fixture, contextBundle, missingContextTypes)
+    };
+  });
+
+  return {
+    projectId,
+    ready: evaluations.every((evaluation) => evaluation.status === "ready"),
+    evaluations
+  };
+}
+
 export async function listRelationshipGovernanceHistory(relationshipId: string) {
   return listGovernanceHistory({ subjectId: relationshipId });
 }
@@ -2139,6 +4209,7 @@ function packageComponentIndex(input: {
   releaseObjects: KnowledgeObjectSummary[];
   relationships: KnowledgeRelationshipSummary[];
   sources: SourceSummary[];
+  rfqEvidenceEntries: RfqEvidenceRegisterEntrySummary[];
 }): PkaComponentManifestEntry[] {
   return [
     {
@@ -2178,6 +4249,16 @@ function packageComponentIndex(input: {
       version: input.version,
       governanceStatus: input.sources.length > 0 ? "draft" : "draft",
       sourceRefs: input.sources.map((source) => source.id)
+    },
+    {
+      id: `${input.packageId}-rfq-evidence-register`,
+      kind: "evidence_register",
+      path: "sources/rfq-evidence-register.json",
+      version: input.version,
+      governanceStatus: input.rfqEvidenceEntries.length > 0 ? "approved" : "draft",
+      sourceRefs: input.rfqEvidenceEntries
+        .map((entry) => entry.sourceId)
+        .filter((sourceId): sourceId is string => Boolean(sourceId))
     },
     {
       id: `${input.packageId}-runtime`,
@@ -2282,6 +4363,23 @@ function packageReleaseSummary(packageRecord: PkaPackageSummary, events: Governa
   };
 }
 
+function rfqEvidenceReviewDecisionSummary(events: GovernanceEventSummary[]) {
+  const decisionEvents = events
+    .filter((event) => event.subjectType === "RfqEvidenceRegisterEntry")
+    .filter((event) => event.action.startsWith("rfq_evidence_register."))
+    .map((event) => ({
+      action: event.action,
+      actorId: event.actorId,
+      detail: event.detail,
+      createdAt: event.createdAt
+    }));
+
+  return {
+    count: decisionEvents.length,
+    items: decisionEvents
+  };
+}
+
 async function buildPkaPackageExportPreview(input: {
   projectId: string;
   name?: string;
@@ -2296,16 +4394,32 @@ async function buildPkaPackageExportPreview(input: {
 
   const version = input.version ?? "0.1.0";
   const packageId = `pka-${slugify(project.name)}-${version.replace(/[^a-zA-Z0-9]+/g, "-")}`;
-  const [knowledgeObjects, relationships, sources, governanceEvents, pkaPackages] = await Promise.all([
+  const [
+    knowledgeObjects,
+    relationships,
+    sources,
+    governanceEvents,
+    pkaPackages,
+    rfqEvidenceEntries,
+    rfqWorkflowGateActions
+  ] = await Promise.all([
     listKnowledgeObjects({ projectId: input.projectId }),
     listKnowledgeRelationships({ projectId: input.projectId }),
     listSourcesByProject(input.projectId),
-    listGovernanceHistory(),
-    listPkaPackages(input.projectId)
+    listGovernanceHistory({ limit: 100 }),
+    listPkaPackages(input.projectId),
+    listRfqEvidenceRegisterEntries(input.projectId),
+    listRfqWorkflowGateActions({ projectId: input.projectId })
+  ]);
+  const [rfqEvidenceReport, rfqWorkflowGateReport] = await Promise.all([
+    getRfqEvidenceRegisterReport(input.projectId),
+    getRfqWorkflowGateReport(input.projectId)
   ]);
   const packageReleaseSummaries = pkaPackages
     .filter((pkaPackage) => pkaPackage.packageId === packageId)
     .map((pkaPackage) => packageReleaseSummary(pkaPackage, governanceEvents));
+  const rfqEvidenceDecisionSummary = rfqEvidenceReviewDecisionSummary(governanceEvents);
+  const rfqWorkflowGateActionRisk = rfqWorkflowGateActionRiskSummary(rfqWorkflowGateActions);
   const releaseObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
   );
@@ -2315,7 +4429,8 @@ async function buildPkaPackageExportPreview(input: {
     version,
     releaseObjects,
     relationships,
-    sources
+    sources,
+    rfqEvidenceEntries
   });
   const manifest = {
     packageId,
@@ -2333,11 +4448,147 @@ async function buildPkaPackageExportPreview(input: {
     licenseOrUsagePolicy: "internal development use",
     objectTypes: knowledgeObjectTypes,
     relationshipTypes,
+    evidenceRegisterEntryCount: rfqEvidenceEntries.length,
     knowledgeObjectCount: releaseObjects.length,
     relationshipCount: relationships.length,
     sourceReferenceCount: sources.length,
     packageStructure: pkaPackageFolders,
     componentIndex
+  };
+  const rfqWorkflowComponent = {
+    id: `${packageId}-rfq-package-issue-workflow`,
+    title: "RFQ package issue workflow placeholder",
+    status: "placeholder",
+    purpose:
+      "Defines the first app-developer boundary for turning governed QS/RFQ knowledge into runtime workflow behavior.",
+    stages: [
+      {
+        id: "prepare",
+        label: "Prepare RFQ package",
+        checklistGates: ["BOQ extract attached", "trade scope summary drafted", "evidence register opened"]
+      },
+      {
+        id: "review",
+        label: "Review package completeness",
+        checklistGates: ["drawings listed", "specification clauses listed", "assumptions and exclusions identified"]
+      },
+      {
+        id: "approve_issue",
+        label: "Approve and issue",
+        checklistGates: ["reviewer approval recorded", "clarification channel named", "return requirements fixed"]
+      },
+      {
+        id: "clarify",
+        label: "Manage tender clarifications",
+        checklistGates: ["clarification owner assigned", "affected BOQ item recorded", "addendum decision captured"]
+      },
+      {
+        id: "receive_compare",
+        label: "Receive and compare quotation",
+        checklistGates: ["return documents checked", "assumptions normalized", "commercial exceptions logged"]
+      }
+    ],
+    runtimeBoundary:
+      "Base PKA supplies governed workflow structure only. Live quotations, tender correspondence, client evidence vaults, and award decisions belong to runtime/client state.",
+    evidenceGateReadiness: rfqEvidenceReport.workflowGateReadiness,
+    gateReport: rfqWorkflowGateReport
+  };
+  const appDeveloperHandoff = {
+    id: `${packageId}-app-developer-handoff`,
+    title: "App developer package handoff index",
+    status: "ready",
+    audience: ["AIFA developer", "LADOS developer", "QS/RFQ runtime developer"],
+    summary:
+      "Load manifest.json first, validate required runtime capabilities, then use approved Knowledge Objects, governed relationships, and source citations as runtime context.",
+    requiredFiles: [
+      "manifest.json",
+      "knowledge-objects/index.json",
+      "graph/relationships.json",
+      "sources/index.json",
+      "sources/rfq-evidence-register.json",
+      "governance/index.json"
+    ],
+    optionalPlaceholderBoundaries: [
+      "runtime/config.json",
+      "prompts/index.json",
+      "rules/index.json",
+      "formulas/index.json",
+      "cases/index.json",
+      "workflows/index.json",
+      "workflows/rfq-package-issue-workflow.json",
+      "templates/index.json"
+    ],
+    runtimeDo: [
+      "Retrieve focused context bundles instead of sending whole package archives to an AI model.",
+      "Cite approved Knowledge Objects and source evidence in user-facing answers.",
+      "Treat placeholder workflow/rule/template components as contracts until implemented records exist."
+    ],
+    runtimeDoNot: [
+      "Do not mix Base PKA knowledge with client vault state without creating a client-adapted PKA instance.",
+      "Do not treat draft suggestions or unpublished packages as answer context.",
+      "Do not send sensitive organizational knowledge to external AI providers unless configured and approved."
+    ],
+    installReadbackChecklist: [
+      {
+        file: "manifest.json",
+        expectation: "Validate package identity, version, domain, governance status, and runtime capabilities first."
+      },
+      {
+        file: "knowledge-objects/index.json",
+        expectation: "Load approved Knowledge Objects only as governed context candidates."
+      },
+      {
+        file: "graph/relationships.json",
+        expectation: "Use governed relationship edges for traversal and read relationship source evidence from provenance fields."
+      },
+      {
+        file: "sources/rfq-evidence-register.json",
+        expectation: "Inspect RFQ evidence categories, statuses, trade sections, and workflow gates before enabling RFQ issue flows."
+      },
+      {
+        file: "governance/index.json",
+        expectation:
+          "Require release decisions, RFQ evidence decisions, workflow gate summaries, gate action summaries, and blocked/overdue risk summaries."
+      },
+      {
+        file: "workflows/rfq-package-issue-workflow.json",
+        expectation: "Treat as a pilot workflow contract, not a complete runtime workflow engine."
+      }
+    ],
+    governanceRequirements: {
+      requiredGovernanceFields: [
+        "releaseDecisionSummary",
+        "rfqEvidenceDecisionSummary",
+        "rfqWorkflowGateSummary",
+        "rfqWorkflowGateActionSummary",
+        "rfqWorkflowGateActionRisk"
+      ],
+      blockedActionPolicy:
+        "KF hard-blocks publish when unresolved RFQ workflow gate actions have status blocked. Runtime apps should reject or require installation review if blockedCount is greater than zero.",
+      overdueActionPolicy:
+        "Overdue RFQ workflow gate actions are not automatically invalid, but runtime apps should expose them to the runtime owner before package use."
+    },
+    relationshipEvidencePolicy: {
+      currentShape: "KnowledgeRelationship.provenance.sourceEvidence",
+      dedicatedTableStatus: "deferred_for_pilot",
+      promoteWhen: [
+        "a relationship needs multiple independent source evidence links",
+        "relationship evidence needs its own review lifecycle",
+        "relationship evidence needs separate version history",
+        "runtime apps need a dedicated graph-evidence export index"
+      ]
+    },
+    feedbackQuestions: [
+      "Can the runtime consume relationship evidence from graph/relationships.json provenance without a separate table?",
+      "Does RFQ package issue need multiple evidence links per relationship, or are KO/source evidence links enough for the pilot?",
+      "Should overdue RFQ actions block installation in the consuming app, or only show as owner warnings?",
+      "Which handoff fields are missing for AIFA/LADOS package installation screens?"
+    ],
+    nextDeveloperSlice: [
+      "Build a consuming-app readback harness that loads runtime/app-developer-handoff.json.",
+      "Show required files, governance requirements, RFQ risk policy, and relationship evidence policy as installer checks.",
+      "Map each failed check to blocked or installation_review_required before any runtime Q&A or workflow execution."
+    ]
   };
 
   return {
@@ -2419,6 +4670,36 @@ async function buildPkaPackageExportPreview(input: {
         }
       },
       {
+        path: "sources/rfq-evidence-register.json",
+        kind: "json",
+        status: "ready",
+        description: "Structured QS/RFQ evidence register for package issue and future workflow gate readiness.",
+        contents: {
+          count: rfqEvidenceEntries.length,
+          ready: rfqEvidenceReport.ready,
+          categoryCounts: rfqEvidenceReport.categoryCounts,
+          statusCounts: rfqEvidenceReport.statusCounts,
+          workflowGateReadiness: rfqEvidenceReport.workflowGateReadiness,
+          workflowGateReport: rfqWorkflowGateReport,
+          items: rfqEvidenceEntries.map((entry) => ({
+            id: entry.id,
+            registerCode: entry.registerCode,
+            boqItemRef: entry.boqItemRef,
+            tradeSection: entry.tradeSection,
+            category: entry.category,
+            status: entry.status,
+            questionOrEvidence: entry.questionOrEvidence,
+            requiredResponseOwner: entry.requiredResponseOwner,
+            evidenceReference: entry.evidenceReference,
+            commercialImpact: entry.commercialImpact,
+            pricingBasisChange: entry.pricingBasisChange,
+            workflowGate: entry.workflowGate,
+            knowledgeObjectId: entry.knowledgeObjectId,
+            sourceId: entry.sourceId
+          }))
+        }
+      },
+      {
         path: "governance/index.json",
         kind: "json",
         status: "ready",
@@ -2429,8 +4710,29 @@ async function buildPkaPackageExportPreview(input: {
             count: packageReleaseSummaries.length,
             items: packageReleaseSummaries
           },
+          rfqEvidenceDecisionSummary,
+          rfqWorkflowGateSummary: rfqWorkflowGateReport,
+          rfqWorkflowGateActionSummary: {
+            count: rfqWorkflowGateActions.length,
+            items: rfqWorkflowGateActions
+          },
+          rfqWorkflowGateActionRisk,
           items: governanceEvents.slice(0, 20)
         }
+      },
+      {
+        path: "workflows/rfq-package-issue-workflow.json",
+        kind: "json",
+        status: "ready",
+        description: "First RFQ workflow component placeholder with explicit stage and checklist gates.",
+        contents: rfqWorkflowComponent
+      },
+      {
+        path: "runtime/app-developer-handoff.json",
+        kind: "json",
+        status: "ready",
+        description: "Concise package handoff index for app/runtime developers.",
+        contents: appDeveloperHandoff
       },
       ...[
         "runtime/config.json",
@@ -2697,17 +4999,37 @@ export async function validatePersistedPkaPackageReadback(
   try {
     const archiveFile = await readPersistedPkaExportFile(packageId, archivePath);
     const archive = JSON.parse(archiveFile.contents) as {
-      files?: Array<{ path: string; contents?: { releaseDecisionSummary?: { items?: unknown[] } } }>;
+      files?: Array<{
+        path: string;
+        contents?: {
+          releaseDecisionSummary?: { items?: unknown[] };
+          rfqEvidenceDecisionSummary?: { items?: unknown[] };
+          rfqWorkflowGateSummary?: { gates?: unknown[] };
+          rfqWorkflowGateActionSummary?: { items?: unknown[] };
+          rfqWorkflowGateActionRisk?: { blockedCount?: number; overdueCount?: number; items?: unknown[] };
+        };
+      }>;
     };
     const governanceFile = archive.files?.find((file) => file.path === "governance/index.json");
     const hasSummary = Boolean(governanceFile?.contents?.releaseDecisionSummary?.items?.length);
+    const hasRfqGateSummary = Boolean(governanceFile?.contents?.rfqWorkflowGateSummary?.gates?.length);
+    const hasRfqGateActionSummary = Boolean(
+      Array.isArray(governanceFile?.contents?.rfqWorkflowGateActionSummary?.items)
+    );
+    const hasRfqGateActionRisk = Boolean(
+      governanceFile?.contents?.rfqWorkflowGateActionRisk &&
+        typeof governanceFile.contents.rfqWorkflowGateActionRisk.blockedCount === "number" &&
+        typeof governanceFile.contents.rfqWorkflowGateActionRisk.overdueCount === "number" &&
+        Array.isArray(governanceFile.contents.rfqWorkflowGateActionRisk.items)
+    );
     items.push({
       id: `persisted-archive-readback-${archivePath}`,
-      level: hasSummary ? "ready" : "warning",
+      level: hasSummary && hasRfqGateSummary && hasRfqGateActionSummary && hasRfqGateActionRisk ? "ready" : "warning",
       title: "Persisted JSON archive readback",
-      detail: hasSummary
-        ? `${archivePath} includes governance release summaries.`
-        : `${archivePath} is missing governance release summaries.`
+      detail:
+        hasSummary && hasRfqGateSummary && hasRfqGateActionSummary && hasRfqGateActionRisk
+          ? `${archivePath} includes governance release, RFQ workflow gate, gate action, and blocked-action risk summaries.`
+          : `${archivePath} is missing governance release, RFQ workflow gate, gate action, or blocked-action risk summaries.`
     });
   } catch {
     items.push({
@@ -2721,14 +5043,19 @@ export async function validatePersistedPkaPackageReadback(
   try {
     const zipContents = await readFile(resolvePkaExportPath(packageId, zipPath));
     const zipText = zipContents.toString("utf8");
-    const hasSummary = zipText.includes("governance/index.json") && zipText.includes("releaseDecisionSummary");
+    const hasSummary =
+      zipText.includes("governance/index.json") &&
+      zipText.includes("releaseDecisionSummary") &&
+      zipText.includes("rfqWorkflowGateSummary") &&
+      zipText.includes("rfqWorkflowGateActionSummary") &&
+      zipText.includes("rfqWorkflowGateActionRisk");
     items.push({
       id: `persisted-zip-readback-${zipPath}`,
       level: hasSummary ? "ready" : "warning",
       title: "Persisted ZIP readback",
       detail: hasSummary
-        ? `${zipPath} includes governance release summaries.`
-        : `${zipPath} is missing governance release summaries.`
+        ? `${zipPath} includes governance release, RFQ workflow, gate action, and blocked-action risk summaries.`
+        : `${zipPath} is missing governance release, RFQ workflow, gate action, or blocked-action risk summaries.`
     });
   } catch {
     items.push({
@@ -2846,6 +5173,185 @@ function safeArchiveFileName(fileName: string) {
   return `${Date.now().toString(36)}-${baseName}`;
 }
 
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function runtimeHandoffObject(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function runtimeHandoffDecision(items: RuntimeHandoffReadbackItem[]): RuntimeHandoffInstallDecision {
+  if (items.some((item) => item.decision === "blocked")) {
+    return "blocked";
+  }
+  if (items.some((item) => item.decision === "installation_review_required")) {
+    return "installation_review_required";
+  }
+
+  return "installable";
+}
+
+function runtimeHandoffCheck(
+  input: Pick<RuntimeHandoffReadbackItem, "id" | "title" | "detail"> & {
+    passed: boolean;
+    failureDecision: Extract<RuntimeHandoffReadbackItem["decision"], "blocked" | "installation_review_required">;
+  }
+): RuntimeHandoffReadbackItem {
+  return {
+    id: input.id,
+    title: input.title,
+    detail: input.detail,
+    decision: input.passed ? "pass" : input.failureDecision
+  };
+}
+
+export async function validateRuntimeAppDeveloperHandoff(
+  packageId: string,
+  handoffPath = "runtime/app-developer-handoff.json"
+): Promise<RuntimeHandoffReadbackReport> {
+  const packageRecord = (await listPkaPackages()).find((pkaPackage) => pkaPackage.packageId === packageId);
+  const persistedFiles = await listPersistedPkaExportFiles(packageId);
+  const persistedFilePaths = new Set(persistedFiles.map((file) => file.path));
+  const items: RuntimeHandoffReadbackItem[] = [];
+  let handoff: Record<string, unknown>;
+
+  try {
+    const handoffFile = await readPersistedPkaExportFile(packageId, handoffPath);
+    handoff = runtimeHandoffObject(JSON.parse(handoffFile.contents));
+    items.push({
+      id: "runtime-handoff-readable",
+      decision: "pass",
+      title: "Handoff file",
+      detail: `${handoffPath} is readable JSON.`
+    });
+  } catch {
+    const blockedItem: RuntimeHandoffReadbackItem = {
+      id: "runtime-handoff-readable",
+      decision: "blocked",
+      title: "Handoff file",
+      detail: `${handoffPath} is missing or cannot be parsed.`
+    };
+
+    return {
+      packageId,
+      packageName: packageRecord?.name,
+      handoffPath,
+      decision: "blocked",
+      blockedCount: 1,
+      reviewRequiredCount: 0,
+      feedbackQuestionCount: 0,
+      audience: [],
+      feedbackQuestions: [],
+      nextDeveloperSlice: [],
+      items: [blockedItem]
+    };
+  }
+
+  const requiredFiles = stringArray(handoff.requiredFiles);
+  const missingRequiredFiles = requiredFiles.filter((path) => !persistedFilePaths.has(path));
+  items.push(
+    runtimeHandoffCheck({
+      id: "runtime-handoff-required-files",
+      title: "Required package files",
+      passed: missingRequiredFiles.length === 0,
+      failureDecision: "blocked",
+      detail:
+        missingRequiredFiles.length === 0
+          ? `${requiredFiles.length} handoff-required file(s) are present.`
+          : `Missing handoff-required file(s): ${missingRequiredFiles.join(", ")}.`
+    })
+  );
+
+  let governance: Record<string, unknown> = {};
+  try {
+    governance = runtimeHandoffObject(
+      JSON.parse((await readPersistedPkaExportFile(packageId, "governance/index.json")).contents)
+    );
+  } catch {
+    // Required file check already captures missing governance; keep field validation explicit.
+  }
+
+  const governanceRequirements = runtimeHandoffObject(handoff.governanceRequirements);
+  const requiredGovernanceFields = stringArray(governanceRequirements.requiredGovernanceFields);
+  const missingGovernanceFields = requiredGovernanceFields.filter((field) => !(field in governance));
+  items.push(
+    runtimeHandoffCheck({
+      id: "runtime-handoff-governance-fields",
+      title: "Governance requirements",
+      passed: missingGovernanceFields.length === 0,
+      failureDecision: "blocked",
+      detail:
+        missingGovernanceFields.length === 0
+          ? `${requiredGovernanceFields.length} required governance field(s) are present.`
+          : `Missing governance field(s): ${missingGovernanceFields.join(", ")}.`
+    })
+  );
+
+  const risk = runtimeHandoffObject(governance.rfqWorkflowGateActionRisk);
+  const blockedCount = typeof risk.blockedCount === "number" ? risk.blockedCount : 0;
+  const overdueCount = typeof risk.overdueCount === "number" ? risk.overdueCount : 0;
+  items.push({
+    id: "runtime-handoff-blocked-actions",
+    title: "RFQ blocked gate actions",
+    decision: blockedCount > 0 ? "blocked" : "pass",
+    detail:
+      blockedCount > 0
+        ? `${blockedCount} blocked RFQ workflow gate action(s) require a corrected package before installation.`
+        : "No blocked RFQ workflow gate actions are present in the handoff risk summary."
+  });
+  items.push({
+    id: "runtime-handoff-overdue-actions",
+    title: "RFQ overdue gate actions",
+    decision: overdueCount > 0 ? "installation_review_required" : "pass",
+    detail:
+      overdueCount > 0
+        ? `${overdueCount} overdue RFQ workflow gate action(s) require runtime owner review before installation.`
+        : "No overdue RFQ workflow gate actions require runtime owner review."
+  });
+
+  const relationshipEvidencePolicy = runtimeHandoffObject(handoff.relationshipEvidencePolicy);
+  const promoteWhen = stringArray(relationshipEvidencePolicy.promoteWhen);
+  const feedbackQuestions = stringArray(handoff.feedbackQuestions);
+  items.push({
+    id: "runtime-handoff-relationship-evidence-feedback",
+    title: "Relationship evidence feedback",
+    decision: "feedback_requested",
+    detail:
+      feedbackQuestions.length > 0
+        ? `${feedbackQuestions.length} relationship/package feedback question(s) are ready for pilot review.`
+        : "No relationship evidence feedback questions were provided in the handoff."
+  });
+
+  const decision = runtimeHandoffDecision(items);
+
+  return {
+    packageId,
+    packageName: packageRecord?.name,
+    handoffPath,
+    decision,
+    blockedCount: items.filter((item) => item.decision === "blocked").length,
+    reviewRequiredCount: items.filter((item) => item.decision === "installation_review_required").length,
+    feedbackQuestionCount: feedbackQuestions.length,
+    summary: typeof handoff.summary === "string" ? handoff.summary : undefined,
+    audience: stringArray(handoff.audience),
+    relationshipEvidencePolicy: {
+      currentShape:
+        typeof relationshipEvidencePolicy.currentShape === "string"
+          ? relationshipEvidencePolicy.currentShape
+          : undefined,
+      dedicatedTableStatus:
+        typeof relationshipEvidencePolicy.dedicatedTableStatus === "string"
+          ? relationshipEvidencePolicy.dedicatedTableStatus
+          : undefined,
+      promoteWhen
+    },
+    feedbackQuestions,
+    nextDeveloperSlice: stringArray(handoff.nextDeveloperSlice),
+    items
+  };
+}
+
 export async function validateRuntimePkaImportReadback(
   packageId: string,
   archivePath = "package-archive.json"
@@ -2924,12 +5430,35 @@ export async function validateRuntimePkaImportReadback(
   ];
   const missingFiles = requiredFiles.filter((path) => !archiveFile(archive, path));
   const governanceSummaryItems = governanceFile?.contents?.releaseDecisionSummary;
+  const rfqWorkflowGateSummary = governanceFile?.contents?.rfqWorkflowGateSummary;
+  const rfqWorkflowGateActionSummary = governanceFile?.contents?.rfqWorkflowGateActionSummary;
+  const rfqWorkflowGateActionRisk = governanceFile?.contents?.rfqWorkflowGateActionRisk;
   const hasGovernanceSummary =
     governanceSummaryItems &&
     typeof governanceSummaryItems === "object" &&
     "items" in governanceSummaryItems &&
     Array.isArray((governanceSummaryItems as { items?: unknown[] }).items) &&
     Boolean((governanceSummaryItems as { items?: unknown[] }).items?.length);
+  const hasRfqWorkflowGateSummary =
+    rfqWorkflowGateSummary &&
+    typeof rfqWorkflowGateSummary === "object" &&
+    "gates" in rfqWorkflowGateSummary &&
+    Array.isArray((rfqWorkflowGateSummary as { gates?: unknown[] }).gates) &&
+    Boolean((rfqWorkflowGateSummary as { gates?: unknown[] }).gates?.length);
+  const hasRfqWorkflowGateActionSummary =
+    rfqWorkflowGateActionSummary &&
+    typeof rfqWorkflowGateActionSummary === "object" &&
+    "items" in rfqWorkflowGateActionSummary &&
+    Array.isArray((rfqWorkflowGateActionSummary as { items?: unknown[] }).items);
+  const hasRfqWorkflowGateActionRisk =
+    rfqWorkflowGateActionRisk &&
+    typeof rfqWorkflowGateActionRisk === "object" &&
+    "blockedCount" in rfqWorkflowGateActionRisk &&
+    "overdueCount" in rfqWorkflowGateActionRisk &&
+    "items" in rfqWorkflowGateActionRisk &&
+    typeof (rfqWorkflowGateActionRisk as { blockedCount?: unknown }).blockedCount === "number" &&
+    typeof (rfqWorkflowGateActionRisk as { overdueCount?: unknown }).overdueCount === "number" &&
+    Array.isArray((rfqWorkflowGateActionRisk as { items?: unknown[] }).items);
 
   items.push(
     {
@@ -3002,6 +5531,15 @@ export async function validateRuntimePkaImportReadback(
       detail: hasGovernanceSummary
         ? "governance/index.json includes release decision summaries."
         : "governance/index.json must include release decision summaries before runtime import."
+    },
+    {
+      id: "runtime-import-rfq-workflow-governance",
+      level: hasRfqWorkflowGateSummary && hasRfqWorkflowGateActionSummary && hasRfqWorkflowGateActionRisk ? "ready" : "warning",
+      title: "RFQ workflow governance",
+      detail:
+        hasRfqWorkflowGateSummary && hasRfqWorkflowGateActionSummary && hasRfqWorkflowGateActionRisk
+          ? "governance/index.json includes RFQ workflow gate, gate action, and blocked-action risk summaries for package handoff."
+          : "governance/index.json must include RFQ workflow gate, gate action, and blocked-action risk summaries before RFQ runtime handoff."
     }
   );
 
@@ -3345,11 +5883,18 @@ export function validatePkaPackageReadback(preview: PkaPackageExportPreview | un
     governanceArchiveFile &&
       typeof governanceArchiveFile.contents === "object" &&
       governanceArchiveFile.contents &&
-      "releaseDecisionSummary" in governanceArchiveFile.contents
+      "releaseDecisionSummary" in governanceArchiveFile.contents &&
+      "rfqWorkflowGateSummary" in governanceArchiveFile.contents &&
+      "rfqWorkflowGateActionSummary" in governanceArchiveFile.contents &&
+      "rfqWorkflowGateActionRisk" in governanceArchiveFile.contents
   );
   const zipText = buildPkaPackageZip(preview).toString("utf8");
   const zipHasGovernanceSummary =
-    zipText.includes("governance/index.json") && zipText.includes("releaseDecisionSummary");
+    zipText.includes("governance/index.json") &&
+    zipText.includes("releaseDecisionSummary") &&
+    zipText.includes("rfqWorkflowGateSummary") &&
+    zipText.includes("rfqWorkflowGateActionSummary") &&
+    zipText.includes("rfqWorkflowGateActionRisk");
 
   return [
     {
@@ -3357,16 +5902,16 @@ export function validatePkaPackageReadback(preview: PkaPackageExportPreview | un
       level: archiveHasGovernanceSummary ? "ready" : "warning",
       title: "JSON archive readback",
       detail: archiveHasGovernanceSummary
-        ? "package-archive.json contains the governance release summary."
-        : "package-archive.json must include governance/index.json with release decision summaries."
+        ? "package-archive.json contains governance release, RFQ workflow, gate action, and blocked-action risk summaries."
+        : "package-archive.json must include governance/index.json with release, RFQ workflow, gate action, and blocked-action risk summaries."
     },
     {
       id: "package-zip-readback",
       level: zipHasGovernanceSummary ? "ready" : "warning",
       title: "ZIP archive readback",
       detail: zipHasGovernanceSummary
-        ? "package.zip contains governance/index.json with release summaries."
-        : "package.zip must include governance/index.json with release decision summaries."
+        ? "package.zip contains governance/index.json with release, RFQ workflow, gate action, and blocked-action risk summaries."
+        : "package.zip must include governance/index.json with release, RFQ workflow, gate action, and blocked-action risk summaries."
     }
   ];
 }
@@ -3388,6 +5933,8 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
   const knowledgeObjects = await listKnowledgeObjects({ projectId });
   const relationships = await listKnowledgeRelationships({ projectId });
   const sources = await listSourcesByProject(projectId);
+  const rfqWorkflowGateActions = await listRfqWorkflowGateActions({ projectId });
+  const rfqWorkflowGateActionRisks = rfqWorkflowGateActionRiskSummary(rfqWorkflowGateActions);
   const releaseReadinessHints = await getPkaReleaseReadinessHints(projectId);
   const blockers = releaseReadinessHints.filter((hint) => hint.level === "warning");
   const manifestPreview = await getPkaManifestPreview(projectId);
@@ -3442,6 +5989,26 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
         : relationships.every((relationship) => relationship.evidenceSourceId)
           ? "Relationship edges include structured source evidence attachment."
           : "Some relationship edges still rely on provenance notes without structured source evidence attachment."
+  });
+
+  items.push({
+    id: "rfq-workflow-blocked-actions",
+    level: rfqWorkflowGateActionRisks.blockedCount === 0 ? "ready" : "warning",
+    title: "RFQ blocked gate actions",
+    detail:
+      rfqWorkflowGateActionRisks.blockedCount === 0
+        ? "No unresolved blocked RFQ workflow gate actions remain before publish."
+        : `${rfqWorkflowGateActionRisks.blockedCount} blocked RFQ workflow gate action(s) remain; publishing is hard-blocked until they are resolved.`
+  });
+
+  items.push({
+    id: "rfq-workflow-overdue-actions",
+    level: rfqWorkflowGateActionRisks.overdueCount === 0 ? "ready" : "info",
+    title: "RFQ overdue gate actions",
+    detail:
+      rfqWorkflowGateActionRisks.overdueCount === 0
+        ? "No unresolved overdue RFQ workflow gate actions remain."
+        : `${rfqWorkflowGateActionRisks.overdueCount} overdue RFQ workflow gate action(s) should be closed or re-dated before handoff.`
   });
 
   items.push({
@@ -4153,7 +6720,7 @@ export async function runSourceIngestion(input: PipelineIngestionInput): Promise
     };
     const suggestionDraft = await buildSuggestionFromChunk(source, chunk);
     const suggestion: KnowledgeSuggestionSummary = {
-      id: `sug-${slugify(suggestionDraft.title)}-${Date.now().toString(36)}`,
+      id: `sug-${slugify(suggestionDraft.title)}-${index + 1}-${Date.now().toString(36)}`,
       projectId: source.projectId,
       sourceId: source.id,
       sourceTitle: source.title,
@@ -5045,13 +7612,16 @@ async function recordAuditLog(input: AuditLogInput) {
   }
 
   const auditLog: GovernanceEventSummary & { metadata?: Record<string, unknown> } = {
-    id: `aud-${slugify(input.action)}-${Date.now().toString(36)}`,
+    id: localUniqueId("aud", input.action),
     actorId: input.actorId,
     action: input.action,
     subjectType: input.subjectType,
     subjectId: input.subjectId,
     detail: input.detail,
-    metadata: input.metadata,
+    metadata: {
+      ...input.metadata,
+      detail: input.detail
+    },
     createdAt: new Date().toISOString().slice(0, 10)
   };
 
@@ -6088,6 +8658,8 @@ export async function publishPkaPackage(input: PkaPackagePublishInput | string) 
       throw new Error("Approve PKA package release before publishing.");
     }
 
+    await assertNoBlockedRfqWorkflowGateActionsBeforePublish(existingPackage.projectId);
+
     const pkaPackage = await getPrismaClient().pkaPackage.update({
       where: { id: packageRecordId },
       data: {
@@ -6129,6 +8701,8 @@ export async function publishPkaPackage(input: PkaPackagePublishInput | string) 
     throw new Error("Approve PKA package release before publishing.");
   }
 
+  await assertNoBlockedRfqWorkflowGateActionsBeforePublish(pkaPackage.projectId);
+
   pkaPackage.status = "published";
   pkaPackage.publishedAt = new Date().toISOString().slice(0, 10);
 
@@ -6153,6 +8727,448 @@ export async function publishPkaPackage(input: PkaPackagePublishInput | string) 
   });
 
   return pkaPackage;
+}
+
+function nextQsRfqPilotPackageVersion(packages: PkaPackageSummary[]) {
+  const patchVersions = packages
+    .map((pkaPackage) => pkaPackage.version.match(/^0\.1\.(\d+)$/)?.[1])
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value));
+  const nextPatch = patchVersions.length > 0 ? Math.max(...patchVersions) + 1 : 0;
+
+  return `0.1.${nextPatch}`;
+}
+
+function normaliseQsRfqPilotRunInput(input: string | QsRfqPilotRunInput = {}): Required<QsRfqPilotRunInput> {
+  if (typeof input === "string") {
+    return {
+      actor: input,
+      mode: "reuse_existing"
+    };
+  }
+
+  return {
+    actor: input.actor ?? "knowledge_engineer",
+    mode: input.mode ?? "reuse_existing"
+  };
+}
+
+function latestPublishedQsRfqPilotPackage(packages: PkaPackageSummary[]) {
+  return packages.find((pkaPackage) => pkaPackage.name === "QS/RFQ From BOQ Base PKA" && pkaPackage.status === "published");
+}
+
+async function qsRfqPilotPackageHasCurrentHandoff(packageId: string) {
+  const files = await listPersistedPkaExportFiles(packageId);
+  const paths = new Set(files.map((file) => file.path));
+
+  return (
+    paths.has("workflows/rfq-package-issue-workflow.json") &&
+    paths.has("runtime/app-developer-handoff.json") &&
+    paths.has("sources/rfq-evidence-register.json")
+  );
+}
+
+async function buildQsRfqPilotRunReport(sourcePack = getQsRfqPilotSourcePack()): Promise<QsRfqPilotRunReport> {
+  const [sourceChunks, knowledgeObjects, relationships, packages, runtimeQaReadiness, fixtureEvaluation, evidenceRegisterReport] =
+    await Promise.all([
+      listSourceChunks({ projectId: sourcePack.projectId }),
+      listKnowledgeObjects({ projectId: sourcePack.projectId }),
+      listKnowledgeRelationships({ projectId: sourcePack.projectId }),
+      listPkaPackages(sourcePack.projectId),
+      getRuntimeQaAnswerReadinessReport(sourcePack.projectId),
+      getRuntimeQaFixtureEvaluationReport(sourcePack.projectId),
+      getRfqEvidenceRegisterReport(sourcePack.projectId)
+    ]);
+  const latestPublishedPackage = latestPublishedQsRfqPilotPackage(packages);
+  const packageHasCurrentHandoff = latestPublishedPackage
+    ? await qsRfqPilotPackageHasCurrentHandoff(latestPublishedPackage.packageId)
+    : false;
+  const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
+    approvedKnowledgeObject(knowledgeObject.status)
+  );
+  const approvedRelationships = relationships.filter((relationship) => relationship.status === "approved");
+  const ingestedSourceIds = new Set(
+    sourceChunks
+      .filter((chunk) => sourcePack.sourceIds.includes(chunk.sourceId))
+      .map((chunk) => chunk.sourceId)
+  );
+  const stages: ReadinessHint[] = [
+    {
+      id: "pilot-sources",
+      level: ingestedSourceIds.size === sourcePack.sourceIds.length ? "ready" : "warning",
+      title: "Source intake",
+      detail: `${ingestedSourceIds.size}/${sourcePack.sourceIds.length} pilot source(s) ingested.`
+    },
+    {
+      id: "pilot-knowledge-objects",
+      level: approvedKnowledgeObjects.length >= 4 ? "ready" : "warning",
+      title: "Approved Knowledge Objects",
+      detail: `${approvedKnowledgeObjects.length} approved pilot KO(s) available for package and runtime context.`
+    },
+    {
+      id: "pilot-relationships",
+      level: approvedRelationships.length >= 3 ? "ready" : "warning",
+      title: "Governed relationships",
+      detail: `${approvedRelationships.length} approved graph edge(s) available for package traversal.`
+    },
+    {
+      id: "pilot-package",
+      level: latestPublishedPackage && packageHasCurrentHandoff ? "ready" : "warning",
+      title: "Published package handoff",
+      detail: latestPublishedPackage
+        ? `${latestPublishedPackage.packageId} is ${latestPublishedPackage.status}; workflow and handoff files ${
+            packageHasCurrentHandoff ? "are present" : "need regeneration"
+          }.`
+        : "No published QS/RFQ pilot package yet."
+    },
+    {
+      id: "pilot-rfq-evidence-register",
+      level: evidenceRegisterReport.ready ? "ready" : "warning",
+      title: "RFQ evidence register",
+      detail: evidenceRegisterReport.ready
+        ? `${evidenceRegisterReport.totalEntries} evidence register entries prepare future workflow gates.`
+        : "Structured RFQ evidence register entries are not ready yet."
+    },
+    {
+      id: "pilot-runtime-qa",
+      level: runtimeQaReadiness.ready && fixtureEvaluation.ready ? "ready" : "warning",
+      title: "Runtime Q&A contract",
+      detail: runtimeQaReadiness.ready && fixtureEvaluation.ready
+        ? "Runtime Q&A context and deterministic fixture evaluation are ready."
+        : "Runtime Q&A still has package, approval, citation, or relationship blockers."
+    }
+  ];
+
+  return {
+    projectId: sourcePack.projectId,
+    title: "QS/RFQ Pilot Run Report",
+    status: stages.every((stage) => stage.level === "ready") ? "ready" : "incomplete",
+    summary: {
+      sourceCount: sourcePack.sourceIds.length,
+      ingestedSourceCount: ingestedSourceIds.size,
+      approvedKnowledgeObjectCount: approvedKnowledgeObjects.length,
+      approvedRelationshipCount: approvedRelationships.length,
+      latestPackageStatus: latestPublishedPackage?.status,
+      latestPackageId: latestPublishedPackage?.packageId,
+      runtimeQaReady: runtimeQaReadiness.ready,
+      fixtureEvaluationReady: fixtureEvaluation.ready
+    },
+    stages
+  };
+}
+
+export async function getQsRfqPilotRunReport() {
+  return buildQsRfqPilotRunReport();
+}
+
+export async function runQsRfqPilotVerticalSlice(
+  input: string | QsRfqPilotRunInput = {}
+): Promise<QsRfqPilotRunResult> {
+  const { actor, mode } = normaliseQsRfqPilotRunInput(input);
+  const sourcePack = getQsRfqPilotSourcePack();
+  await ensureLocalWorkspace();
+  await prepareQsRfqPilotSourceArtifacts();
+
+  const reusableReport = await buildQsRfqPilotRunReport(sourcePack);
+  const reusablePackage = reusableReport.summary.latestPackageId
+    ? (await listPkaPackages(sourcePack.projectId)).find(
+        (pkaPackage) => pkaPackage.packageId === reusableReport.summary.latestPackageId
+      )
+    : undefined;
+
+  if (mode === "reuse_existing" && reusableReport.status === "ready" && reusablePackage) {
+    const runtimeImport = await validateRuntimePkaImportReadback(reusablePackage.packageId);
+    const evidenceRegisterReport = await getRfqEvidenceRegisterReport(sourcePack.projectId);
+    const approvedKnowledgeObjects = (await listKnowledgeObjects({ projectId: sourcePack.projectId })).filter(
+      (knowledgeObject) => approvedKnowledgeObject(knowledgeObject.status)
+    );
+    const approvedRelationships = (await listKnowledgeRelationships({ projectId: sourcePack.projectId })).filter(
+      (relationship) => relationship.status === "approved"
+    );
+
+    return {
+      projectId: sourcePack.projectId,
+      sourcePack,
+      mode: "reused_existing",
+      ingestedSourceIds: sourcePack.sourceIds,
+      acceptedKnowledgeObjectIds: approvedKnowledgeObjects.map((knowledgeObject) => knowledgeObject.id),
+      acceptedRelationshipIds: approvedRelationships.map((relationship) => relationship.id),
+      packageRecordId: reusablePackage.id,
+      packageId: reusablePackage.packageId,
+      packageStatus: reusablePackage.status,
+      runtimeImportStatus: runtimeImport.status,
+      evidenceRegisterReady: evidenceRegisterReport.ready,
+      runtimeQaReady: reusableReport.summary.runtimeQaReady,
+      fixtureEvaluationReady: reusableReport.summary.fixtureEvaluationReady
+    };
+  }
+
+  const ingestedSourceIds: string[] = [];
+  const acceptedKnowledgeObjectIds = new Set<string>();
+  const acceptedRelationshipIds = new Set<string>();
+
+  for (const sourceId of sourcePack.sourceIds) {
+    const ingestionResult = await runSourceIngestion({ sourceId, actor });
+    ingestedSourceIds.push(sourceId);
+
+    const suggestions = (await listKnowledgeSuggestions({ sourceId, status: "all" })).filter((suggestion) =>
+      qsRfqPilotSuggestionTitles.has(suggestion.title)
+    );
+    for (const suggestion of suggestions) {
+      if (suggestion.acceptedKnowledgeObjectId) {
+        acceptedKnowledgeObjectIds.add(suggestion.acceptedKnowledgeObjectId);
+        continue;
+      }
+
+      if (suggestion.status === "pending") {
+        const accepted = await acceptKnowledgeSuggestion({
+          suggestionId: suggestion.id,
+          actor
+        });
+        acceptedKnowledgeObjectIds.add(accepted.knowledgeObject.id);
+      }
+    }
+
+    const relationshipSuggestions = await listRelationshipSuggestions({ sourceId, status: "all" });
+    for (const suggestion of relationshipSuggestions) {
+      if (suggestion.acceptedRelationshipId) {
+        acceptedRelationshipIds.add(suggestion.acceptedRelationshipId);
+        continue;
+      }
+
+      const refreshedSuggestion = (await listRelationshipSuggestions({ sourceId, status: "all" })).find(
+        (item) => item.id === suggestion.id
+      );
+
+      if (refreshedSuggestion?.status === "pending") {
+        const accepted = await acceptRelationshipSuggestion({
+          relationshipSuggestionId: refreshedSuggestion.id,
+          actor
+        });
+        acceptedRelationshipIds.add(accepted.relationship.id);
+      }
+    }
+
+    void ingestionResult;
+  }
+
+  const pilotKnowledgeObjects = (await listKnowledgeObjects({ projectId: sourcePack.projectId })).filter(
+    (knowledgeObject) => acceptedKnowledgeObjectIds.has(knowledgeObject.id)
+  );
+  const boqKnowledgeObject = pilotKnowledgeObjects.find((knowledgeObject) =>
+    knowledgeObject.tags.includes("boq")
+  );
+  const rfqKnowledgeObject = pilotKnowledgeObjects.find((knowledgeObject) =>
+    knowledgeObject.tags.includes("rfq")
+  );
+
+  if (boqKnowledgeObject && rfqKnowledgeObject) {
+    const existingCrossRelationship = (await listKnowledgeRelationships({ projectId: sourcePack.projectId })).find(
+      (relationship) =>
+        relationship.fromId === boqKnowledgeObject.id &&
+        relationship.toId === rfqKnowledgeObject.id &&
+        relationship.type === "supports"
+    );
+    const crossRelationship =
+      existingCrossRelationship ??
+      (await createKnowledgeRelationship({
+        projectId: sourcePack.projectId,
+        fromId: boqKnowledgeObject.id,
+        toId: rfqKnowledgeObject.id,
+        type: "supports",
+        confidence: 86,
+        provenanceNote:
+          "QS/RFQ pilot cross-source relationship: BOQ evidence supports RFQ package issue requirements."
+      }));
+
+    acceptedRelationshipIds.add(crossRelationship.id);
+  }
+
+  const knowledgeObjectByTitle = new Map(pilotKnowledgeObjects.map((knowledgeObject) => [knowledgeObject.title, knowledgeObject]));
+  const pilotRelationshipSpecs: Array<{
+    fromTitle: string;
+    toTitle: string;
+    type: RelationshipType;
+    confidence: number;
+    provenanceNote: string;
+  }> = [
+    {
+      fromTitle: "Provisional BOQ quantity assumption rule",
+      toTitle: "RFQ BOQ scope completeness check",
+      type: "requires",
+      confidence: 84,
+      provenanceNote:
+        "QS/RFQ pilot: provisional BOQ assumptions require RFQ scope completeness review before package issue."
+    },
+    {
+      fromTitle: "Structural BOQ RFQ evidence requirement",
+      toTitle: "RFQ BOQ scope completeness check",
+      type: "supports",
+      confidence: 86,
+      provenanceNote:
+        "QS/RFQ pilot: structural BOQ evidence supports RFQ package completeness checks for substructure trade scope."
+    },
+    {
+      fromTitle: "RFQ package issue template",
+      toTitle: "RFQ return requirements checklist",
+      type: "requires",
+      confidence: 85,
+      provenanceNote:
+        "QS/RFQ pilot: the RFQ issue template requires quotation return requirements before package handoff."
+    },
+    {
+      fromTitle: "Tender clarification log procedure",
+      toTitle: "RFQ clarification and evidence register",
+      type: "supports",
+      confidence: 84,
+      provenanceNote:
+        "QS/RFQ pilot: tender clarification logging supports the RFQ evidence register control boundary."
+    },
+    {
+      fromTitle: "RFQ clarification and evidence register",
+      toTitle: "RFQ package issue template",
+      type: "used_in",
+      confidence: 85,
+      provenanceNote:
+        "QS/RFQ pilot: the evidence register is used in RFQ package issue readiness and future workflow gates."
+    }
+  ];
+
+  for (const spec of pilotRelationshipSpecs) {
+    const fromKnowledgeObject = knowledgeObjectByTitle.get(spec.fromTitle);
+    const toKnowledgeObject = knowledgeObjectByTitle.get(spec.toTitle);
+
+    if (!fromKnowledgeObject || !toKnowledgeObject) {
+      continue;
+    }
+
+    const existingRelationship = (await listKnowledgeRelationships({ projectId: sourcePack.projectId })).find(
+      (relationship) =>
+        relationship.fromId === fromKnowledgeObject.id &&
+        relationship.toId === toKnowledgeObject.id &&
+        relationship.type === spec.type
+    );
+    const relationship =
+      existingRelationship ??
+      (await createKnowledgeRelationship({
+        projectId: sourcePack.projectId,
+        fromId: fromKnowledgeObject.id,
+        toId: toKnowledgeObject.id,
+        type: spec.type,
+        confidence: spec.confidence,
+        provenanceNote: spec.provenanceNote
+      }));
+
+    acceptedRelationshipIds.add(relationship.id);
+  }
+
+  for (const relationship of await listKnowledgeRelationships({ projectId: sourcePack.projectId })) {
+    if (!acceptedRelationshipIds.has(relationship.id)) {
+      continue;
+    }
+
+    if (
+      relationship.status !== "approved" ||
+      relationship.confidence === undefined ||
+      relationship.confidence < 50 ||
+      !relationship.provenanceNote
+    ) {
+      await updateKnowledgeRelationshipProvenance({
+        relationshipId: relationship.id,
+        provenanceNote:
+          relationship.provenanceNote ??
+          "QS/RFQ pilot relationship reviewed for RFQ package completeness evidence.",
+        confidence: relationship.confidence ?? 84,
+        status: "approved",
+        actor: "reviewer"
+      });
+    }
+  }
+
+  for (const knowledgeObjectId of acceptedKnowledgeObjectIds) {
+    const currentKnowledgeObject = (await listKnowledgeObjects({ projectId: sourcePack.projectId })).find(
+      (knowledgeObject) => knowledgeObject.id === knowledgeObjectId
+    );
+
+    if (currentKnowledgeObject && !approvedKnowledgeObject(currentKnowledgeObject.status)) {
+      await updateKnowledgeObjectStatus({
+        id: knowledgeObjectId,
+        status: "approved",
+        reviewer: "reviewer"
+      });
+    }
+  }
+
+  const evidenceRegisterEntries = await ensureQsRfqPilotEvidenceRegister(actor);
+
+  const packages = await listPkaPackages(sourcePack.projectId);
+  const version = nextQsRfqPilotPackageVersion(packages);
+  const assembledPackage = await assemblePkaPackage({
+    projectId: sourcePack.projectId,
+    name: "QS/RFQ From BOQ Base PKA",
+    version,
+    publisher: "publisher",
+    confirmReplacement: true
+  });
+  const submittedPackage = await updatePkaPackageReleaseStatus({
+    packageRecordId: assembledPackage.id,
+    status: "under_review",
+    actor: "publisher",
+    notes: "QS/RFQ pilot package submitted for release review."
+  });
+  const approvedPackage = await updatePkaPackageReleaseStatus({
+    packageRecordId: submittedPackage.id,
+    status: "approved",
+    actor: "reviewer",
+    notes: "QS/RFQ pilot package approved for deterministic runtime validation."
+  });
+  const publishedPackage = await publishPkaPackage({
+    packageRecordId: approvedPackage.id,
+    actor: "publisher",
+    notes: "Published QS/RFQ pilot Base PKA for local runtime contract demo."
+  });
+  const runtimeImport = await recordRuntimePkaImportDecision({
+    packageId: publishedPackage.packageId,
+    archivePath: "package-archive.json",
+    actor: "runtime_consumer"
+  });
+  const evidenceRegisterReport = await getRfqEvidenceRegisterReport(sourcePack.projectId);
+  const runtimeQaReadiness = await getRuntimeQaAnswerReadinessReport(sourcePack.projectId);
+  const fixtureEvaluation = await getRuntimeQaFixtureEvaluationReport(sourcePack.projectId);
+
+  await recordAuditLog({
+    action: "pilot.qs_rfq_vertical_slice_completed",
+    subjectType: "Project",
+    subjectId: sourcePack.projectId,
+    actorId: actor,
+    detail:
+      "Completed QS/RFQ pilot vertical slice from source artifacts to published package, runtime import, and deterministic Q&A readiness.",
+    metadata: {
+      sourceIds: ingestedSourceIds,
+      knowledgeObjectIds: Array.from(acceptedKnowledgeObjectIds),
+      relationshipIds: Array.from(acceptedRelationshipIds),
+      evidenceRegisterEntryIds: evidenceRegisterEntries.map((entry) => entry.id),
+      packageId: publishedPackage.packageId,
+      runtimeImportStatus: runtimeImport.status
+    }
+  });
+
+  return {
+    projectId: sourcePack.projectId,
+    sourcePack,
+    mode: "created",
+    ingestedSourceIds,
+    acceptedKnowledgeObjectIds: Array.from(acceptedKnowledgeObjectIds),
+    acceptedRelationshipIds: Array.from(acceptedRelationshipIds),
+    packageRecordId: publishedPackage.id,
+    packageId: publishedPackage.packageId,
+    packageStatus: publishedPackage.status,
+    runtimeImportStatus: runtimeImport.status,
+    evidenceRegisterReady: evidenceRegisterReport.ready,
+    runtimeQaReady: runtimeQaReadiness.ready,
+    fixtureEvaluationReady: fixtureEvaluation.ready
+  };
 }
 
 export async function createMission(input: MissionInput) {

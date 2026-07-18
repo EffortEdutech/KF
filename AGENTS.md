@@ -43,7 +43,7 @@ Before making changes:
 
 ## Current Project State
 
-Knowledge Factory is actively filling Sprint 3 pipeline implementation after Sprint 4-6 governance, graph quality, and PKA export hardening.
+Knowledge Factory has been reset to a pilot-PKA vertical slice after early Sprint 3-7 scaffolding and hardening. The controlling milestone is now a small Quantity Surveying / RFQ from BOQ Base PKA that proves source intake, KO/relationship manufacturing, governance, package export, runtime import, and deterministic context/Q&A readiness end to end.
 
 The frozen architecture source of truth remains `docs/v1`. The active implementation plan is:
 
@@ -55,6 +55,8 @@ The frozen architecture source of truth remains `docs/v1`. The active implementa
 - `docs/implementation/PKA Export Strategy.md`
 - `docs/implementation/PKA Package Installer Contract for Runtime Apps.md`
 - `docs/implementation/Ollama Adapter Design Notes.md`
+- `docs/implementation/QS RFQ Pilot Source Pack.md`
+- `docs/implementation/Runtime Q&A Harness Preparation.md`
 - `docs/implementation/Sprint 4 Review Queue Planning Slice.md`
 - `docs/implementation/setup/Local Development Setup.md`
 
@@ -64,14 +66,16 @@ Current structure:
 
 - `apps/studio` - Next.js App Router Studio shell.
 - `packages/core` - lifecycle, mission, role, and relationship contracts.
-- `packages/db` - Prisma schema and database boundary, including Knowledge Objects, source evidence, source chunks, KO suggestions, governance, graph, and package records.
+- `packages/db` - Prisma schema and database boundary, including Knowledge Objects, source evidence, source chunks, KO suggestions, RFQ evidence register entries, RFQ workflow gate actions, governance, graph, and package records.
 - `packages/ai` - provider/model-router contracts.
 - `packages/pka` - PKA manifest, retrieval context, and package structure contracts.
 - `packages/ui` - shared UI contracts/components.
 - `packages/config` - runtime configuration boundary.
 - `storage` - local development storage root, with source and export folders.
 
-Sprint 3 pipeline currently supports deterministic source ingestion, Markdown/plain-text artifact extraction, source chunks, KO suggestions, relationship suggestions, retry controls, and suggestion acceptance into draft governed records. Ollama integration is intentionally deferred until the deterministic review flow is stronger.
+Sprint 3 pipeline currently supports deterministic source ingestion, Markdown/plain-text artifact extraction, source chunks, KO suggestions, relationship suggestions, retry controls, source coverage drilldowns, and suggestion acceptance into draft governed records. Runtime import and Runtime Q&A have deterministic preparation surfaces only. The QS/RFQ pilot now has an idempotent run mode, compact Pilot Run Report, RFQ workflow component placeholder, app developer handoff index, expanded BOQ/RFQ source pack, structured RFQ evidence register, table-backed RFQ workflow gate actions with owner/due-date/status and evidence-entry links, dedicated `/rfq-workflow` route with update/close controls, metrics, ageing/overdue indicators, due-state filters, action-level audit drilldown, Prisma-backed persistence when `DATABASE_URL` is active, filters, detail inspection, reviewer actions, RFQ workflow gate readiness reporting, remediation prompts, and governance handoff/readback summaries including blocked/overdue gate action package risk checks. Unresolved `blocked` RFQ workflow gate actions hard-block `publishPkaPackage`; overdue actions remain visible package/readback risks. Relationship evidence remains structured `KnowledgeRelationship.provenance.sourceEvidence`; do not add a dedicated relationship evidence table until multi-source evidence lifecycle or package feedback proves the need. New work should prioritize the QS/RFQ pilot PKA vertical slice over additional broad harness hardening. Ollama integration is intentionally deferred until the deterministic pilot remains repeatable end to end.
+
+Current Studio routes include Dashboard, Mission Centre, Projects, Sources, Knowledge Objects, Review, Ontology, Pipeline, RFQ Workflow, PKA Builder, Runtime Import, Runtime Handoff, and Runtime Q&A preparation.
 
 Do not introduce implementation structure that conflicts with the approved Knowledge Factory documentation or the active sprint plan.
 

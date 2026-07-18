@@ -21,9 +21,18 @@ import {
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
   getPipelineQualityMetrics,
+  getPipelineSourceCoverageReport,
+  getPipelineSuggestionReviewReport,
   getProjectReadinessHints,
   getProjectGovernanceMetrics,
+  getQsRfqPilotRunReport,
+  getRfqEvidenceRegisterReport,
+  getRfqWorkflowGateReport,
   getRelationshipReadinessHints,
+  getRuntimeQaAnswerReadinessReport,
+  getRuntimeQaContextBundlePreview,
+  getRuntimeQaFixtureEvaluationReport,
+  getQsRfqPilotSourcePack,
   getProjectSourceCount,
   getSourceReadinessHints,
   importRuntimePkaArchive,
@@ -37,16 +46,21 @@ import {
   listPersistedPkaExportFiles,
   listPkaPackages,
   listProjects,
+  listRuntimeQaFixtureQuestions,
   listReviewQueue,
   listReviews,
+  listRfqEvidenceRegisterEntries,
+  listRfqWorkflowGateActions,
   listSourceChunks,
   listSources,
   publishPkaPackage,
   releaseBlockerTypeFromHintId,
   recordRuntimePkaImportDecision,
+  recordRfqWorkflowGateAction,
   repairSourceArtifact,
   resetWorkspaceStoreForTests,
   retrySourceIngestion,
+  runQsRfqPilotVerticalSlice,
   runSourceIngestion,
   updateKnowledgeSuggestionStatus,
   updatePkaPackageReleaseStatus,
@@ -54,9 +68,12 @@ import {
   updateKnowledgeObject,
   updateKnowledgeObjectStatus,
   updateRelationshipSuggestionStatus,
+  updateRfqEvidenceRegisterEntryStatus,
+  updateRfqWorkflowGateAction,
   updateMissionStatus,
   validatePkaPackageReadback,
   validatePersistedPkaPackageReadback,
+  validateRuntimeAppDeveloperHandoff,
   validateRuntimePkaImportReadback,
   validatePkaManifest
 } from "./workspace-store";
@@ -84,6 +101,182 @@ async function expectRejects(action: () => Promise<unknown>, message: string) {
 
 async function runWorkspaceStoreContractTest() {
   resetWorkspaceStoreForTests();
+
+  const pilotSourcePack = getQsRfqPilotSourcePack();
+  const pilotResult = await runQsRfqPilotVerticalSlice("knowledge_engineer");
+  expect(pilotResult.packageStatus === "published", "QS/RFQ pilot should publish a Base PKA package");
+  expect(pilotResult.runtimeImportStatus === "importable", "QS/RFQ pilot package should import into runtime harness");
+  expect(pilotResult.runtimeQaReady, "QS/RFQ pilot should make Runtime Q&A answer readiness pass");
+  expect(pilotResult.fixtureEvaluationReady, "QS/RFQ pilot should make deterministic Q&A fixture evaluation pass");
+  expect(pilotResult.evidenceRegisterReady, "QS/RFQ pilot should make the RFQ evidence register ready");
+  expect(
+    pilotResult.ingestedSourceIds.length === pilotSourcePack.sourceIds.length,
+    "QS/RFQ pilot should ingest every source in the pilot source pack"
+  );
+  expect(
+    pilotResult.acceptedKnowledgeObjectIds.length >= 8,
+    "QS/RFQ pilot should promote all named BOQ/RFQ pilot suggestions into approved KOs"
+  );
+  const pilotEvidenceRegister = await listRfqEvidenceRegisterEntries(pilotSourcePack.projectId);
+  expect(pilotEvidenceRegister.length >= 8, "QS/RFQ pilot should create structured RFQ evidence register entries");
+  expect(
+    pilotEvidenceRegister.some(
+      (entry) =>
+        entry.category === "issued_evidence" &&
+        entry.tradeSection === "Structural concrete substructure" &&
+        entry.status === "accepted"
+    ),
+    "QS/RFQ pilot should register accepted structural BOQ evidence"
+  );
+  expect(
+    pilotEvidenceRegister.some(
+      (entry) => entry.category === "missing_evidence" && entry.workflowGate === "approve_issue"
+    ),
+    "QS/RFQ pilot should register missing-evidence controls for approval/issue gates"
+  );
+  expect(
+    (await listRfqEvidenceRegisterEntries({
+      projectId: pilotSourcePack.projectId,
+      category: "missing_evidence",
+      workflowGate: "approve_issue",
+      tradeSection: "Structural"
+    })).some((entry) => entry.registerCode === "RFQ-EV-002"),
+    "RFQ evidence register should support category, workflow gate, and trade-section filtering"
+  );
+  const clarificationEntry = pilotEvidenceRegister.find((entry) => entry.status === "clarification_required");
+  expect(Boolean(clarificationEntry), "QS/RFQ pilot should include a clarification-required register entry");
+  const initialWorkflowGateReport = await getRfqWorkflowGateReport(pilotSourcePack.projectId);
+  expect(
+    initialWorkflowGateReport.gates.some((gate) => gate.status === "blocked" && gate.remediationPrompts.length > 0),
+    "RFQ workflow gates should expose remediation prompts for unresolved evidence controls"
+  );
+  const reviewedEvidenceEntry = await updateRfqEvidenceRegisterEntryStatus({
+    entryId: clarificationEntry!.id,
+    status: "accepted",
+    actor: "reviewer",
+    notes: "Accepted for contract-test workflow gate readiness."
+  });
+  expect(reviewedEvidenceEntry.status === "accepted", "reviewer should be able to accept an RFQ evidence entry");
+  expect(
+    (await listGovernanceHistory({ subjectId: reviewedEvidenceEntry.id })).some(
+      (event) => event.action === "rfq_evidence_register.accepted"
+    ),
+    "RFQ evidence reviewer action should create a governance audit event"
+  );
+  const reviewedWorkflowGateReport = await getRfqWorkflowGateReport(pilotSourcePack.projectId);
+  expect(
+    reviewedWorkflowGateReport.gates.some(
+      (gate) => gate.gate === reviewedEvidenceEntry.workflowGate && gate.clarificationRequiredCount === 0
+    ),
+    "accepted RFQ evidence should clear clarification-required gate counts"
+  );
+  await recordRfqWorkflowGateAction({
+    projectId: pilotSourcePack.projectId,
+    gate: "approve_issue",
+    actionType: "attach_missing_evidence",
+    owner: "knowledge_engineer",
+    dueDate: "2026-07-24",
+    status: "in_progress",
+    actor: "reviewer",
+    notes: "Assign QS engineer to close missing evidence before package issue.",
+    evidenceEntryIds: pilotEvidenceRegister
+      .filter((entry) => entry.workflowGate === "approve_issue")
+      .map((entry) => entry.id)
+  });
+  const filteredGateActions = await listRfqWorkflowGateActions({
+    projectId: pilotSourcePack.projectId,
+    gate: "approve_issue",
+    status: "in_progress",
+    owner: "knowledge"
+  });
+  expect(filteredGateActions.length === 1, "RFQ workflow gate actions should support gate/status/owner filtering");
+  expect(
+    filteredGateActions[0].evidenceEntryIds.length >= 1,
+    "RFQ workflow gate actions should link to one or more evidence register entries"
+  );
+  expect(
+    (await listRfqWorkflowGateActions({
+      projectId: pilotSourcePack.projectId,
+      dueState: "due_future"
+    })).some((action) => action.id === filteredGateActions[0].id),
+    "RFQ workflow gate actions should support computed due-state filtering"
+  );
+  const closedGateAction = await updateRfqWorkflowGateAction({
+    actionId: filteredGateActions[0].id,
+    status: "resolved",
+    actor: "reviewer",
+    owner: "knowledge_engineer",
+    dueDate: "2026-07-25",
+    notes: "Closed after QS engineer confirmed missing evidence action.",
+    evidenceEntryIds: filteredGateActions[0].evidenceEntryIds
+  });
+  expect(closedGateAction.status === "resolved", "RFQ workflow gate action should be closable");
+  expect(
+    (await listRfqWorkflowGateActions({
+      projectId: pilotSourcePack.projectId,
+      status: "resolved",
+      owner: "knowledge"
+    })).some((action) => action.id === closedGateAction.id),
+    "RFQ workflow gate action history should support resolved-status filtering"
+  );
+  const workflowGateActionReport = await getRfqWorkflowGateReport(pilotSourcePack.projectId);
+  expect(
+    workflowGateActionReport.gates.some(
+      (gate) =>
+        gate.gate === "approve_issue" &&
+        gate.followUp?.owner === "knowledge_engineer" &&
+        gate.followUp.status === "resolved" &&
+        gate.followUp.dueDate === "2026-07-25"
+    ),
+    "RFQ workflow gate report should expose owner, due date, and follow-up status"
+  );
+  const pilotEvidenceRegisterReport = await getRfqEvidenceRegisterReport(pilotSourcePack.projectId);
+  expect(pilotEvidenceRegisterReport.ready, "QS/RFQ pilot evidence register should prepare workflow gate readiness");
+  const pilotFixtureEvaluation = await getRuntimeQaFixtureEvaluationReport(pilotSourcePack.projectId);
+  expect(
+    pilotFixtureEvaluation.evaluations.every((evaluation) => evaluation.status === "ready"),
+    "QS/RFQ pilot fixture evaluation should mark every fixture ready"
+  );
+  expect(
+    pilotFixtureEvaluation.evaluations.some((evaluation) =>
+      evaluation.deterministicAnswer.includes("Before issuing an RFQ package")
+    ),
+    "QS/RFQ pilot fixture evaluation should include deterministic RFQ completeness answer"
+  );
+  const pilotRunReport = await getQsRfqPilotRunReport();
+  expect(pilotRunReport.status === "ready", "QS/RFQ pilot run report should mark the vertical slice ready");
+  expect(
+    pilotRunReport.stages.some((stage) => stage.id === "pilot-package" && stage.level === "ready"),
+    "QS/RFQ pilot run report should confirm package handoff readiness"
+  );
+  const pilotExportPreview = await getPkaPackageExportPreview(pilotSourcePack.projectId);
+  expect(
+    Boolean(
+      pilotExportPreview?.files.some((file) => file.path === "workflows/rfq-package-issue-workflow.json") &&
+        pilotExportPreview.files.some((file) => file.path === "runtime/app-developer-handoff.json") &&
+        pilotExportPreview.files.some((file) => file.path === "sources/rfq-evidence-register.json")
+    ),
+    "QS/RFQ pilot export should include RFQ workflow placeholder, app developer handoff index, and evidence register"
+  );
+  const governanceExport = pilotExportPreview?.files.find((file) => file.path === "governance/index.json");
+  expect(
+    Boolean(governanceExport?.contents && "rfqWorkflowGateSummary" in governanceExport.contents),
+    "QS/RFQ pilot governance export should include RFQ workflow gate summary"
+  );
+  expect(
+    Boolean(governanceExport?.contents && "rfqEvidenceDecisionSummary" in governanceExport.contents),
+    "QS/RFQ pilot governance export should include RFQ evidence reviewer decision summary"
+  );
+  expect(
+    Boolean(governanceExport?.contents && "rfqWorkflowGateActionSummary" in governanceExport.contents),
+    "QS/RFQ pilot governance export should include RFQ workflow gate action summary"
+  );
+  const reusedPilotResult = await runQsRfqPilotVerticalSlice({ actor: "knowledge_engineer" });
+  expect(reusedPilotResult.mode === "reused_existing", "QS/RFQ pilot rerun should reuse the current published package");
+  expect(
+    reusedPilotResult.packageId === pilotResult.packageId,
+    "QS/RFQ pilot rerun should not create a new package version when the current package is ready"
+  );
 
   const initialProjectCount = (await listProjects()).length;
   const initialMissionCount = (await listMissions()).length;
@@ -263,6 +456,20 @@ async function runWorkspaceStoreContractTest() {
   const deferredPipelineMetrics = await getPipelineQualityMetrics({ projectId: project.id, sourceId: source.id });
   expect(deferredPipelineMetrics.deferredSuggestionCount === 2, "pipeline metrics should count deferred KO and relationship suggestions");
   expect(deferredPipelineMetrics.retriedJobCount >= 1, "pipeline metrics should count retry jobs");
+  const suggestionReviewReport = await getPipelineSuggestionReviewReport({
+    projectId: project.id,
+    sourceId: source.id
+  });
+  expect(suggestionReviewReport.totalSuggestions >= 2, "suggestion review report should count deterministic suggestions");
+  expect(
+    suggestionReviewReport.knowledgeSuggestionCount > 0 && suggestionReviewReport.relationshipSuggestionCount > 0,
+    "suggestion review report should separate KO and relationship suggestion counts"
+  );
+  expect(suggestionReviewReport.deferredCount === 2, "suggestion review report should count deferred decisions");
+  expect(
+    suggestionReviewReport.reviewNotesCount >= 2,
+    "suggestion review report should count reviewer notes coverage"
+  );
   const failedFixtureMission = await createFailedIngestionFixture({
     sourceId: source.id,
     actor: "knowledge_engineer"
@@ -338,15 +545,60 @@ async function runWorkspaceStoreContractTest() {
   await repairSourceArtifact({
     sourceId: emptySource.id,
     actor: "knowledge_engineer",
-    repairText: "User supplied repair text for deterministic source ingestion. It contains enough content for chunking."
+    repairText: [
+      "User supplied repair text for deterministic source ingestion.",
+      "It contains enough content for chunking and describes source registration, extraction, review, and package handoff.",
+      "The second paragraph covers evidence handling, suggestion review, relationship provenance, and reviewer accountability.",
+      "The third paragraph covers runtime import boundaries, Base PKA packaging, and deterministic source coverage reporting."
+    ].join(" ")
   });
   const repairedEmptyIngestion = await runSourceIngestion({
     sourceId: emptySource.id,
     actor: "knowledge_engineer"
   });
   expect(repairedEmptyIngestion.chunks.length > 0, "user-supplied repair text should allow ingestion");
+  expect(repairedEmptyIngestion.chunks.length > 1, "long repaired artifact should create multi-chunk coverage");
+  const markdownArtifactSource = await createSource({
+    projectId: project.id,
+    title: "Markdown Artifact Source",
+    category: "architecture_note",
+    domain: "Quantity Surveying",
+    owner: "knowledge_engineer",
+    version: "0.1",
+    reliability: "test fixture",
+    usagePolicy: "local test only",
+    boundary: "base_pka_input",
+    storagePath: "docs/implementation/PKA Anatomy and Runtime Boundary.md"
+  });
+  const markdownIngestion = await runSourceIngestion({
+    sourceId: markdownArtifactSource.id,
+    actor: "knowledge_engineer"
+  });
+  expect(markdownIngestion.chunks.length > 1, "Markdown artifact source should create multi-chunk coverage");
   const failedPipelineMetrics = await getPipelineQualityMetrics({ projectId: project.id });
   expect(failedPipelineMetrics.failedJobCount >= 3, "pipeline metrics should count failed ingestion jobs");
+  const sourceCoverageReport = await getPipelineSourceCoverageReport({ projectId: project.id });
+  expect(sourceCoverageReport.sourceCount >= 3, "source coverage report should count project sources");
+  expect(sourceCoverageReport.ingestedSourceCount >= 3, "source coverage report should count ingested sources");
+  expect(sourceCoverageReport.multiChunkSourceCount >= 2, "source coverage report should detect multi-source multi-chunk coverage");
+  expect(sourceCoverageReport.totalSuggestions > 0, "source coverage report should count KO and relationship suggestions");
+  expect(
+    sourceCoverageReport.profileCounts.markdown_artifact >= 1 && sourceCoverageReport.profileCounts.text_artifact >= 1,
+    "source coverage report should count extraction profiles"
+  );
+  const markdownCoverageReport = await getPipelineSourceCoverageReport({
+    projectId: project.id,
+    extractionProfile: "markdown_artifact"
+  });
+  expect(
+    markdownCoverageReport.items.length >= 1 &&
+      markdownCoverageReport.items.every((item) => item.extractionProfile === "markdown_artifact"),
+    "source coverage report should filter by extraction profile"
+  );
+  expect(
+    sourceCoverageReport.items.some((item) => item.sourceId === emptySource.id && item.coverageRate === 100),
+    "source coverage report should show repaired source chunks are covered by suggestions"
+  );
 
   const knowledgeObject = await createKnowledgeObject({
     projectId: project.id,
@@ -620,6 +872,11 @@ async function runWorkspaceStoreContractTest() {
     publisher: "publisher"
   });
   expect(pkaPackage.packageId.startsWith("pka-contract-test-pka"), "PKA package should get a stable package id");
+  const draftRuntimeQaReadiness = await getRuntimeQaAnswerReadinessReport(project.id);
+  expect(
+    draftRuntimeQaReadiness.missingPublishedPackageCount === 1 && !draftRuntimeQaReadiness.ready,
+    "runtime Q&A answer readiness should block before package publication"
+  );
   expect(
     (await listPkaPackages(project.id)).some((item) => item.id === pkaPackage.id),
     "assembled PKA package should be listed for the project"
@@ -705,12 +962,62 @@ async function runWorkspaceStoreContractTest() {
     notes: "Package release approved for test."
   });
   expect(approvedPackage.status === "approved", "package release approval should mark package approved");
+  const blockedGateAction = await recordRfqWorkflowGateAction({
+    projectId: project.id,
+    gate: "approve_issue",
+    actionType: "resolve_commercial_exception",
+    owner: "publisher",
+    dueDate: "2026-07-17",
+    status: "blocked",
+    actor: "reviewer",
+    notes: "Commercial exception must be resolved before publishing."
+  });
+  await expectRejects(
+    () => publishPkaPackage(approvedPackage.id),
+    "blocked RFQ workflow gate actions should hard-block package publication"
+  );
+  await updateRfqWorkflowGateAction({
+    actionId: blockedGateAction.id,
+    status: "resolved",
+    actor: "reviewer",
+    owner: "publisher",
+    dueDate: "2026-07-18",
+    notes: "Commercial exception cleared for publish."
+  });
   const publishedPackage = await publishPkaPackage({
     packageRecordId: approvedPackage.id,
     actor: "publisher",
     notes: "Package published through release workflow."
   });
   expect(publishedPackage.status === "published", "package publish should mark export immutable");
+  const runtimeQaContextBundle = await getRuntimeQaContextBundlePreview(project.id);
+  expect(runtimeQaContextBundle.packageStatus === "published", "runtime Q&A context should use a published package");
+  expect(
+    runtimeQaContextBundle.knowledgeObjects.length > 0 &&
+      runtimeQaContextBundle.knowledgeObjects.every((item) => item.status === "approved"),
+    "runtime Q&A context should expose approved Knowledge Objects only"
+  );
+  expect(
+    runtimeQaContextBundle.sourceEvidence.length > 0,
+    "runtime Q&A context should include source evidence citation candidates"
+  );
+  expect(
+    runtimeQaContextBundle.runtimeInstructions.some((instruction) => instruction.includes("approved")),
+    "runtime Q&A context should include approved-only runtime instructions"
+  );
+  expect(
+    listRuntimeQaFixtureQuestions().every((fixture) => fixture.expectedCitationRequirement.includes("cite")),
+    "runtime Q&A fixture questions should define citation requirements"
+  );
+  const runtimeQaAnswerReadiness = await getRuntimeQaAnswerReadinessReport(project.id);
+  expect(runtimeQaAnswerReadiness.ready, "runtime Q&A answer readiness should pass after package publication");
+  expect(
+    runtimeQaAnswerReadiness.missingCitationCount === 0 &&
+      runtimeQaAnswerReadiness.missingPublishedPackageCount === 0 &&
+      runtimeQaAnswerReadiness.missingApprovedKnowledgeObjectCount === 0 &&
+      runtimeQaAnswerReadiness.missingGovernedRelationshipCount === 0,
+    "runtime Q&A answer readiness should clear missing package, knowledge, citation, and relationship blockers"
+  );
   const packageHistory = await listGovernanceHistory({ subjectId: replacedPackage.id });
   expect(
       packageHistory.some((event) => event.action === "pka_package.under_review") &&
@@ -801,6 +1108,41 @@ async function runWorkspaceStoreContractTest() {
       validRuntimeImportReport.items.some((item) => item.id === "runtime-import-workflow-library" && item.level === "ready") &&
       validRuntimeImportReport.items.some((item) => item.id === "runtime-import-template-library" && item.level === "ready"),
     "valid runtime import should load ontology and placeholder component boundaries"
+  );
+  const runtimeHandoffReport = await validateRuntimeAppDeveloperHandoff(publishedPackage.packageId);
+  expect(
+    runtimeHandoffReport.decision === "installable",
+    "valid app-developer handoff should be installable for a consuming runtime"
+  );
+  expect(
+    runtimeHandoffReport.items.some(
+      (item) => item.id === "runtime-handoff-required-files" && item.decision === "pass"
+    ),
+    "runtime handoff should confirm required package files"
+  );
+  expect(
+    runtimeHandoffReport.items.some(
+      (item) => item.id === "runtime-handoff-governance-fields" && item.decision === "pass"
+    ),
+    "runtime handoff should confirm required governance fields"
+  );
+  expect(
+    runtimeHandoffReport.items.some(
+      (item) => item.id === "runtime-handoff-relationship-evidence-feedback" && item.decision === "feedback_requested"
+    ),
+    "runtime handoff should expose relationship evidence feedback questions"
+  );
+  expect(
+    runtimeHandoffReport.relationshipEvidencePolicy?.dedicatedTableStatus === "deferred_for_pilot",
+    "runtime handoff should carry the relationship evidence table decision"
+  );
+  const missingHandoffReport = await validateRuntimeAppDeveloperHandoff(
+    publishedPackage.packageId,
+    "runtime/missing-handoff.json"
+  );
+  expect(
+    missingHandoffReport.decision === "blocked",
+    "missing app-developer handoff file should block consuming-app installation"
   );
   await recordRuntimePkaImportDecision({
     packageId: publishedPackage.packageId,

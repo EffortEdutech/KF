@@ -69,6 +69,7 @@ Do not start the Ollama adapter until these remain green:
 
 - deterministic source ingestion,
 - KO and relationship suggestion governance,
+- deterministic suggestion review reporting for confidence, evidence, and reviewer-note coverage,
 - package release approval/publish workflow,
 - package archive/ZIP readback,
 - `/runtime-import` package installer contract,

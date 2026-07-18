@@ -37,6 +37,7 @@ export type PkaComponentKind =
   | "ontology"
   | "relationship_graph"
   | "source_reference_index"
+  | "evidence_register"
   | "rule"
   | "workflow"
   | "template"

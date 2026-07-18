@@ -21,8 +21,10 @@ import {
   importRuntimePkaArchive,
   publishPkaPackage,
   recordRuntimePkaImportDecision,
+  recordRfqWorkflowGateAction,
   repairSourceArtifact,
   retrySourceIngestion,
+  runQsRfqPilotVerticalSlice,
   runSourceIngestion,
   updateKnowledgeSuggestionStatus,
   updatePkaPackageReleaseStatus,
@@ -30,10 +32,12 @@ import {
   updateKnowledgeObject,
   updateKnowledgeObjectStatus,
   updateRelationshipSuggestionStatus,
+  updateRfqEvidenceRegisterEntryStatus,
+  updateRfqWorkflowGateAction,
   updateMissionStatus
 } from "./workspace-store";
 import { knowledgeObjectTypes, sourceCategories } from "./studio-data";
-import type { KnowledgeObjectSummary, MissionSummary, SourceSummary } from "./studio-data";
+import type { KnowledgeObjectSummary, MissionSummary, RfqEvidenceRegisterEntrySummary, SourceSummary } from "./studio-data";
 import type { LifecycleState, MissionStatus, MissionType, RelationshipType } from "@kf/core";
 
 function readRequired(formData: FormData, key: string) {
@@ -120,6 +124,42 @@ function readPackageReleaseStatus(
   return "under_review";
 }
 
+function readRfqEvidenceRegisterStatus(
+  value: string
+): "accepted" | "clarification_required" | "superseded" {
+  if (value === "accepted" || value === "superseded") {
+    return value;
+  }
+
+  return "clarification_required";
+}
+
+function readRfqWorkflowGateActionType(
+  value: string
+): "attach_missing_evidence" | "request_clarification" | "resolve_commercial_exception" {
+  if (value === "request_clarification" || value === "resolve_commercial_exception") {
+    return value;
+  }
+
+  return "attach_missing_evidence";
+}
+
+function readRfqWorkflowGateActionStatus(value: string): "open" | "in_progress" | "resolved" | "blocked" {
+  if (value === "in_progress" || value === "resolved" || value === "blocked") {
+    return value;
+  }
+
+  return "open";
+}
+
+function readRfqWorkflowGate(value: string): RfqEvidenceRegisterEntrySummary["workflowGate"] {
+  if (value === "review" || value === "approve_issue" || value === "clarify" || value === "receive_compare") {
+    return value;
+  }
+
+  return "prepare";
+}
+
 function readOptionalString(formData: FormData, key: string) {
   const value = formData.get(key);
   if (typeof value !== "string") {
@@ -139,10 +179,12 @@ function revalidateStudioSurfaces() {
   revalidatePath("/knowledge-objects");
   revalidatePath("/review");
   revalidatePath("/pipeline");
+  revalidatePath("/rfq-workflow");
   revalidatePath("/pka-builder");
   revalidatePath("/pka-builder/export");
   revalidatePath("/pka-builder/readback");
   revalidatePath("/runtime-import");
+  revalidatePath("/runtime-qa");
   revalidatePath("/ontology");
 }
 
@@ -160,6 +202,13 @@ function readTags(formData: FormData) {
   return (readOptionalString(formData, "tags") ?? "")
     .split(",")
     .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function readStringList(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean);
 }
 
@@ -187,6 +236,13 @@ export async function runSourceIngestionAction(formData: FormData) {
   });
 
   revalidateStudioSurfaces();
+}
+
+export async function runQsRfqPilotVerticalSliceAction(formData: FormData) {
+  const result = await runQsRfqPilotVerticalSlice(readOptionalString(formData, "actor") ?? "knowledge_engineer");
+
+  revalidateStudioSurfaces();
+  redirect(`/runtime-qa?projectId=${result.projectId}`);
 }
 
 export async function retrySourceIngestionAction(formData: FormData) {
@@ -218,6 +274,47 @@ export async function repairSourceArtifactAction(formData: FormData) {
     actor: readOptionalString(formData, "actor") ?? "knowledge_engineer",
     repairText: readOptionalString(formData, "repairText"),
     repairPath: readOptionalString(formData, "repairPath")
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function updateRfqEvidenceRegisterStatusAction(formData: FormData) {
+  await updateRfqEvidenceRegisterEntryStatus({
+    entryId: readRequired(formData, "entryId"),
+    status: readRfqEvidenceRegisterStatus(readRequired(formData, "status")),
+    actor: readOptionalString(formData, "actor") ?? "reviewer",
+    notes: readOptionalString(formData, "notes")
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function recordRfqWorkflowGateActionAction(formData: FormData) {
+  await recordRfqWorkflowGateAction({
+    projectId: readRequired(formData, "projectId"),
+    gate: readRfqWorkflowGate(readRequired(formData, "gate")),
+    actionType: readRfqWorkflowGateActionType(readRequired(formData, "actionType")),
+    owner: readRequired(formData, "owner"),
+    dueDate: readOptionalString(formData, "dueDate"),
+    status: readRfqWorkflowGateActionStatus(readRequired(formData, "status")),
+    actor: readOptionalString(formData, "actor") ?? "reviewer",
+    notes: readOptionalString(formData, "notes"),
+    evidenceEntryIds: readStringList(formData, "evidenceEntryIds")
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function updateRfqWorkflowGateActionAction(formData: FormData) {
+  await updateRfqWorkflowGateAction({
+    actionId: readRequired(formData, "actionId"),
+    status: readRfqWorkflowGateActionStatus(readRequired(formData, "status")),
+    owner: readOptionalString(formData, "owner"),
+    dueDate: readOptionalString(formData, "dueDate"),
+    actor: readOptionalString(formData, "actor") ?? "reviewer",
+    notes: readOptionalString(formData, "notes"),
+    evidenceEntryIds: readStringList(formData, "evidenceEntryIds")
   });
 
   revalidateStudioSurfaces();

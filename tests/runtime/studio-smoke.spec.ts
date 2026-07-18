@@ -17,6 +17,8 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Ontology" })).toBeVisible();
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Pipeline" })).toBeVisible();
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Import" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Handoff" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Q&A" })).toBeVisible();
     await expect(page.getByText("Review queue")).toBeVisible();
     await expect(page.getByText("Release blockers")).toBeVisible();
 
@@ -65,6 +67,14 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByRole("heading", { name: "Manufacturing Pipeline" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Run ingestion" })).toBeVisible();
     await expect(page.getByText("Stage tracking")).toBeVisible();
+
+    await page.goto("/runtime-qa");
+
+    await expect(page.getByRole("heading", { name: "Grounded Q&A Harness Preparation" })).toBeVisible();
+    await expect(page.getByText("Harness boundary")).toBeVisible();
+    await expect(page.getByText("Answer readiness report")).toBeVisible();
+    await expect(page.getByText("Deterministic answer context blocked")).toBeVisible();
+    await expect(page.getByText("Model calls")).toBeVisible();
   });
 
   test("runs deterministic ingestion and creates a draft KO suggestion", async ({ page }) => {
@@ -73,8 +83,8 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByRole("heading", { name: "Manufacturing Pipeline" })).toBeVisible();
     await page.getByRole("button", { name: "Run ingestion" }).click();
     await expect(page.getByText("Extraction output")).toBeVisible();
-    await expect(page.getByText("Source-backed draft:").first()).toBeVisible();
-    await expect(page.getByText("Relationship suggestions").first()).toBeVisible();
+    await expect(page.getByText("Source-backed excerpt:").first()).toBeVisible();
+    await expect(page.getByLabel("Relationship suggestions")).toBeVisible();
     await expect(page.getByText("accept both KO suggestions first").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Retry ingestion" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create failed fixture" })).toBeVisible();
@@ -83,6 +93,12 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Accepted ratio")).toBeVisible();
     await expect(page.getByText("Defer/reject ratio")).toBeVisible();
     await expect(page.getByText("Pipeline quality")).toBeVisible();
+    await expect(page.getByText("Suggestion review report")).toBeVisible();
+    await expect(page.getByText("Review signals")).toBeVisible();
+    await expect(page.getByText("Reviewer notes coverage")).toBeVisible();
+    await expect(page.getByText("Source coverage report")).toBeVisible();
+    await expect(page.getByLabel("Pipeline source coverage report").getByText("Sample Bill of Quantity")).toBeVisible();
+    await expect(page.getByLabel("Source coverage extraction profile filters").getByRole("link", { name: /^all \(/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "Record KO suggestion decision" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Record suggestion decision", exact: true }).first()).toBeVisible();
     await page.getByRole("button", { name: "Record suggestion decision", exact: true }).first().click();
@@ -92,18 +108,21 @@ test.describe("KF Studio runtime smoke", () => {
 
     await page.goto("/knowledge-objects?projectId=kf-qs-rfq-pilot&status=ai_generated");
     await expect(page.locator(".pill", { hasText: "ai_generated" }).first()).toBeVisible();
-    await expect(page.getByText("pipeline-suggestion").first()).toBeVisible();
+    await expect(page.getByText("pilot").first()).toBeVisible();
 
     await page.goto("/pipeline?projectId=kf-qs-rfq-pilot&sourceId=src-boq-sample");
     await page.getByRole("button", { name: "Create failed fixture" }).click();
     await expect(page.getByText("failed pipeline job")).toBeVisible();
     await page.getByRole("button", { name: "Retry ingestion" }).click();
-    await expect(page.getByText("Source-backed draft:").first()).toBeVisible();
+    await expect(page.getByText("Source-backed excerpt:").first()).toBeVisible();
 
     await page.goto("/pipeline?projectId=kf-finance-reference&sourceId=src-aifa-pka-runtime");
     await page.getByRole("button", { name: "Run ingestion" }).click();
     await expect(page.getByRole("heading", { name: "AIFA PKA Runtime Alignment Notes" }).first()).toBeVisible();
     await expect(page.getByText("Runtime Boundary").first()).toBeVisible();
+    await page.getByLabel("Source coverage extraction profile filters").getByRole("link", { name: /^markdown artifact \(/ }).click();
+    await expect(page).toHaveURL(/profile=markdown_artifact/);
+    await expect(page.getByLabel("Pipeline source coverage report").getByText("AIFA PKA Runtime Alignment Notes")).toBeVisible();
 
     await page.goto("/pipeline?projectId=kf-qs-rfq-pilot&sourceId=src-rfq-template");
     await page.getByRole("button", { name: "Create unsupported fixture" }).click();
@@ -113,7 +132,84 @@ test.describe("KF Studio runtime smoke", () => {
     await page.getByRole("button", { name: "Repair artifact" }).click();
     await expect(page.getByText("pipeline.source_artifact_repaired")).toBeVisible();
     await page.getByRole("button", { name: "Run ingestion" }).click();
-    await expect(page.getByText("Source-backed draft:").first()).toBeVisible();
+    await expect(page.getByText("Source-backed excerpt:").first()).toBeVisible();
+    await page.getByLabel("Source coverage extraction profile filters").getByRole("link", { name: /^text artifact \(/ }).click();
+    await expect(page).toHaveURL(/profile=text_artifact/);
+    await expect(page.getByLabel("Pipeline source coverage report").getByText("RFQ Template Structure")).toBeVisible();
+  });
+
+  test("runs the QS/RFQ pilot vertical slice into runtime Q&A readiness", async ({ page }) => {
+    await page.goto("/pipeline?projectId=kf-qs-rfq-pilot");
+
+    await expect(page.getByText("QS/RFQ from BOQ Pilot Source Pack")).toBeVisible();
+    await expect(page.getByText("Pilot Run Report")).toBeVisible();
+    await page.getByRole("button", { name: "Run QS/RFQ pilot vertical slice" }).click();
+    await expect(page).toHaveURL(/\/runtime-qa\?projectId=kf-qs-rfq-pilot/);
+
+    await expect(page.getByText("Deterministic answer context ready")).toBeVisible();
+    await expect(page.getByText("Fixture answers ready")).toBeVisible();
+    await expect(
+      page.getByText("Before issuing an RFQ package from a BOQ, check that BOQ item code").first()
+    ).toBeVisible();
+    await expect(page.getByText("Model calls")).toBeVisible();
+    await expect(page.getByText("0", { exact: true }).first()).toBeVisible();
+
+    await page.goto("/pipeline?projectId=kf-qs-rfq-pilot");
+    await expect(page.getByText("Pilot output ready")).toBeVisible();
+    await expect(page.getByText("Published package handoff")).toBeVisible();
+    await expect(page.getByText("Runtime Q&A contract")).toBeVisible();
+    await expect(page.getByText("RFQ evidence register").first()).toBeVisible();
+    await expect(page.getByText("Evidence controls for future workflow gates")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Apply evidence filters" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accept" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Request clarification" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Supersede" })).toBeVisible();
+    await expect(page.getByText("RFQ workflow gates")).toBeVisible();
+    await expect(page.getByText("Workflow issue gates need review")).toBeVisible();
+    await expect(page.getByText("remediation action").first()).toBeVisible();
+    const gateRegion = page.getByLabel("RFQ workflow gate remediation");
+    await gateRegion.locator('input[name="owner"]').first().fill("publisher");
+    await gateRegion.locator('input[name="dueDate"]').first().fill("2026-07-17");
+    await gateRegion.locator('select[name="status"]').first().selectOption("blocked");
+    await gateRegion.locator('textarea[name="notes"]').first().fill("Blocked gate action requires commercial evidence before RFQ issue.");
+    await gateRegion.locator('input[name="evidenceEntryIds"]').first().check();
+    await gateRegion.getByRole("button", { name: "Record gate action" }).first().click();
+    await expect(page.getByText("Follow-up:")).toBeVisible();
+    await expect(gateRegion.getByText("owner publisher").first()).toBeVisible();
+    await expect(page.getByText("Linked evidence: 1 item(s)")).toBeVisible();
+    await page.locator('input[name="actionOwner"]').fill("publisher");
+    await page.getByRole("button", { name: "Filter gate actions" }).click();
+    await expect(page).toHaveURL(/actionOwner=publisher/);
+    await expect(page.getByLabel("RFQ workflow gate action history").getByText("owner publisher")).toBeVisible();
+    await page.goto("/rfq-workflow?projectId=kf-qs-rfq-pilot&owner=publisher");
+    await expect(page.getByRole("heading", { name: "RFQ Workflow" })).toBeVisible();
+    await expect(page.getByLabel("RFQ workflow action metrics").getByText("Blocked")).toBeVisible();
+    await expect(page.getByLabel("RFQ workflow action metrics").getByText("Overdue")).toBeVisible();
+    await expect(page.getByLabel("RFQ workflow action history").getByText("owner publisher")).toBeVisible();
+    await expect(page.getByLabel("RFQ workflow action history").getByText(/Overdue by/)).toBeVisible();
+    await page.locator('select[name="dueState"]').selectOption("overdue");
+    await page.getByRole("button", { name: "Filter actions" }).click();
+    await expect(page).toHaveURL(/dueState=overdue/);
+    await expect(page.getByLabel("RFQ workflow action history").getByText(/Overdue by/)).toBeVisible();
+    await page.getByRole("link", { name: "Inspect audit history" }).first().click();
+    await expect(page).toHaveURL(/actionId=/);
+    await expect(page.getByLabel("RFQ workflow action audit history").getByText("Selected gate action history")).toBeVisible();
+    await expect(page.getByLabel("RFQ workflow action audit history").getByText("rfq_workflow_gate.blocked")).toBeVisible();
+    await page.goto("/rfq-workflow?projectId=kf-qs-rfq-pilot&owner=publisher");
+    const workflowHistory = page.getByLabel("RFQ workflow action history");
+    await workflowHistory.locator('select[name="status"]').first().selectOption("resolved");
+    await workflowHistory.locator('textarea[name="notes"]').first().fill("Closed after publisher confirmed RFQ issue action.");
+    await workflowHistory.getByRole("button", { name: "Close action" }).first().click();
+    await expect(workflowHistory.getByText("resolved / owner publisher")).toBeVisible();
+    await page.getByRole("link", { name: "Inspect audit history" }).first().click();
+    await expect(page.getByLabel("RFQ workflow action audit history").getByText("rfq_workflow_gate.resolved")).toBeVisible();
+    await page.goto("/pipeline?projectId=kf-qs-rfq-pilot");
+    await expect(page.getByRole("cell", { name: "Structural concrete substructure" })).toBeVisible();
+    await expect(page.getByText("approve issue gate has required evidence categories.")).toBeVisible();
+    await page.locator('select[name="evidenceCategory"]').selectOption("missing_evidence");
+    await page.getByRole("button", { name: "Apply evidence filters" }).click();
+    await expect(page).toHaveURL(/evidenceCategory=missing_evidence/);
+    await expect(page.getByRole("link", { name: "RFQ-EV-006" })).toBeVisible();
   });
 
   test("records a review decision and drills down from PKA Builder blockers", async ({ page }) => {
@@ -207,6 +303,7 @@ test.describe("KF Studio runtime smoke", () => {
     await reviewForm.locator('select[name="decision"]').selectOption("approved");
     await reviewForm.locator('textarea[name="notes"]').fill("Runtime reviewer approves repaired checklist item.");
     await reviewForm.getByRole("button", { name: "Record review decision" }).click();
+    await expect(page.getByText("No KOs are under review")).toBeVisible();
 
     await page.goto(`/knowledge-objects?projectId=${pilotProjectId}&q=RFQ%20package%20completeness%20rule`);
     const packageRuleLifecycleForm = page.locator("form").filter({
@@ -214,6 +311,7 @@ test.describe("KF Studio runtime smoke", () => {
     });
     await packageRuleLifecycleForm.locator('select[name="status"]').selectOption("approved");
     await packageRuleLifecycleForm.getByRole("button", { name: "Update lifecycle" }).click();
+    await expect(page.locator(".pill", { hasText: "approved" }).first()).toBeVisible();
 
     await page.goto(`/ontology?projectId=${pilotProjectId}&q=Runtime%20manual`);
     await expect(page.getByRole("heading", { name: "Ontology and Graph Quality" })).toBeVisible();
@@ -280,6 +378,15 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Package release history")).toBeVisible();
     await expect(page.getByText("Version lineage")).toBeVisible();
     await expect(page.getByText("Published retention")).toBeVisible();
+    await page.goto(`/runtime-qa?projectId=${pilotProjectId}`);
+    await expect(page.getByRole("heading", { name: "Grounded Q&A Harness Preparation" })).toBeVisible();
+    await expect(page.getByText("Context bundle preview")).toBeVisible();
+    await expect(page.getByText("Fixture questions")).toBeVisible();
+    await expect(page.getByText("Citation requirements")).toBeVisible();
+    await expect(page.getByText("Deterministic answer context ready")).toBeVisible();
+    await expect(page.getByText("Runtime Q&A answer context ready")).toBeVisible();
+    await expect(page.getByText("Use published package context only.")).toBeVisible();
+    await expect(page.getByLabel("Runtime Q&A approved context preview").getByText("approved").first()).toBeVisible();
     const governanceExportResponse = await request.get(
       `/pka-builder/download?projectId=${pilotProjectId}&path=governance%2Findex.json`
     );
@@ -290,6 +397,20 @@ test.describe("KF Studio runtime smoke", () => {
         (item: { status: string; decisions: unknown[] }) => item.status === "published" && item.decisions.length > 0
       )
     ).toBeTruthy();
+    expect(governanceExportPayload.rfqWorkflowGateSummary.gates.length).toBeGreaterThan(0);
+    expect(Array.isArray(governanceExportPayload.rfqEvidenceDecisionSummary.items)).toBeTruthy();
+    expect(Array.isArray(governanceExportPayload.rfqWorkflowGateActionSummary.items)).toBeTruthy();
+    expect(typeof governanceExportPayload.rfqWorkflowGateActionRisk.blockedCount).toBe("number");
+    expect(typeof governanceExportPayload.rfqWorkflowGateActionRisk.overdueCount).toBe("number");
+    const handoffExportResponse = await request.get(
+      `/pka-builder/download?projectId=${pilotProjectId}&path=runtime%2Fapp-developer-handoff.json`
+    );
+    expect(handoffExportResponse.ok()).toBeTruthy();
+    const handoffExportPayload = await handoffExportResponse.json();
+    expect(handoffExportPayload.requiredFiles).toContain("sources/rfq-evidence-register.json");
+    expect(handoffExportPayload.governanceRequirements.requiredGovernanceFields).toContain("rfqWorkflowGateActionRisk");
+    expect(handoffExportPayload.relationshipEvidencePolicy.dedicatedTableStatus).toBe("deferred_for_pilot");
+    expect(handoffExportPayload.nextDeveloperSlice.length).toBeGreaterThan(0);
     const publishedArchiveResponse = await request.get(
       `/pka-builder/download?projectId=${pilotProjectId}&path=package-archive.json`
     );
@@ -297,8 +418,21 @@ test.describe("KF Studio runtime smoke", () => {
     const publishedArchivePayload = await publishedArchiveResponse.json();
     expect(
       publishedArchivePayload.files.some(
-        (file: { path: string; contents?: { releaseDecisionSummary?: { items?: unknown[] } } }) =>
-          file.path === "governance/index.json" && file.contents?.releaseDecisionSummary?.items?.length
+        (file: {
+          path: string;
+          contents?: {
+            releaseDecisionSummary?: { items?: unknown[] };
+            rfqWorkflowGateSummary?: { gates?: unknown[] };
+            rfqWorkflowGateActionSummary?: { items?: unknown[] };
+            rfqWorkflowGateActionRisk?: { blockedCount?: number; overdueCount?: number };
+          };
+        }) =>
+          file.path === "governance/index.json" &&
+          file.contents?.releaseDecisionSummary?.items?.length &&
+          file.contents.rfqWorkflowGateSummary?.gates?.length &&
+          Array.isArray(file.contents.rfqWorkflowGateActionSummary?.items) &&
+          typeof file.contents.rfqWorkflowGateActionRisk?.blockedCount === "number" &&
+          typeof file.contents.rfqWorkflowGateActionRisk?.overdueCount === "number"
       )
     ).toBeTruthy();
     const publishedZipResponse = await request.get(`/pka-builder/download?projectId=${pilotProjectId}&path=package.zip`);
@@ -306,6 +440,9 @@ test.describe("KF Studio runtime smoke", () => {
     const publishedZipText = (await publishedZipResponse.body()).toString("utf8");
     expect(publishedZipText).toContain("governance/index.json");
     expect(publishedZipText).toContain("releaseDecisionSummary");
+    expect(publishedZipText).toContain("rfqWorkflowGateSummary");
+    expect(publishedZipText).toContain("rfqWorkflowGateActionSummary");
+    expect(publishedZipText).toContain("rfqWorkflowGateActionRisk");
 
     await page.goto(`/pka-builder/export?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Persisted Export" })).toBeVisible();
@@ -318,13 +455,14 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Current package readback report").getByText("Persisted ZIP readback")).toBeVisible();
     await page.getByRole("button", { name: "Create invalid readback fixtures" }).click();
     await expect(
-      page.getByLabel("Invalid package readback report").getByText("missing governance release summaries").first()
+      page.getByLabel("Invalid package readback report").getByText("missing governance release, RFQ workflow, gate action, or blocked-action risk summaries").first()
     ).toBeVisible();
 
     await page.getByRole("link", { name: "Open runtime import harness" }).click();
     await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Import allowed" })).toBeVisible();
     await expect(page.getByLabel("Runtime import report").getByText("Governance release summary")).toBeVisible();
+    await expect(page.getByLabel("Runtime import report").getByText("RFQ workflow governance")).toBeVisible();
     await expect(page.getByLabel("Runtime import report").getByText("Ontology index")).toBeVisible();
     await expect(page.getByLabel("Runtime import report").getByText("Runtime configuration placeholder")).toBeVisible();
     await expect(page.getByLabel("Runtime import report").getByText("Prompt library component")).toBeVisible();
@@ -332,6 +470,16 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Runtime import report").getByText("Workflow library component")).toBeVisible();
     await expect(page.getByLabel("Runtime import report").getByText("Template library component")).toBeVisible();
     await expect(page.getByLabel("Runtime import loaded counts").getByText("Ontology types")).toBeVisible();
+    await page.goto(`/runtime-handoff?projectId=${pilotProjectId}`);
+    await expect(page.getByRole("heading", { name: "Consuming App Handoff" })).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff decision metrics").getByText("installable")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff installer checks").getByText("Required package files")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff installer checks").getByText("pass").first()).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff installer checks").getByText("feedback requested")).toBeVisible();
+    await expect(page.getByText("KnowledgeRelationship.provenance.sourceEvidence")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff relationship evidence feedback").getByText("Feedback requested").first()).toBeVisible();
+    await page.getByRole("link", { name: "Runtime import checks" }).click();
+    await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();
     await page.getByRole("button", { name: "Record import decision" }).click();
     await expect(page.getByLabel("Runtime import decision history").getByText("runtime_import.importable")).toBeVisible();
     await page.getByRole("button", { name: "Create runtime import fixtures" }).click();
