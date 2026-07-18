@@ -861,10 +861,11 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Verify and close Manufacturing Line Batch 6: PKA Manufacturing Governance Closure.
-2. Use the closure report to decide the next factory batch after the current relationship/evidence rework signal is reviewed.
-3. Keep closure issues routed back to existing manufacturing work orders instead of creating pilot-only workflows.
-4. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and relationship-evidence table work deferred until the documented gates reopen them.
+1. Start Manufacturing Line Batch 7: Relationship and Evidence Closure.
+2. Add a generic relationship/evidence closure report for release-grade, needs-rework, and excluded-from-release graph edges.
+3. Surface remediation and explicit release exclusion so Stage 4 can unblock `accepted_for_release`.
+4. Keep closure issues routed back to existing manufacturing work orders instead of creating pilot-only workflows.
+5. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and dedicated relationship-evidence table work deferred until the documented gates reopen them.
 
 ---
 

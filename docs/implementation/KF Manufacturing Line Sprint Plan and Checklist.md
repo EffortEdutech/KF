@@ -331,6 +331,14 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 - [x] Validate the closure report with the QS/RFQ Base PKA article while keeping the decision vocabulary generic.
 - [x] Update tests, docs, and Graphify; commit and push Batch 6 as one governance-closure capability batch.
 
+### Batch 7 Must Finish - Relationship and Evidence Closure
+
+- [ ] Add a generic relationship/evidence closure report that classifies every project graph edge as `release_grade`, `needs_rework`, or `excluded_from_release`.
+- [ ] Surface relationship closure in Studio with counts, reasons, and direct remediation controls for provenance, source evidence, confidence, and approval status.
+- [ ] Add an explicit exclude/defer-for-release posture for useful working edges that should not block PKA product closure.
+- [ ] Feed the relationship closure report into `getPkaManufacturingClosureReport` so Stage 4 can reach ready only when package-relevant relationships are release-grade or intentionally excluded.
+- [ ] Validate QS/RFQ can move from `rework_required` to `accepted_for_release` without adding Ollama, runtime execution, or a dedicated relationship evidence table.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -496,6 +504,28 @@ Implementation status:
 - [x] QS/RFQ currently validates the closure gate by showing that a published/runtime-ready package can still require relationship-governance rework before full factory acceptance.
 - [x] Graphify refreshed for the closure report symbols; commit/push pending.
 
+### Batch 7 - Relationship and Evidence Closure
+
+Goal:
+
+Close the generic Stage 4 manufacturing gap so only release-grade, evidence-backed, governed relationships participate in PKA product closure.
+
+Deliverables:
+
+- Relationship/evidence closure report.
+- Studio surface for relationship closure reasons and remediation.
+- Explicit release exclusion/defer posture for non-package graph edges.
+- Closure integration so package-relevant graph edges can unblock `accepted_for_release`.
+- QS/RFQ validation article moves from relationship rework to accepted factory closure.
+
+Done when:
+
+A KF operator can distinguish working graph edges from release-grade PKA relationships, repair or exclude non-release-grade edges, and see the manufacturing closure gate reach `accepted_for_release` without adding runtime execution or AI model calls.
+
+Implementation status:
+
+- [ ] Not started.
+
 ---
 
 ## 8. Decision Gates
@@ -533,9 +563,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Close **Batch 6 - PKA Manufacturing Governance Closure** with commit/push, then decide the next factory batch from the closure signal.
+Start **Batch 7 - Relationship and Evidence Closure**.
 
-The current QS/RFQ validation article is published and runtime-ready, but the new closure gate reports `rework_required` for Relationship and Evidence Manufacturing when graph edges are not fully release-grade. The next batch should either close that relationship/evidence rework generically or define the next factory capability that depends on it.
+The current QS/RFQ validation article is published and runtime-ready, but the closure gate reports `rework_required` for Relationship and Evidence Manufacturing when graph edges are not fully release-grade. Batch 7 should close this generic factory gap by distinguishing package-relevant release-grade relationships from draft/working graph edges, then routing each non-release-grade edge to repair or explicit release exclusion.
 
 Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure or its documented follow-up.
 
