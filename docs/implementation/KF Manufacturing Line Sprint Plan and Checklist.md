@@ -309,6 +309,28 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 - [x] Add runtime consumer profile decisions for Generic Runtime, AIFA, and LADOS.
 - [x] Keep feedback loop routed into Continuous Improvement without adding runtime execution.
 
+### Batch 1-5 Integrated Factory Flow Review - 2026-07-18
+
+Status:
+
+- [x] Batch 1 makes the ten-stage manufacturing line visible from `/manufacturing-line`.
+- [x] Batch 2 converts the line into reusable manufacturing work orders and Mission traces.
+- [x] Batch 3 distinguishes manufactured PKA components from intentional placeholder indexes.
+- [x] Batch 4 makes PKA product quality measurable before release.
+- [x] Batch 5 defines the runtime consumption contract for Generic Runtime, AIFA, and LADOS without adding runtime execution.
+
+Integrated finding:
+
+The factory can now show where a Base PKA is in the line, assemble and publish a package, validate handoff/import readiness, and collect runtime-consumer feedback. The next gap is governance closure: an operator needs one final manufacturing disposition that clearly says whether the PKA is accepted for release, must return to a specific rework stage, or is blocked from publication.
+
+### Batch 6 Must Finish - PKA Manufacturing Governance Closure
+
+- [ ] Add a generic governance closure report that combines manufacturing stages, work orders, release blockers, product quality, package validation, runtime handoff, and consumption validation into one release disposition.
+- [ ] Surface closure disposition in Studio as `accepted_for_release`, `rework_required`, or `release_blocked`, with human-readable reasons and links to the exact factory stage/work order.
+- [ ] Add rework routing actions or trace creation so closure issues return to Source-to-KO, Relationship/Governance, KO-to-Package, Runtime Validation, or Continuous Improvement work orders.
+- [ ] Validate the closure report with the QS/RFQ Base PKA article while keeping the decision vocabulary generic.
+- [ ] Update tests, docs, and Graphify; commit and push Batch 6 as one governance-closure capability batch.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -448,6 +470,28 @@ Implementation status:
 - [x] AIFA can require installation review for non-finance/non-bookkeeping packages while LADOS remains installable when deterministic handoff/import checks pass.
 - [x] Feedback still records into package governance history and Continuous Improvement gates; no runtime execution was added.
 
+### Batch 6 - PKA Manufacturing Governance Closure
+
+Goal:
+
+Create the factory's final acceptance/rework/release gate for manufactured Base PKAs.
+
+Deliverables:
+
+- Generic governance closure report.
+- Studio closure disposition surface.
+- Rework routing into the existing manufacturing work-order skeleton.
+- QS/RFQ validation article coverage.
+- Tests, docs, Graphify refresh, and commit/push.
+
+Done when:
+
+A KF operator can open the Studio and see whether a manufactured PKA is accepted for release, must return to a specific factory stage for rework, or is blocked from publication.
+
+Implementation status:
+
+- [ ] Not started.
+
 ---
 
 ## 8. Decision Gates
@@ -485,9 +529,15 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Continue **Batch 5 - Runtime Consumption Contract** by verifying generic runtime profiles, refreshing Graphify, and closing the batch with a capability-level commit.
+Start **Batch 6 - PKA Manufacturing Governance Closure**.
 
-Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, or marketplace distribution unless they block the generic runtime consumption contract.
+Batch 6 should not create a new pilot workflow. It should add a generic closure layer over the existing manufacturing line so the operator can make one final factory disposition:
+
+- `accepted_for_release` when manufacturing, governance, package, handoff, and consumption checks are clear.
+- `rework_required` when the PKA is manufacturable but must return to a named work order.
+- `release_blocked` when publication or runtime handoff is blocked by governance, package, or consumption risks.
+
+Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure demo.
 
 ---
 

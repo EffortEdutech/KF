@@ -861,9 +861,10 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Verify and close Manufacturing Line Batch 5: Runtime Consumption Contract.
-2. Review the completed Manufacturing Line batches and decide the next factory capability track.
-3. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and relationship-evidence table work deferred until the documented gates reopen them.
+1. Start Manufacturing Line Batch 6: PKA Manufacturing Governance Closure.
+2. Add a generic final closure report and Studio disposition surface for `accepted_for_release`, `rework_required`, and `release_blocked`.
+3. Route closure issues back to the existing manufacturing work orders instead of creating new pilot-only workflows.
+4. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and relationship-evidence table work deferred until the documented gates reopen them.
 
 ---
 
