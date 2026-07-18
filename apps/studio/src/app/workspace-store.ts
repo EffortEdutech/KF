@@ -490,6 +490,48 @@ export type PkaComponentManufacturingReport = {
   items: PkaComponentManufacturingItem[];
 };
 
+export type PkaProductQualityCategory =
+  | "source_quality"
+  | "governance_coverage"
+  | "relationship_evidence"
+  | "package_completeness"
+  | "runtime_handoff";
+
+export type PkaProductQualityBand = "release_grade" | "pilot_ready" | "needs_work" | "blocked";
+
+export type PkaProductQualityItem = {
+  id: string;
+  category: PkaProductQualityCategory;
+  title: string;
+  score: number;
+  weight: number;
+  level: PackageValidationItem["level"];
+  signal: string;
+  detail: string;
+  recommendedAction: string;
+};
+
+export type PkaProductQualityReport = {
+  projectId: string;
+  packageId?: string;
+  score: number;
+  band: PkaProductQualityBand;
+  releaseGrade: boolean;
+  summary: {
+    sourceCount: number;
+    sourceCategoryCount: number;
+    newestSourceDate?: string;
+    approvedKnowledgeObjectCount: number;
+    relationshipCount: number;
+    sourceBackedRelationshipCount: number;
+    packageValidationWarningCount: number;
+    runtimeImportStatus?: RuntimePkaImportReport["status"];
+    runtimeHandoffDecision?: RuntimeHandoffInstallDecision;
+  };
+  items: PkaProductQualityItem[];
+  topRisks: string[];
+};
+
 export type RuntimePkaImportFixtureKind =
   | "valid"
   | "missing_governance"
@@ -5303,6 +5345,217 @@ export async function getPkaComponentManufacturingReport(projectId: string): Pro
     missingRequiredCount: items.filter((item) => item.status === "missing_required").length,
     notRequiredYetCount: items.filter((item) => item.status === "not_required_yet").length,
     items
+  };
+}
+
+function boundedScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function qualityLevel(score: number): PackageValidationItem["level"] {
+  return score >= 80 ? "ready" : score >= 55 ? "info" : "warning";
+}
+
+function productQualityBand(score: number, warningCount: number): PkaProductQualityBand {
+  if (warningCount > 0 && score < 70) {
+    return "blocked";
+  }
+
+  if (score >= 85 && warningCount === 0) {
+    return "release_grade";
+  }
+
+  return score >= 70 ? "pilot_ready" : "needs_work";
+}
+
+function newestSourceDate(sources: SourceSummary[]) {
+  return sources
+    .map((source) => source.createdAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+}
+
+export async function getPkaProductQualityReport(projectId: string): Promise<PkaProductQualityReport> {
+  const [
+    sources,
+    sourceCoverage,
+    knowledgeObjects,
+    relationships,
+    packages,
+    governanceMetrics,
+    releaseReadinessHints,
+    packageValidation,
+    componentManufacturing,
+    runtimeQaReadiness,
+    fixtureEvaluation
+  ] = await Promise.all([
+    listSourcesByProject(projectId),
+    getPipelineSourceCoverageReport({ projectId }),
+    listKnowledgeObjects({ projectId }),
+    listKnowledgeRelationships({ projectId }),
+    listPkaPackages(projectId),
+    getProjectGovernanceMetrics(projectId),
+    getPkaReleaseReadinessHints(projectId),
+    getPkaPackageValidationReport(projectId),
+    getPkaComponentManufacturingReport(projectId),
+    getRuntimeQaAnswerReadinessReport(projectId),
+    getRuntimeQaFixtureEvaluationReport(projectId)
+  ]);
+  const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
+    approvedKnowledgeObject(knowledgeObject.status)
+  );
+  const sourceBackedKnowledgeObjects = approvedKnowledgeObjects.filter(
+    (knowledgeObject) => knowledgeObject.evidenceLinks.length > 0
+  );
+  const sourceCategoryCount = new Set(sources.map((source) => source.category)).size;
+  const newestDate = newestSourceDate(sources);
+  const failedSourceCount = sourceCoverage.unsupportedSourceCount + sourceCoverage.emptySourceCount;
+  const sourceScore = boundedScore(
+    (sources.length > 0 ? 30 : 0) +
+      Math.min(sourceCategoryCount, 3) * 15 +
+      (sourceCoverage.ingestedSourceCount >= sources.length && sources.length > 0 ? 20 : 0) +
+      (failedSourceCount === 0 ? 5 : 0)
+  );
+  const releaseBlockerCount = releaseReadinessHints.filter((hint) => hint.level === "warning").length;
+  const governanceCoverage =
+    knowledgeObjects.length > 0 ? approvedKnowledgeObjects.length / knowledgeObjects.length : 0;
+  const evidenceCoverage =
+    approvedKnowledgeObjects.length > 0 ? sourceBackedKnowledgeObjects.length / approvedKnowledgeObjects.length : 0;
+  const governanceScore = boundedScore(
+    governanceCoverage * 45 +
+      evidenceCoverage * 35 +
+      (governanceMetrics.releaseBlockerCount === 0 && releaseBlockerCount === 0 ? 20 : 0)
+  );
+  const approvedRelationships = relationships.filter((relationship) => relationship.status === "approved");
+  const sourceBackedRelationships = relationships.filter((relationship) => relationship.evidenceSourceId);
+  const relationshipDensity =
+    approvedKnowledgeObjects.length > 1
+      ? approvedRelationships.length / Math.max(1, approvedKnowledgeObjects.length - 1)
+      : approvedRelationships.length > 0
+        ? 1
+        : 0;
+  const relationshipEvidenceCoverage =
+    relationships.length > 0 ? sourceBackedRelationships.length / relationships.length : 0;
+  const relationshipScore = boundedScore(
+    Math.min(relationshipDensity, 1) * 45 +
+      relationshipEvidenceCoverage * 35 +
+      (approvedRelationships.length > 0 ? 20 : 0)
+  );
+  const packageWarnings = packageValidation.filter((item) => item.level === "warning");
+  const packageScore = boundedScore(
+    100 -
+      packageWarnings.length * 12 +
+      (componentManufacturing.ready ? 10 : -10) +
+      (packages.some((pkaPackage) => pkaPackage.status === "published") ? 10 : 0)
+  );
+  const latestPackage = latestPublishedPackage(packages) ?? packages[0];
+  const publishedPackage = latestPackage?.status === "published" ? latestPackage : undefined;
+  const runtimeImport = publishedPackage
+    ? await validateRuntimePkaImportReadback(publishedPackage.packageId)
+    : undefined;
+  const runtimeHandoff = publishedPackage
+    ? await validateRuntimeAppDeveloperHandoff(publishedPackage.packageId)
+    : undefined;
+  const runtimeScore = boundedScore(
+    (runtimeImport?.status === "importable" ? 35 : 0) +
+      (runtimeHandoff?.decision === "installable" ? 35 : runtimeHandoff?.decision === "installation_review_required" ? 15 : 0) +
+      (runtimeQaReadiness.ready ? 15 : 0) +
+      (fixtureEvaluation.ready ? 15 : 0)
+  );
+  const items: PkaProductQualityItem[] = [
+    {
+      id: "quality-source-diversity-freshness",
+      category: "source_quality",
+      title: "Source diversity and freshness",
+      score: sourceScore,
+      weight: 20,
+      level: qualityLevel(sourceScore),
+      signal: `${sources.length} source(s), ${sourceCategoryCount} category/categories, newest ${newestDate ?? "unknown"}`,
+      detail: `${sourceCoverage.ingestedSourceCount}/${sources.length} source(s) are ingested; ${failedSourceCount} failed source profile(s).`,
+      recommendedAction:
+        sourceScore >= 80 ? "Maintain source register and usage policy." : "Add or repair source artifacts before relying on this PKA."
+    },
+    {
+      id: "quality-governance-coverage",
+      category: "governance_coverage",
+      title: "Governance coverage",
+      score: governanceScore,
+      weight: 25,
+      level: qualityLevel(governanceScore),
+      signal: `${approvedKnowledgeObjects.length}/${knowledgeObjects.length} release-grade KO(s), ${releaseBlockerCount} blocker(s)`,
+      detail: `${sourceBackedKnowledgeObjects.length}/${approvedKnowledgeObjects.length} release-grade KO(s) include source evidence.`,
+      recommendedAction:
+        governanceScore >= 80 ? "Governance coverage is fit for package release." : "Clear review blockers and attach evidence to release-grade KOs."
+    },
+    {
+      id: "quality-relationship-evidence",
+      category: "relationship_evidence",
+      title: "Relationship density and evidence",
+      score: relationshipScore,
+      weight: 20,
+      level: qualityLevel(relationshipScore),
+      signal: `${approvedRelationships.length} approved edge(s), ${sourceBackedRelationships.length}/${relationships.length} source-backed`,
+      detail: `Relationship density is ${Math.round(relationshipDensity * 100)}% against the approved KO set.`,
+      recommendedAction:
+        relationshipScore >= 80 ? "Graph quality supports retrieval and runtime context." : "Add or evidence governed relationships before runtime traversal."
+    },
+    {
+      id: "quality-package-completeness",
+      category: "package_completeness",
+      title: "Package completeness",
+      score: packageScore,
+      weight: 20,
+      level: qualityLevel(packageScore),
+      signal: `${packageWarnings.length} package warning(s), ${componentManufacturing.missingRequiredCount} missing required component(s)`,
+      detail: `${componentManufacturing.manufacturedCount} manufactured component(s), ${componentManufacturing.intentionalPlaceholderCount} intentional placeholder(s).`,
+      recommendedAction:
+        packageScore >= 80 ? "Package structure is inspectable and component boundaries are classified." : "Resolve package warnings and missing required component files."
+    },
+    {
+      id: "quality-runtime-handoff",
+      category: "runtime_handoff",
+      title: "Runtime handoff readiness",
+      score: runtimeScore,
+      weight: 15,
+      level: qualityLevel(runtimeScore),
+      signal: `${runtimeHandoff?.decision ?? "no handoff"} / ${runtimeImport?.status ?? "no import"}`,
+      detail: `${runtimeQaReadiness.ready ? "Runtime Q&A ready" : "Runtime Q&A blocked"}; ${
+        fixtureEvaluation.ready ? "fixture evaluation ready" : "fixture evaluation blocked"
+      }.`,
+      recommendedAction:
+        runtimeScore >= 80 ? "Runtime handoff can be used for deterministic app-developer validation." : "Publish and validate handoff/import/Q&A readiness before app consumption."
+    }
+  ];
+  const weightedScore = boundedScore(
+    items.reduce((total, item) => total + item.score * item.weight, 0) /
+      items.reduce((total, item) => total + item.weight, 0)
+  );
+  const band = productQualityBand(weightedScore, packageWarnings.length + releaseBlockerCount);
+  const topRisks = items
+    .filter((item) => item.level === "warning")
+    .map((item) => `${item.title}: ${item.recommendedAction}`)
+    .slice(0, 3);
+
+  return {
+    projectId,
+    packageId: latestPackage?.packageId,
+    score: weightedScore,
+    band,
+    releaseGrade: band === "release_grade",
+    summary: {
+      sourceCount: sources.length,
+      sourceCategoryCount,
+      newestSourceDate: newestDate,
+      approvedKnowledgeObjectCount: approvedKnowledgeObjects.length,
+      relationshipCount: relationships.length,
+      sourceBackedRelationshipCount: sourceBackedRelationships.length,
+      packageValidationWarningCount: packageWarnings.length,
+      runtimeImportStatus: runtimeImport?.status,
+      runtimeHandoffDecision: runtimeHandoff?.decision
+    },
+    items,
+    topRisks
   };
 }
 

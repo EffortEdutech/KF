@@ -28,6 +28,7 @@ import {
   getPipelineQualityMetrics,
   getPipelineSourceCoverageReport,
   getPipelineSuggestionReviewReport,
+  getPkaProductQualityReport,
   getProjectReadinessHints,
   getProjectGovernanceMetrics,
   getQsRfqPilotRunReport,
@@ -921,6 +922,20 @@ async function runWorkspaceStoreContractTest() {
       (item) => item.kind === "prompt_library" && item.status === "intentional_placeholder"
     ),
     "component manufacturing report should keep prompt libraries as intentional placeholders until model integration is approved"
+  );
+  const productQualityReport = await getPkaProductQualityReport(project.id);
+  expect(
+    productQualityReport.items.length === 5,
+    "PKA product quality report should expose the five release-grade quality categories"
+  );
+  expect(
+    productQualityReport.score >= 70,
+    "manufactured package should reach at least pilot-ready PKA product quality"
+  );
+  expect(
+    productQualityReport.items.some((item) => item.category === "source_quality" && item.score > 0) &&
+      productQualityReport.items.some((item) => item.category === "package_completeness" && item.score > 0),
+    "PKA product quality report should measure source quality and package completeness"
   );
   const persistedExportFiles = await listPersistedPkaExportFiles(pkaPackage.packageId);
   expect(

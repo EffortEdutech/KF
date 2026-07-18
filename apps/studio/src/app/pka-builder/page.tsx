@@ -11,6 +11,7 @@ import {
   getPkaPackageExportPreview,
   getPkaPackageReplacementSummary,
   getPkaPackageValidationReport,
+  getPkaProductQualityReport,
   getPkaReleaseReadinessHints,
   getProjectGovernanceMetrics,
   listKnowledgeObjects,
@@ -78,6 +79,7 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
   const componentManufacturingReport = activeProject
     ? await getPkaComponentManufacturingReport(activeProject.id)
     : undefined;
+  const productQualityReport = activeProject ? await getPkaProductQualityReport(activeProject.id) : undefined;
   const latestManifest = packages[0]?.manifest ?? manifestPreview;
   const manifestJson = latestManifest ? JSON.stringify(latestManifest, null, 2) : "";
   const releasableObjects = knowledgeObjects.filter((knowledgeObject) =>
@@ -155,6 +157,73 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
             {type.label}
           </Link>
         ))}
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">PKA Product Quality</p>
+            <h3>Release-grade explanation</h3>
+          </div>
+          <span className="pill">
+            {productQualityReport ? `${productQualityReport.score}/100 ${productQualityReport.band.replaceAll("_", " ")}` : "not measured"}
+          </span>
+        </div>
+        {productQualityReport ? (
+          <>
+            <section className="metrics" aria-label="PKA product quality metrics">
+              <div className="metric">
+                <span>Quality score</span>
+                <strong>{productQualityReport.score}</strong>
+              </div>
+              <div className="metric">
+                <span>Source categories</span>
+                <strong>{productQualityReport.summary.sourceCategoryCount}</strong>
+              </div>
+              <div className="metric">
+                <span>Source-backed edges</span>
+                <strong>
+                  {productQualityReport.summary.sourceBackedRelationshipCount}/{productQualityReport.summary.relationshipCount}
+                </strong>
+              </div>
+              <div className="metric">
+                <span>Package warnings</span>
+                <strong>{productQualityReport.summary.packageValidationWarningCount}</strong>
+              </div>
+            </section>
+            <div className="readiness-list" aria-label="PKA product quality report">
+              {productQualityReport.items.map((item) => (
+                <div className={`readiness-item readiness-${item.level}`} key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{item.score}/100 / weight {item.weight}</span>
+                  <span>{item.signal}</span>
+                  <span>{item.detail}</span>
+                  <span>{item.recommendedAction}</span>
+                </div>
+              ))}
+            </div>
+            <div className="readiness-list compact-list" aria-label="PKA product quality top risks">
+              {productQualityReport.topRisks.length > 0 ? (
+                productQualityReport.topRisks.map((risk) => (
+                  <div className="readiness-item readiness-warning" key={risk}>
+                    <strong>Quality risk</strong>
+                    <span>{risk}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="readiness-item readiness-ready">
+                  <strong>No top quality risks</strong>
+                  <span>The selected package has no warning-level quality categories.</span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="empty-state compact-empty">
+            <strong>No quality report</strong>
+            <span>Select a project before measuring product quality.</span>
+          </div>
+        )}
       </section>
 
       <section className="board board-two">

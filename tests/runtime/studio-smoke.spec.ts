@@ -331,6 +331,17 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Runtime relationship evidence attached from source.")).toBeVisible();
 
     await page.goto(`/pka-builder?projectId=${pilotProjectId}`);
+    await expect(page.getByText("PKA Product Quality", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("PKA product quality metrics").getByText("Quality score")).toBeVisible();
+    await expect(
+      page.getByLabel("PKA product quality report").getByText("Source diversity and freshness", { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("PKA product quality report").getByText("Governance coverage", { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("PKA product quality report").getByText("Package completeness", { exact: true })
+    ).toBeVisible();
     await expect(page.getByText("Package validation report")).toBeVisible();
     await expect(page.getByText("Manifest detail preview")).toBeVisible();
     await expect(page.getByText("Manifest JSON", { exact: true })).toBeVisible();

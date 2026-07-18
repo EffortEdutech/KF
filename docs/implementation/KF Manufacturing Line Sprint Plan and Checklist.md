@@ -293,6 +293,14 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 - [x] Surface component manufacturing readiness in PKA Builder.
 - [x] Validate QS/RFQ workflow contract as a manufactured component without making runtime workflow execution a KF responsibility.
 
+### Batch 4 Must Finish - PKA Product Quality
+
+- [x] Add trust/readiness score outline.
+- [x] Add source diversity and freshness indicators.
+- [x] Add governance coverage summary.
+- [x] Add relationship density and evidence coverage.
+- [x] Add package quality report in PKA Builder.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -401,6 +409,13 @@ Done when:
 
 KF can explain why a PKA is release-grade or not.
 
+Implementation status:
+
+- [x] `getPkaProductQualityReport` computes a weighted quality score and quality band.
+- [x] Product quality categories cover source quality, governance coverage, relationship evidence, package completeness, and runtime handoff.
+- [x] PKA Builder shows score, category signals, recommended actions, and top risks.
+- [x] QS/RFQ validates the report without making the pilot-specific domain the product goal.
+
 ### Batch 5 - Runtime Consumption Contract
 
 Goal:
@@ -455,9 +470,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Continue **Batch 3 - Component Manufacturing** by verifying component readiness, refreshing Graphify, and closing the batch with a capability-level commit.
+Continue **Batch 4 - PKA Product Quality** by verifying quality scoring, refreshing Graphify, and closing the batch with a capability-level commit.
 
-Do not add runtime workflow execution, component database tables, Ollama, or broader extraction formats unless they block component manufacturing readiness.
+Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, or marketplace distribution unless they block measurable PKA product quality.
 
 ---
 

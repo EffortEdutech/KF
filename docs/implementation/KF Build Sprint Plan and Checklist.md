@@ -829,6 +829,7 @@ Apply these checks to every sprint:
 | 2026-07-18 | Manufacturing Line status surface added | Accepted | Added `/manufacturing-line` as the generic KF factory status and run-report surface. It shows ten-stage readiness, stage links, current blockers, validation article status, package handoff/import readiness, and a manufacturing validation action that returns to the factory line. |
 | 2026-07-18 | Generic Manufacturing Work Orders added | Accepted | Added a derived work-order report for Source-to-KO, relationship/governance, KO-to-package, runtime validation, and continuous improvement work. `/manufacturing-line` now shows owner roles, input/output signals, approval checkpoints, run controls, and Mission-backed work-order trace creation. |
 | 2026-07-18 | Component Manufacturing readiness added | Accepted | Added `getPkaComponentManufacturingReport` and a PKA Builder component-manufacturing panel that classifies required manufactured components, the conditional RFQ workflow contract, intentional placeholders, dedicated-record decisions, and promotion triggers. |
+| 2026-07-18 | PKA Product Quality report added | Accepted | Added `getPkaProductQualityReport` and a PKA Builder product-quality panel with weighted score, quality band, source diversity/freshness, governance coverage, relationship evidence, package completeness, runtime handoff readiness, and top quality risks. |
 
 ---
 
@@ -859,8 +860,8 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Verify and close Manufacturing Line Batch 3: Component Manufacturing.
-2. Start Manufacturing Line Batch 4: PKA Product Quality.
+1. Verify and close Manufacturing Line Batch 4: PKA Product Quality.
+2. Start Manufacturing Line Batch 5: Runtime Consumption Contract.
 3. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and relationship-evidence table work deferred until the documented gates reopen them.
 
 ---
