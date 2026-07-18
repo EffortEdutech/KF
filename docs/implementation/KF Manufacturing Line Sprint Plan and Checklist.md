@@ -333,11 +333,11 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 
 ### Batch 7 Must Finish - Relationship and Evidence Closure
 
-- [ ] Add a generic relationship/evidence closure report that classifies every project graph edge as `release_grade`, `needs_rework`, or `excluded_from_release`.
-- [ ] Surface relationship closure in Studio with counts, reasons, and direct remediation controls for provenance, source evidence, confidence, and approval status.
-- [ ] Add an explicit exclude/defer-for-release posture for useful working edges that should not block PKA product closure.
-- [ ] Feed the relationship closure report into `getPkaManufacturingClosureReport` so Stage 4 can reach ready only when package-relevant relationships are release-grade or intentionally excluded.
-- [ ] Validate QS/RFQ can move from `rework_required` to `accepted_for_release` without adding Ollama, runtime execution, or a dedicated relationship evidence table.
+- [x] Add a generic relationship/evidence closure report that classifies every project graph edge as `release_grade`, `needs_rework`, or `excluded_from_release`.
+- [x] Surface relationship closure in Studio with counts, reasons, and direct remediation controls for provenance, source evidence, confidence, and approval status.
+- [x] Add an explicit exclude/defer-for-release posture for useful working edges that should not block PKA product closure.
+- [x] Feed the relationship closure report into `getPkaManufacturingClosureReport` so Stage 4 can reach ready only when package-relevant relationships are release-grade or intentionally excluded.
+- [x] Validate QS/RFQ can move from `rework_required` to `accepted_for_release` without adding Ollama, runtime execution, or a dedicated relationship evidence table.
 
 ### Acceptance Demo
 
@@ -524,7 +524,11 @@ A KF operator can distinguish working graph edges from release-grade PKA relatio
 
 Implementation status:
 
-- [ ] Not started.
+- [x] `getRelationshipEvidenceClosureReport` classifies relationships as `release_grade`, `needs_rework`, or `excluded_from_release`.
+- [x] `/ontology` shows relationship closure metrics, closure reasons, remediation forms, source evidence attachment, and release-exclusion controls.
+- [x] Package export now counts and exports release-grade relationships only.
+- [x] Manufacturing Line Stage 4 and product quality use release-grade relationship closure instead of raw approved-edge counts.
+- [x] Store contract validates QS/RFQ can reach `accepted_for_release` after non-release-grade working edges are explicitly excluded; runtime smoke validates the visible remediation path.
 
 ---
 
@@ -563,9 +567,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Start **Batch 7 - Relationship and Evidence Closure**.
+Close **Batch 7 - Relationship and Evidence Closure** with commit/push, then decide the next factory batch.
 
-The current QS/RFQ validation article is published and runtime-ready, but the closure gate reports `rework_required` for Relationship and Evidence Manufacturing when graph edges are not fully release-grade. Batch 7 should close this generic factory gap by distinguishing package-relevant release-grade relationships from draft/working graph edges, then routing each non-release-grade edge to repair or explicit release exclusion.
+The current QS/RFQ validation article can reach `accepted_for_release` through the store contract once non-release-grade working graph edges are explicitly excluded from release. The browser path validates the operator can inspect relationship closure and update release posture from `/ontology`.
 
 Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure or its documented follow-up.
 

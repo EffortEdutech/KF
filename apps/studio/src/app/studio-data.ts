@@ -306,6 +306,8 @@ export type KnowledgeRelationshipSummary = {
   status: LifecycleState;
   confidence?: number;
   provenanceNote?: string;
+  releaseExcluded?: boolean;
+  releaseExclusionReason?: string;
   evidenceSourceId?: string;
   evidenceSourceTitle?: string;
   evidenceExcerpt?: string;

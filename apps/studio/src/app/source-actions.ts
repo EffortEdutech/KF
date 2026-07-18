@@ -32,6 +32,7 @@ import {
   updateKnowledgeSuggestionStatus,
   updatePkaPackageReleaseStatus,
   updateKnowledgeRelationshipProvenance,
+  updateKnowledgeRelationshipReleaseExclusion,
   updateKnowledgeObject,
   updateKnowledgeObjectStatus,
   updateRelationshipSuggestionStatus,
@@ -504,6 +505,17 @@ export async function attachRelationshipEvidenceAction(formData: FormData) {
     locator: readOptionalString(formData, "relationshipEvidenceLocator"),
     confidence: readOptionalNumber(formData, "relationshipEvidenceConfidence"),
     actor: readOptionalString(formData, "actor") ?? "knowledge_engineer"
+  });
+
+  revalidateStudioSurfaces();
+}
+
+export async function updateKnowledgeRelationshipReleaseExclusionAction(formData: FormData) {
+  await updateKnowledgeRelationshipReleaseExclusion({
+    relationshipId: readRequired(formData, "relationshipId"),
+    excluded: readRequired(formData, "excluded") === "yes",
+    reason: readOptionalString(formData, "releaseExclusionReason"),
+    actor: readOptionalString(formData, "actor") ?? "reviewer"
   });
 
   revalidateStudioSurfaces();

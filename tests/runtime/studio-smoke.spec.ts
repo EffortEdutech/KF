@@ -166,7 +166,7 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto("/manufacturing-line?projectId=kf-qs-rfq-pilot");
     await expect(page.getByText("PKA Manufacturing Governance Closure")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();
-    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order")).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order").first()).toBeVisible();
 
     await page.goto("/pipeline?projectId=kf-qs-rfq-pilot");
     await expect(page.getByText("Pilot output ready")).toBeVisible();
@@ -333,7 +333,7 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Relationship detail")).toBeVisible();
     await expect(page.getByText("Relationship review history")).toBeVisible();
     await expect(page.getByText("Adjacency map")).toBeVisible();
-    await expect(page.getByText("Runtime relationship evidence attached from source.")).toBeVisible();
+    await expect(page.getByRole("definition").filter({ hasText: "Runtime relationship evidence attached from source." })).toBeVisible();
 
     await page.goto(`/pka-builder?projectId=${pilotProjectId}`);
     await expect(page.getByText("PKA Product Quality", { exact: true })).toBeVisible();
@@ -565,7 +565,22 @@ test.describe("KF Studio runtime smoke", () => {
     await page.getByRole("button", { name: "Run manufacturing validation article" }).click();
     await expect(page).toHaveURL(/\/manufacturing-line\?projectId=kf-qs-rfq-pilot/);
     await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();
-    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order")).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order").first()).toBeVisible();
+    await page.goto(`/ontology?projectId=${pilotProjectId}`);
+    await expect(page.getByText("Relationship and Evidence Closure")).toBeVisible();
+    await expect(page.getByLabel("Relationship evidence closure metrics").getByText("Needs rework")).toBeVisible();
+    await page.getByLabel("Relationship evidence closure report").getByText("needs rework").first().click();
+    await expect(page.getByLabel("Relationship evidence closure remediation")).toBeVisible();
+    await page.getByLabel("Relationship evidence closure remediation").locator('select[name="excluded"]').selectOption("yes");
+    await page
+      .getByLabel("Relationship evidence closure remediation")
+      .locator('textarea[name="releaseExclusionReason"]')
+      .fill("Runtime smoke excludes working graph edge from this package release.");
+    await page.getByRole("button", { name: "Update release posture" }).click();
+    await expect(page.getByLabel("Relationship evidence closure metrics").getByText("Excluded")).toBeVisible();
+    await page.goto(`/manufacturing-line?projectId=${pilotProjectId}`);
+    await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order").first()).toBeVisible();
     await expect(page.getByText("Manufacturing Run Report")).toBeVisible();
     await page.getByRole("link", { name: "Runtime import checks" }).click();
     await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();

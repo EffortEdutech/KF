@@ -574,6 +574,45 @@ export type PkaProductQualityReport = {
   topRisks: string[];
 };
 
+export type RelationshipEvidenceClosureStatus =
+  | "release_grade"
+  | "needs_rework"
+  | "excluded_from_release";
+
+export type RelationshipEvidenceClosureItem = {
+  relationshipId: string;
+  label: string;
+  status: RelationshipEvidenceClosureStatus;
+  relationshipType: RelationshipType;
+  lifecycleStatus: LifecycleState;
+  confidence?: number;
+  evidenceSourceTitle?: string;
+  provenanceNote?: string;
+  releaseExcluded: boolean;
+  releaseExclusionReason?: string;
+  reasons: string[];
+  recommendedAction: string;
+  href: string;
+};
+
+export type RelationshipEvidenceClosureReport = {
+  projectId: string;
+  ready: boolean;
+  totalRelationshipCount: number;
+  releaseGradeCount: number;
+  needsReworkCount: number;
+  excludedFromReleaseCount: number;
+  packageRelevantRelationshipCount: number;
+  items: RelationshipEvidenceClosureItem[];
+};
+
+export type KnowledgeRelationshipReleaseExclusionInput = {
+  relationshipId: string;
+  excluded: boolean;
+  reason?: string;
+  actor?: string;
+};
+
 export type RuntimePkaImportFixtureKind =
   | "valid"
   | "missing_governance"
@@ -1493,6 +1532,21 @@ function relationshipEvidence(provenance: unknown) {
   };
 }
 
+function relationshipReleaseClosure(provenance: unknown) {
+  const releaseClosure = provenanceRecord(provenance).releaseClosure;
+
+  if (!releaseClosure || typeof releaseClosure !== "object" || Array.isArray(releaseClosure)) {
+    return {};
+  }
+
+  const record = releaseClosure as Record<string, unknown>;
+
+  return {
+    releaseExcluded: record.excludedFromRelease === true,
+    releaseExclusionReason: typeof record.reason === "string" ? record.reason : undefined
+  };
+}
+
 function metadataDetail(metadata: unknown) {
   if (
     metadata &&
@@ -1908,6 +1962,7 @@ function mapRelationshipSuggestion(suggestion: PrismaRelationshipSuggestion): Re
 
 function mapKnowledgeRelationship(relationship: PrismaKnowledgeRelationship): KnowledgeRelationshipSummary {
   const evidence = relationshipEvidence(relationship.provenance);
+  const releaseClosure = relationshipReleaseClosure(relationship.provenance);
 
   return {
     id: relationship.id,
@@ -1920,6 +1975,7 @@ function mapKnowledgeRelationship(relationship: PrismaKnowledgeRelationship): Kn
     status: relationship.status as LifecycleState,
     confidence: decimalToNumber(relationship.confidence),
     provenanceNote: provenanceNote(relationship.provenance),
+    ...releaseClosure,
     ...evidence,
     createdAt: relationship.createdAt.toISOString().slice(0, 10)
   };
@@ -2199,7 +2255,7 @@ function relationshipMatchesQuality(
   const hasProvenance = Boolean(relationship.provenanceNote?.trim());
 
   if (qualityState === "ready") {
-    return relationship.status === "approved" && hasUsableConfidence && hasProvenance;
+    return relationshipReleaseGrade(relationship);
   }
 
   if (qualityState === "needs_review") {
@@ -2240,6 +2296,97 @@ function filterKnowledgeRelationships(
 
     return relationshipMatchesQuality(relationship, filters.qualityState);
   });
+}
+
+function relationshipReleaseGrade(relationship: KnowledgeRelationshipSummary) {
+  return (
+    relationship.status === "approved" &&
+    relationship.confidence !== undefined &&
+    relationship.confidence >= 50 &&
+    Boolean(relationship.provenanceNote?.trim()) &&
+    Boolean(relationship.evidenceSourceId)
+  );
+}
+
+function relationshipClosureItem(
+  relationship: KnowledgeRelationshipSummary,
+  projectId: string
+): RelationshipEvidenceClosureItem {
+  const releaseExcluded = relationship.releaseExcluded === true;
+  const reasons: string[] = [];
+
+  if (releaseExcluded) {
+    reasons.push(relationship.releaseExclusionReason ?? "Relationship is intentionally excluded from this PKA release.");
+  } else {
+    if (relationship.status !== "approved") {
+      reasons.push("Relationship is not approved.");
+    }
+
+    if (relationship.confidence === undefined || relationship.confidence < 50) {
+      reasons.push("Relationship confidence is below the release threshold.");
+    }
+
+    if (!relationship.provenanceNote?.trim()) {
+      reasons.push("Relationship provenance note is missing.");
+    }
+
+    if (!relationship.evidenceSourceId) {
+      reasons.push("Structured relationship source evidence is missing.");
+    }
+  }
+
+  const status: RelationshipEvidenceClosureStatus = releaseExcluded
+    ? "excluded_from_release"
+    : reasons.length === 0 && relationshipReleaseGrade(relationship)
+      ? "release_grade"
+      : "needs_rework";
+
+  return {
+    relationshipId: relationship.id,
+    label: `${relationship.fromTitle} ${relationship.type} ${relationship.toTitle}`,
+    status,
+    relationshipType: relationship.type,
+    lifecycleStatus: relationship.status,
+    confidence: relationship.confidence,
+    evidenceSourceTitle: relationship.evidenceSourceTitle,
+    provenanceNote: relationship.provenanceNote,
+    releaseExcluded,
+    releaseExclusionReason: relationship.releaseExclusionReason,
+    reasons,
+    recommendedAction:
+      status === "release_grade"
+        ? "Keep this relationship in the release graph."
+        : status === "excluded_from_release"
+          ? "Keep this working edge outside the package release until it is promoted."
+          : "Repair provenance, source evidence, confidence, and approval status, or exclude this edge from release.",
+    href: `/ontology?projectId=${projectId}&relId=${relationship.id}`
+  };
+}
+
+export async function getRelationshipEvidenceClosureReport(
+  projectId: string
+): Promise<RelationshipEvidenceClosureReport> {
+  const relationships = await listKnowledgeRelationships({ projectId });
+  const items = relationships.map((relationship) => relationshipClosureItem(relationship, projectId));
+  const releaseGradeCount = items.filter((item) => item.status === "release_grade").length;
+  const needsReworkCount = items.filter((item) => item.status === "needs_rework").length;
+  const excludedFromReleaseCount = items.filter((item) => item.status === "excluded_from_release").length;
+
+  return {
+    projectId,
+    ready: needsReworkCount === 0,
+    totalRelationshipCount: items.length,
+    releaseGradeCount,
+    needsReworkCount,
+    excludedFromReleaseCount,
+    packageRelevantRelationshipCount: releaseGradeCount,
+    items
+  };
+}
+
+async function listReleasePackageRelationships(projectId: string) {
+  const relationships = await listKnowledgeRelationships({ projectId });
+  return relationships.filter((relationship) => relationshipReleaseGrade(relationship));
 }
 
 function filterKnowledgeSuggestions(
@@ -4521,6 +4668,7 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     relationships,
     packages,
     pipelineMetrics,
+    relationshipClosure,
     releaseReadinessHints,
     packageValidation,
     runtimeQaReadiness,
@@ -4532,6 +4680,7 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     listKnowledgeRelationships({ projectId }),
     listPkaPackages(projectId),
     getPipelineQualityMetrics({ projectId }),
+    getRelationshipEvidenceClosureReport(projectId),
     getPkaReleaseReadinessHints(projectId),
     getPkaPackageValidationReport(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
@@ -4601,14 +4750,16 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     {
       id: "relationship_evidence" as const,
       title: "Relationship and Evidence Manufacturing",
-      ready: approvedRelationships.length > 0 && relationships.every((relationship) => relationship.evidenceSourceId),
+      ready: relationshipClosure.releaseGradeCount > 0 && relationshipClosure.needsReworkCount === 0,
       blocked: approvedKnowledgeObjects.length > 1 && relationships.length === 0,
       capability: "Create governed relationships with provenance and evidence.",
       genericRequirement: "Relationships support graph inspection, retrieval, package export, and governance review.",
-      metric: `${approvedRelationships.length}/${relationships.length} approved relationship(s)`,
+      metric: `${relationshipClosure.releaseGradeCount}/${relationshipClosure.totalRelationshipCount} release-grade relationship(s)`,
       detail:
-        relationships.length > 0
-          ? "Relationship graph exists; source evidence coverage is visible in graph quality checks."
+        relationshipClosure.ready && relationshipClosure.releaseGradeCount > 0
+          ? "Package-relevant relationships are release-grade or intentionally excluded from release."
+          : relationships.length > 0
+            ? "Repair or explicitly exclude non-release-grade relationship edges before factory closure."
           : "Create governed KO relationships before runtime graph traversal can be trusted.",
       href: `/ontology?projectId=${projectId}`
     },
@@ -4836,6 +4987,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     relationships,
     packages,
     pipelineMetrics,
+    relationshipClosure,
     releaseReadinessHints,
     runtimeQaReadiness,
     fixtureEvaluation,
@@ -4847,6 +4999,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     listKnowledgeRelationships({ projectId }),
     listPkaPackages(projectId),
     getPipelineQualityMetrics({ projectId }),
+    getRelationshipEvidenceClosureReport(projectId),
     getPkaReleaseReadinessHints(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
     getRuntimeQaFixtureEvaluationReport(projectId),
@@ -4909,9 +5062,9 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     phase: "graph_governance",
     title: "Relationship and governance work order",
     status: manufacturingWorkOrderStatus({
-      complete: approvedRelationships.length > 0 && releaseBlockerCount === 0,
+      complete: relationshipClosure.releaseGradeCount > 0 && relationshipClosure.needsReworkCount === 0 && releaseBlockerCount === 0,
       blocked: approvedKnowledgeObjects.length < 2,
-      waitingForApproval: relationships.length > 0 && releaseBlockerCount > 0,
+      waitingForApproval: relationships.length > 0 && (releaseBlockerCount > 0 || relationshipClosure.needsReworkCount > 0),
       running: graphGovernanceMission.running,
       ready: approvedKnowledgeObjects.length >= 2
     }),
@@ -4919,7 +5072,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     ownerRole: "reviewer",
     stageRange: "Relationship and Evidence Manufacturing -> Human Governance",
     inputSignal: `${approvedKnowledgeObjects.length} release-grade KO(s), ${relationships.length} graph edge(s)`,
-    outputSignal: `${approvedRelationships.length} approved relationship(s), ${releaseBlockerCount} release blocker(s)`,
+    outputSignal: `${relationshipClosure.releaseGradeCount} release-grade relationship(s), ${relationshipClosure.needsReworkCount} rework edge(s), ${releaseBlockerCount} release blocker(s)`,
     approvalCheckpoint: "Reviewers must approve KOs, relationship provenance, evidence coverage, and release-blocking checks.",
     runControlLabel: "Open Review",
     href: `/review?projectId=${projectId}&queueStatus=all&blockerType=all`,
@@ -4929,8 +5082,10 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     nextAction:
       approvedKnowledgeObjects.length < 2
         ? "Approve enough KOs to create governed graph relationships."
-        : releaseBlockerCount > 0
-          ? "Resolve review and release-readiness blockers."
+        : relationshipClosure.needsReworkCount > 0
+          ? "Repair or explicitly exclude relationship edges that are not release-grade."
+          : releaseBlockerCount > 0
+            ? "Resolve review and release-readiness blockers."
           : "Move the governed set into package assembly."
   };
   const knowledgeObjectToPackage: ManufacturingWorkOrder = {
@@ -5670,6 +5825,7 @@ export async function getPkaProductQualityReport(projectId: string): Promise<Pka
     relationships,
     packages,
     governanceMetrics,
+    relationshipClosure,
     releaseReadinessHints,
     packageValidation,
     componentManufacturing,
@@ -5682,6 +5838,7 @@ export async function getPkaProductQualityReport(projectId: string): Promise<Pka
     listKnowledgeRelationships({ projectId }),
     listPkaPackages(projectId),
     getProjectGovernanceMetrics(projectId),
+    getRelationshipEvidenceClosureReport(projectId),
     getPkaReleaseReadinessHints(projectId),
     getPkaPackageValidationReport(projectId),
     getPkaComponentManufacturingReport(projectId),
@@ -5713,20 +5870,20 @@ export async function getPkaProductQualityReport(projectId: string): Promise<Pka
       evidenceCoverage * 35 +
       (governanceMetrics.releaseBlockerCount === 0 && releaseBlockerCount === 0 ? 20 : 0)
   );
-  const approvedRelationships = relationships.filter((relationship) => relationship.status === "approved");
-  const sourceBackedRelationships = relationships.filter((relationship) => relationship.evidenceSourceId);
   const relationshipDensity =
     approvedKnowledgeObjects.length > 1
-      ? approvedRelationships.length / Math.max(1, approvedKnowledgeObjects.length - 1)
-      : approvedRelationships.length > 0
+      ? relationshipClosure.releaseGradeCount / Math.max(1, approvedKnowledgeObjects.length - 1)
+      : relationshipClosure.releaseGradeCount > 0
         ? 1
         : 0;
   const relationshipEvidenceCoverage =
-    relationships.length > 0 ? sourceBackedRelationships.length / relationships.length : 0;
+    relationshipClosure.totalRelationshipCount > 0
+      ? relationshipClosure.releaseGradeCount / relationshipClosure.totalRelationshipCount
+      : 0;
   const relationshipScore = boundedScore(
     Math.min(relationshipDensity, 1) * 45 +
       relationshipEvidenceCoverage * 35 +
-      (approvedRelationships.length > 0 ? 20 : 0)
+      (relationshipClosure.needsReworkCount === 0 && relationshipClosure.releaseGradeCount > 0 ? 20 : 0)
   );
   const packageWarnings = packageValidation.filter((item) => item.level === "warning");
   const packageScore = boundedScore(
@@ -5781,10 +5938,10 @@ export async function getPkaProductQualityReport(projectId: string): Promise<Pka
       score: relationshipScore,
       weight: 20,
       level: qualityLevel(relationshipScore),
-      signal: `${approvedRelationships.length} approved edge(s), ${sourceBackedRelationships.length}/${relationships.length} source-backed`,
+      signal: `${relationshipClosure.releaseGradeCount} release-grade edge(s), ${relationshipClosure.needsReworkCount} rework edge(s), ${relationshipClosure.excludedFromReleaseCount} excluded`,
       detail: `Relationship density is ${Math.round(relationshipDensity * 100)}% against the approved KO set.`,
       recommendedAction:
-        relationshipScore >= 80 ? "Graph quality supports retrieval and runtime context." : "Add or evidence governed relationships before runtime traversal."
+        relationshipScore >= 80 ? "Graph quality supports retrieval and runtime context." : "Repair or exclude non-release-grade relationships before factory closure."
     },
     {
       id: "quality-package-completeness",
@@ -5834,8 +5991,8 @@ export async function getPkaProductQualityReport(projectId: string): Promise<Pka
       sourceCategoryCount,
       newestSourceDate: newestDate,
       approvedKnowledgeObjectCount: approvedKnowledgeObjects.length,
-      relationshipCount: relationships.length,
-      sourceBackedRelationshipCount: sourceBackedRelationships.length,
+    relationshipCount: relationshipClosure.packageRelevantRelationshipCount,
+    sourceBackedRelationshipCount: relationshipClosure.releaseGradeCount,
       packageValidationWarningCount: packageWarnings.length,
       runtimeImportStatus: runtimeImport?.status,
       runtimeHandoffDecision: runtimeHandoff?.decision
@@ -5941,12 +6098,13 @@ async function buildPkaPackageExportPreview(input: {
   const releaseObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
   );
+  const releaseRelationships = relationships.filter((relationship) => relationshipReleaseGrade(relationship));
   const generatedAt = new Date().toISOString();
   const componentIndex = packageComponentIndex({
     packageId,
     version,
     releaseObjects,
-    relationships,
+    relationships: releaseRelationships,
     sources,
     rfqEvidenceEntries
   });
@@ -5968,7 +6126,7 @@ async function buildPkaPackageExportPreview(input: {
     relationshipTypes,
     evidenceRegisterEntryCount: rfqEvidenceEntries.length,
     knowledgeObjectCount: releaseObjects.length,
-    relationshipCount: relationships.length,
+    relationshipCount: releaseRelationships.length,
     sourceReferenceCount: sources.length,
     packageStructure: pkaPackageFolders,
     componentIndex
@@ -6157,8 +6315,8 @@ async function buildPkaPackageExportPreview(input: {
         status: "ready",
         description: "Relationship edges with provenance and relationship source evidence where available.",
         contents: {
-          count: relationships.length,
-          items: relationships.map((relationship) => ({
+          count: releaseRelationships.length,
+          items: releaseRelationships.map((relationship) => ({
             id: relationship.id,
             fromId: relationship.fromId,
             toId: relationship.toId,
@@ -10181,6 +10339,79 @@ export async function attachSourceEvidenceToKnowledgeRelationship(input: Knowled
       fromId: relationship.fromId,
       toId: relationship.toId,
       relationshipType: relationship.type
+    }
+  });
+
+  return relationship;
+}
+
+export async function updateKnowledgeRelationshipReleaseExclusion(
+  input: KnowledgeRelationshipReleaseExclusionInput
+) {
+  if (usePrismaStore()) {
+    await ensureLocalWorkspace();
+    const existingRelationship = await getPrismaClient().knowledgeRelationship.findUnique({
+      where: { id: input.relationshipId },
+      select: { provenance: true }
+    });
+    const provenance = provenanceRecord(existingRelationship?.provenance);
+    const relationship = await getPrismaClient().knowledgeRelationship.update({
+      where: { id: input.relationshipId },
+      data: {
+        provenance: {
+          ...provenance,
+          releaseClosure: {
+            excludedFromRelease: input.excluded,
+            reason: input.reason
+          }
+        }
+      },
+      include: {
+        from: { select: { title: true } },
+        to: { select: { title: true } }
+      }
+    });
+    const mappedRelationship = mapKnowledgeRelationship(relationship);
+
+    await recordAuditLog({
+      action: input.excluded
+        ? "knowledge_relationship.excluded_from_release"
+        : "knowledge_relationship.release_exclusion_removed",
+      subjectType: "KnowledgeRelationship",
+      subjectId: mappedRelationship.id,
+      actorId: input.actor ?? "reviewer",
+      detail: `${input.excluded ? "Excluded relationship from release" : "Removed release exclusion"}: ${mappedRelationship.fromTitle} ${mappedRelationship.type} ${mappedRelationship.toTitle}`,
+      metadata: {
+        relationshipId: mappedRelationship.id,
+        excludedFromRelease: input.excluded,
+        reason: input.reason
+      }
+    });
+
+    return mappedRelationship;
+  }
+
+  const relationship = workspaceStore().knowledgeRelationships.find((item) => item.id === input.relationshipId);
+
+  if (!relationship) {
+    throw new Error(`Knowledge relationship not found: ${input.relationshipId}`);
+  }
+
+  relationship.releaseExcluded = input.excluded;
+  relationship.releaseExclusionReason = input.reason;
+
+  await recordAuditLog({
+    action: input.excluded
+      ? "knowledge_relationship.excluded_from_release"
+      : "knowledge_relationship.release_exclusion_removed",
+    subjectType: "KnowledgeRelationship",
+    subjectId: relationship.id,
+    actorId: input.actor ?? "reviewer",
+    detail: `${input.excluded ? "Excluded relationship from release" : "Removed release exclusion"}: ${relationship.fromTitle} ${relationship.type} ${relationship.toTitle}`,
+    metadata: {
+      relationshipId: relationship.id,
+      excludedFromRelease: input.excluded,
+      reason: input.reason
     }
   });
 

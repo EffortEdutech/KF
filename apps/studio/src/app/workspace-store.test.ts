@@ -35,6 +35,7 @@ import {
   getQsRfqPilotRunReport,
   getRfqEvidenceRegisterReport,
   getRfqWorkflowGateReport,
+  getRelationshipEvidenceClosureReport,
   getRelationshipReadinessHints,
   getRuntimeQaAnswerReadinessReport,
   getRuntimeQaContextBundlePreview,
@@ -74,6 +75,7 @@ import {
   updateKnowledgeSuggestionStatus,
   updatePkaPackageReleaseStatus,
   updateKnowledgeRelationshipProvenance,
+  updateKnowledgeRelationshipReleaseExclusion,
   updateKnowledgeObject,
   updateKnowledgeObjectStatus,
   updateRelationshipSuggestionStatus,
@@ -296,6 +298,33 @@ async function runWorkspaceStoreContractTest() {
     manufacturingClosureReport.reworkRoutes.some((route) => route.workOrderId === "graph-governance") ||
       manufacturingClosureReport.acceptedSignals.length >= 3,
     "manufacturing closure should either accept release or route rework into the factory work orders"
+  );
+  const relationshipClosureReport = await getRelationshipEvidenceClosureReport(pilotSourcePack.projectId);
+  expect(
+    relationshipClosureReport.releaseGradeCount > 0,
+    "relationship closure should identify package-relevant release-grade relationships"
+  );
+  expect(
+    relationshipClosureReport.needsReworkCount > 0,
+    "relationship closure should identify working graph edges that still need rework or release exclusion"
+  );
+  for (const item of relationshipClosureReport.items.filter((closureItem) => closureItem.status === "needs_rework")) {
+    await updateKnowledgeRelationshipReleaseExclusion({
+      relationshipId: item.relationshipId,
+      excluded: true,
+      reason: "Contract test excludes working edge from this package release.",
+      actor: "reviewer"
+    });
+  }
+  const closedRelationshipClosureReport = await getRelationshipEvidenceClosureReport(pilotSourcePack.projectId);
+  expect(
+    closedRelationshipClosureReport.ready,
+    "relationship closure should be ready once non-release-grade working edges are explicitly excluded"
+  );
+  const acceptedManufacturingClosureReport = await getPkaManufacturingClosureReport(pilotSourcePack.projectId);
+  expect(
+    acceptedManufacturingClosureReport.disposition === "accepted_for_release",
+    "manufacturing closure should reach accepted_for_release after relationship/evidence closure"
   );
 
   const initialProjectCount = (await listProjects()).length;
