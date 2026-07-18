@@ -73,6 +73,8 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line stages").getByText("1. Source Intake")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line stages").getByText("10. Continuous Improvement")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing work orders").getByText("Source-to-KO work order")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing work orders").getByText("KO-to-package work order")).toBeVisible();
     await expect(page.getByText("Factory capability first")).toBeVisible();
 
     await page.goto("/runtime-qa");
@@ -504,8 +506,8 @@ test.describe("KF Studio runtime smoke", () => {
     });
     await handoffFeedbackForm.locator('input[name="runtimeApp"]').fill("AIFA pilot consumer");
     await expect(handoffFeedbackForm.locator('input[name="runtimeApp"]')).toHaveValue("AIFA pilot consumer");
-    await handoffFeedbackForm.locator('select[name="decision"]').selectOption("needs_multi_source_lifecycle");
-    await expect(handoffFeedbackForm.locator('select[name="decision"]')).toHaveValue("needs_multi_source_lifecycle");
+    await page.getByLabel("Feedback decision").selectOption("needs_multi_source_lifecycle");
+    await expect(page.getByLabel("Feedback decision")).toHaveValue("needs_multi_source_lifecycle");
     await handoffFeedbackForm
       .locator('textarea[name="notes"]')
       .fill("Pilot consumer needs independent lifecycle for multiple relationship evidence citations.");
@@ -521,6 +523,10 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Manufacturing Line stages").getByText("8. Runtime Handoff")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line stages").getByText("9. Consumption Validation")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line next actions")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing work order metrics").getByText("Approval checkpoints")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing work orders").getByText("Runtime validation work order")).toBeVisible();
+    await page.getByLabel("Manufacturing work orders").getByRole("button", { name: "Create work order trace" }).first().click();
+    await expect(page.getByLabel("Manufacturing work orders").getByText("1/1 open")).toBeVisible();
     await page.getByRole("button", { name: "Run manufacturing validation article" }).click();
     await expect(page).toHaveURL(/\/manufacturing-line\?projectId=kf-qs-rfq-pilot/);
     await expect(page.getByText("Manufacturing Run Report")).toBeVisible();

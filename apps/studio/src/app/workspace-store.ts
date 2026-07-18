@@ -186,6 +186,63 @@ export type ManufacturingLineRunReport = {
   nextActions: string[];
 };
 
+export type ManufacturingWorkOrderPhase =
+  | "source_to_ko"
+  | "graph_governance"
+  | "ko_to_package"
+  | "runtime_validation"
+  | "continuous_improvement";
+
+export type ManufacturingWorkOrderStatus =
+  | "not_started"
+  | "ready_to_run"
+  | "running"
+  | "waiting_for_approval"
+  | "blocked"
+  | "complete";
+
+export type ManufacturingWorkOrder = {
+  id: string;
+  phase: ManufacturingWorkOrderPhase;
+  title: string;
+  status: ManufacturingWorkOrderStatus;
+  objective: string;
+  ownerRole: Role;
+  stageRange: string;
+  inputSignal: string;
+  outputSignal: string;
+  approvalCheckpoint: string;
+  runControlLabel: string;
+  href: string;
+  missionStage: string;
+  missionCount: number;
+  openMissionCount: number;
+  nextAction: string;
+};
+
+export type ManufacturingWorkOrderReport = {
+  projectId: string;
+  projectName: string;
+  summary: {
+    totalWorkOrders: number;
+    completeCount: number;
+    readyToRunCount: number;
+    blockedCount: number;
+    openMissionCount: number;
+    approvalCheckpointCount: number;
+  };
+  sourceToKnowledgeObject: ManufacturingWorkOrder;
+  knowledgeObjectToPackage: ManufacturingWorkOrder;
+  workOrders: ManufacturingWorkOrder[];
+};
+
+export type ManufacturingWorkOrderTraceInput = {
+  projectId: string;
+  workOrderId: string;
+  actor?: string;
+  status?: MissionStatus;
+};
+
 export type PipelineSuggestionReviewReport = {
   projectId?: string;
   sourceId?: string;
@@ -4544,6 +4601,336 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
       .slice(0, 3)
       .map((stage) => `${stage.title}: ${stage.detail}`)
   };
+}
+
+const closedMissionStatuses: MissionStatus[] = ["completed", "verified", "closed", "cancelled"];
+
+function manufacturingWorkOrderStatus(input: {
+  complete: boolean;
+  blocked: boolean;
+  waitingForApproval: boolean;
+  running: boolean;
+  ready: boolean;
+}): ManufacturingWorkOrderStatus {
+  if (input.blocked) {
+    return "blocked";
+  }
+
+  if (input.complete) {
+    return "complete";
+  }
+
+  if (input.waitingForApproval) {
+    return "waiting_for_approval";
+  }
+
+  if (input.running) {
+    return "running";
+  }
+
+  return input.ready ? "ready_to_run" : "not_started";
+}
+
+function manufacturingWorkOrderDefinition(workOrderId: string) {
+  const definitions = [
+    {
+      id: "source-to-ko",
+      title: "Source-to-KO work order",
+      ownerRole: "knowledge_engineer" as const,
+      missionStage: "manufacturing:source-to-ko"
+    },
+    {
+      id: "graph-governance",
+      title: "Relationship and governance work order",
+      ownerRole: "reviewer" as const,
+      missionStage: "manufacturing:graph-governance"
+    },
+    {
+      id: "ko-to-package",
+      title: "KO-to-package work order",
+      ownerRole: "publisher" as const,
+      missionStage: "manufacturing:ko-to-package"
+    },
+    {
+      id: "runtime-validation",
+      title: "Runtime validation work order",
+      ownerRole: "runtime_consumer" as const,
+      missionStage: "manufacturing:runtime-validation"
+    },
+    {
+      id: "continuous-improvement",
+      title: "Continuous improvement work order",
+      ownerRole: "knowledge_architect" as const,
+      missionStage: "manufacturing:continuous-improvement"
+    }
+  ];
+
+  return definitions.find((definition) => definition.id === workOrderId);
+}
+
+function workOrderMissionCounts(missions: MissionSummary[], missionStage: string) {
+  const matchingMissions = missions.filter((mission) => mission.stage === missionStage);
+
+  return {
+    missionCount: matchingMissions.length,
+    openMissionCount: matchingMissions.filter((mission) => !closedMissionStatuses.includes(mission.status)).length,
+    running: matchingMissions.some((mission) => mission.status === "running")
+  };
+}
+
+export async function getManufacturingWorkOrderReport(projectId: string): Promise<ManufacturingWorkOrderReport> {
+  const project = (await listProjects()).find((item) => item.id === projectId);
+  if (!project) {
+    throw new Error("Project is required for Manufacturing Work Order reporting.");
+  }
+
+  const [
+    sources,
+    sourceChunks,
+    knowledgeObjects,
+    relationships,
+    packages,
+    pipelineMetrics,
+    releaseReadinessHints,
+    runtimeQaReadiness,
+    fixtureEvaluation,
+    missions
+  ] = await Promise.all([
+    listSourcesByProject(projectId),
+    listSourceChunks({ projectId }),
+    listKnowledgeObjects({ projectId }),
+    listKnowledgeRelationships({ projectId }),
+    listPkaPackages(projectId),
+    getPipelineQualityMetrics({ projectId }),
+    getPkaReleaseReadinessHints(projectId),
+    getRuntimeQaAnswerReadinessReport(projectId),
+    getRuntimeQaFixtureEvaluationReport(projectId),
+    listMissions()
+  ]);
+  const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
+    approvedKnowledgeObject(knowledgeObject.status)
+  );
+  const approvedRelationships = relationships.filter((relationship) => relationship.status === "approved");
+  const packageRecord = latestPublishedPackage(packages) ?? packages[0];
+  const publishedPackage = packageRecord?.status === "published" ? packageRecord : undefined;
+  const runtimeImport = publishedPackage
+    ? await validateRuntimePkaImportReadback(publishedPackage.packageId)
+    : undefined;
+  const runtimeHandoff = publishedPackage
+    ? await validateRuntimeAppDeveloperHandoff(publishedPackage.packageId)
+    : undefined;
+  const handoffFeedback = publishedPackage
+    ? await listRuntimeHandoffFeedback(publishedPackage.packageId)
+    : undefined;
+  const releaseBlockerCount = releaseReadinessHints.filter((hint) => hint.level === "warning").length;
+
+  const sourceToKoMission = workOrderMissionCounts(missions, "manufacturing:source-to-ko");
+  const graphGovernanceMission = workOrderMissionCounts(missions, "manufacturing:graph-governance");
+  const koToPackageMission = workOrderMissionCounts(missions, "manufacturing:ko-to-package");
+  const runtimeValidationMission = workOrderMissionCounts(missions, "manufacturing:runtime-validation");
+  const continuousImprovementMission = workOrderMissionCounts(missions, "manufacturing:continuous-improvement");
+
+  const sourceToKnowledgeObject: ManufacturingWorkOrder = {
+    id: "source-to-ko",
+    phase: "source_to_ko",
+    title: "Source-to-KO work order",
+    status: manufacturingWorkOrderStatus({
+      complete: approvedKnowledgeObjects.length > 0 && sourceChunks.length > 0,
+      blocked: sources.length === 0,
+      waitingForApproval: knowledgeObjects.length > 0 && approvedKnowledgeObjects.length === 0,
+      running: sourceToKoMission.running,
+      ready: sources.length > 0
+    }),
+    objective: "Turn registered sources into source-backed Knowledge Object candidates and release-grade KOs.",
+    ownerRole: "knowledge_engineer",
+    stageRange: "Source Intake -> Preparation and Extraction -> KO Manufacturing",
+    inputSignal: `${sources.length} source(s), ${sourceChunks.length} chunk(s), ${pipelineMetrics.pendingSuggestionCount} pending suggestion(s)`,
+    outputSignal: `${approvedKnowledgeObjects.length}/${knowledgeObjects.length} release-grade KO(s)`,
+    approvalCheckpoint: "AI/deterministic suggestions stay draft until a human accepts and approves the resulting KO.",
+    runControlLabel: "Open Pipeline",
+    href: `/pipeline?projectId=${projectId}`,
+    missionStage: "manufacturing:source-to-ko",
+    missionCount: sourceToKoMission.missionCount,
+    openMissionCount: sourceToKoMission.openMissionCount,
+    nextAction:
+      sources.length === 0
+        ? "Register source inputs."
+        : approvedKnowledgeObjects.length > 0
+          ? "Continue evidence and relationship manufacturing."
+          : "Run ingestion, accept suitable candidates, and send KOs for review."
+  };
+  const graphGovernance: ManufacturingWorkOrder = {
+    id: "graph-governance",
+    phase: "graph_governance",
+    title: "Relationship and governance work order",
+    status: manufacturingWorkOrderStatus({
+      complete: approvedRelationships.length > 0 && releaseBlockerCount === 0,
+      blocked: approvedKnowledgeObjects.length < 2,
+      waitingForApproval: relationships.length > 0 && releaseBlockerCount > 0,
+      running: graphGovernanceMission.running,
+      ready: approvedKnowledgeObjects.length >= 2
+    }),
+    objective: "Create governed relationships and clear human-review release blockers.",
+    ownerRole: "reviewer",
+    stageRange: "Relationship and Evidence Manufacturing -> Human Governance",
+    inputSignal: `${approvedKnowledgeObjects.length} release-grade KO(s), ${relationships.length} graph edge(s)`,
+    outputSignal: `${approvedRelationships.length} approved relationship(s), ${releaseBlockerCount} release blocker(s)`,
+    approvalCheckpoint: "Reviewers must approve KOs, relationship provenance, evidence coverage, and release-blocking checks.",
+    runControlLabel: "Open Review",
+    href: `/review?projectId=${projectId}&queueStatus=all&blockerType=all`,
+    missionStage: "manufacturing:graph-governance",
+    missionCount: graphGovernanceMission.missionCount,
+    openMissionCount: graphGovernanceMission.openMissionCount,
+    nextAction:
+      approvedKnowledgeObjects.length < 2
+        ? "Approve enough KOs to create governed graph relationships."
+        : releaseBlockerCount > 0
+          ? "Resolve review and release-readiness blockers."
+          : "Move the governed set into package assembly."
+  };
+  const knowledgeObjectToPackage: ManufacturingWorkOrder = {
+    id: "ko-to-package",
+    phase: "ko_to_package",
+    title: "KO-to-package work order",
+    status: manufacturingWorkOrderStatus({
+      complete: Boolean(publishedPackage),
+      blocked: approvedKnowledgeObjects.length === 0,
+      waitingForApproval: Boolean(packageRecord) && packageRecord?.status !== "published",
+      running: koToPackageMission.running,
+      ready: approvedKnowledgeObjects.length > 0
+    }),
+    objective: "Assemble release-grade KOs, relationships, sources, governance, and component indexes into a Base PKA.",
+    ownerRole: "publisher",
+    stageRange: "PKA Assembly -> Release and Publication",
+    inputSignal: `${approvedKnowledgeObjects.length} release-grade KO(s), ${approvedRelationships.length} approved relationship(s)`,
+    outputSignal: packageRecord ? `${packageRecord.packageId} / ${packageRecord.status}` : "no package assembled",
+    approvalCheckpoint: "Draft package assembly is separate from release approval and immutable publication.",
+    runControlLabel: "Open PKA Builder",
+    href: `/pka-builder?projectId=${projectId}`,
+    missionStage: "manufacturing:ko-to-package",
+    missionCount: koToPackageMission.missionCount,
+    openMissionCount: koToPackageMission.openMissionCount,
+    nextAction: publishedPackage
+      ? "Validate runtime handoff and consumption."
+      : packageRecord
+        ? "Complete package release review and publish when approved."
+        : "Assemble the first package draft."
+  };
+  const runtimeValidation: ManufacturingWorkOrder = {
+    id: "runtime-validation",
+    phase: "runtime_validation",
+    title: "Runtime validation work order",
+    status: manufacturingWorkOrderStatus({
+      complete: runtimeImport?.status === "importable" && runtimeHandoff?.decision === "installable" && runtimeQaReadiness.ready && fixtureEvaluation.ready,
+      blocked: !publishedPackage || runtimeImport?.status === "blocked" || runtimeHandoff?.decision === "blocked",
+      waitingForApproval: runtimeHandoff?.decision === "installation_review_required",
+      running: runtimeValidationMission.running,
+      ready: Boolean(publishedPackage)
+    }),
+    objective: "Prove a runtime/app developer can read the published PKA contract before model execution.",
+    ownerRole: "runtime_consumer",
+    stageRange: "Runtime Handoff -> Consumption Validation",
+    inputSignal: publishedPackage ? `${publishedPackage.packageId} published` : "no published package",
+    outputSignal: `${runtimeHandoff?.decision ?? "no handoff"} / ${runtimeImport?.status ?? "no import"} / ${
+      runtimeQaReadiness.ready && fixtureEvaluation.ready ? "Q&A ready" : "Q&A blocked"
+    }`,
+    approvalCheckpoint: "Runtime import and handoff checks must pass before any app treats the PKA as installable.",
+    runControlLabel: "Open Runtime Handoff",
+    href: `/runtime-handoff?projectId=${projectId}`,
+    missionStage: "manufacturing:runtime-validation",
+    missionCount: runtimeValidationMission.missionCount,
+    openMissionCount: runtimeValidationMission.openMissionCount,
+    nextAction: publishedPackage
+      ? "Run handoff, import, and deterministic Q&A readiness checks."
+      : "Publish a governed package before runtime validation."
+  };
+  const continuousImprovement: ManufacturingWorkOrder = {
+    id: "continuous-improvement",
+    phase: "continuous_improvement",
+    title: "Continuous improvement work order",
+    status: manufacturingWorkOrderStatus({
+      complete: Boolean(handoffFeedback && handoffFeedback.totalFeedbackCount > 0),
+      blocked: false,
+      waitingForApproval: Boolean(handoffFeedback?.repeatedMultiSourceLifecycleFeedback),
+      running: continuousImprovementMission.running,
+      ready: Boolean(publishedPackage)
+    }),
+    objective: "Capture feedback and route future revisions back through the manufacturing line.",
+    ownerRole: "knowledge_architect",
+    stageRange: "Continuous Improvement",
+    inputSignal: `${handoffFeedback?.totalFeedbackCount ?? 0} handoff feedback record(s)`,
+    outputSignal: handoffFeedback?.relationshipEvidenceDecision.replaceAll("_", " ") ?? "no feedback decision",
+    approvalCheckpoint: "Schema or component changes wait for documented feedback triggers and architecture review.",
+    runControlLabel: "Open Runtime Handoff",
+    href: `/runtime-handoff?projectId=${projectId}`,
+    missionStage: "manufacturing:continuous-improvement",
+    missionCount: continuousImprovementMission.missionCount,
+    openMissionCount: continuousImprovementMission.openMissionCount,
+    nextAction: publishedPackage
+      ? "Record and review app-developer feedback after package handoff."
+      : "Finish publication before continuous-improvement feedback is meaningful."
+  };
+  const workOrders = [
+    sourceToKnowledgeObject,
+    graphGovernance,
+    knowledgeObjectToPackage,
+    runtimeValidation,
+    continuousImprovement
+  ];
+
+  return {
+    projectId,
+    projectName: project.name,
+    summary: {
+      totalWorkOrders: workOrders.length,
+      completeCount: workOrders.filter((workOrder) => workOrder.status === "complete").length,
+      readyToRunCount: workOrders.filter((workOrder) => workOrder.status === "ready_to_run").length,
+      blockedCount: workOrders.filter((workOrder) => workOrder.status === "blocked").length,
+      openMissionCount: workOrders.reduce((total, workOrder) => total + workOrder.openMissionCount, 0),
+      approvalCheckpointCount: workOrders.length
+    },
+    sourceToKnowledgeObject,
+    knowledgeObjectToPackage,
+    workOrders
+  };
+}
+
+export async function createManufacturingWorkOrderTrace(input: ManufacturingWorkOrderTraceInput) {
+  const project = (await listProjects()).find((item) => item.id === input.projectId);
+  const definition = manufacturingWorkOrderDefinition(input.workOrderId);
+
+  if (!project) {
+    throw new Error(`Project not found: ${input.projectId}`);
+  }
+
+  if (!definition) {
+    throw new Error(`Manufacturing work order not found: ${input.workOrderId}`);
+  }
+
+  const mission = await createMission({
+    type: "manufacturing",
+    title: `Work order: ${definition.title}`,
+    projectId: input.projectId,
+    assignedTo: input.actor ?? definition.ownerRole,
+    stage: definition.missionStage,
+    priority: "normal",
+    status: input.status ?? "queued"
+  });
+
+  await recordAuditLog({
+    action: "manufacturing.work_order_trace_created",
+    subjectType: "Project",
+    subjectId: input.projectId,
+    actorId: input.actor ?? definition.ownerRole,
+    detail: `Created generic manufacturing work-order trace: ${definition.title}`,
+    metadata: {
+      workOrderId: definition.id,
+      missionId: mission.id,
+      missionStage: definition.missionStage
+    }
+  });
+
+  return mission;
 }
 
 export async function listRelationshipGovernanceHistory(relationshipId: string) {

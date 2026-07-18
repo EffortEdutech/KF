@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { runManufacturingLineValidationAction } from "../source-actions";
+import {
+  createManufacturingWorkOrderTraceAction,
+  runManufacturingLineValidationAction
+} from "../source-actions";
 import {
   getManufacturingLineRunReport,
+  getManufacturingWorkOrderReport,
   getQsRfqPilotSourcePack,
   listProjects
 } from "../workspace-store";
@@ -17,7 +21,7 @@ function statusLabel(status: string) {
 }
 
 function readinessClass(status: string) {
-  if (status === "ready") {
+  if (status === "ready" || status === "complete") {
     return "readiness-ready";
   }
 
@@ -29,6 +33,7 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
   const projects = await listProjects();
   const activeProject = projects.find((project) => project.id === params?.projectId) ?? projects[0];
   const report = await getManufacturingLineRunReport(activeProject.id);
+  const workOrderReport = await getManufacturingWorkOrderReport(activeProject.id);
   const validationSourcePack = getQsRfqPilotSourcePack();
   const canRunValidationArticle = activeProject.id === validationSourcePack.projectId;
 
@@ -171,6 +176,81 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
       <section className="panel">
         <div className="panel-heading">
           <div>
+            <p className="eyebrow">Generic Manufacturing Work Orders</p>
+            <h3>Reusable factory work-order skeleton</h3>
+          </div>
+          <span className="pill">
+            {workOrderReport.summary.completeCount}/{workOrderReport.summary.totalWorkOrders} complete
+          </span>
+        </div>
+        <section className="metrics" aria-label="Manufacturing work order metrics">
+          <div className="metric">
+            <span>Ready to run</span>
+            <strong>{workOrderReport.summary.readyToRunCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Blocked</span>
+            <strong>{workOrderReport.summary.blockedCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Open traces</span>
+            <strong>{workOrderReport.summary.openMissionCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Approval checkpoints</span>
+            <strong>{workOrderReport.summary.approvalCheckpointCount}</strong>
+          </div>
+        </section>
+        <div className="readiness-list" aria-label="Manufacturing work orders">
+          {workOrderReport.workOrders.map((workOrder) => (
+            <article className={`readiness-item ${readinessClass(workOrder.status)}`} key={workOrder.id}>
+              <strong>{workOrder.title}</strong>
+              <span>{statusLabel(workOrder.status)} / {workOrder.stageRange}</span>
+              <span>{workOrder.objective}</span>
+              <dl className="detail-list">
+                <div>
+                  <dt>Input signal</dt>
+                  <dd>{workOrder.inputSignal}</dd>
+                </div>
+                <div>
+                  <dt>Output signal</dt>
+                  <dd>{workOrder.outputSignal}</dd>
+                </div>
+                <div>
+                  <dt>Owner role</dt>
+                  <dd>{workOrder.ownerRole}</dd>
+                </div>
+                <div>
+                  <dt>Mission traces</dt>
+                  <dd>{workOrder.openMissionCount}/{workOrder.missionCount} open</dd>
+                </div>
+              </dl>
+              <span>{workOrder.approvalCheckpoint}</span>
+              <span>{workOrder.nextAction}</span>
+              <div className="action-row">
+                <Link className="text-link" href={workOrder.href}>
+                  {workOrder.runControlLabel}
+                </Link>
+                <form className="inline-form" action={createManufacturingWorkOrderTraceAction}>
+                  <input type="hidden" name="projectId" value={activeProject.id} />
+                  <input type="hidden" name="workOrderId" value={workOrder.id} />
+                  <input type="hidden" name="actor" value={workOrder.ownerRole} />
+                  <select name="status" defaultValue="queued" aria-label={`Trace status for ${workOrder.title}`}>
+                    <option value="queued">queued</option>
+                    <option value="running">running</option>
+                    <option value="completed">completed</option>
+                  </select>
+                  <button type="submit">Create work order trace</button>
+                </form>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
             <p className="eyebrow">Ten-stage factory line</p>
             <h3>PKA manufacturing readiness</h3>
           </div>
@@ -202,7 +282,7 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
 
         <article className="panel">
           <p className="eyebrow">Deferred by gate</p>
-          <h3>Not part of Batch 1</h3>
+          <h3>Not part of current batch</h3>
           <div className="tags">
             <span>Ollama adapter</span>
             <span>PDF/Word extraction</span>

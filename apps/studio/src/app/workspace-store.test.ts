@@ -11,6 +11,7 @@ import {
   createKnowledgeObject,
   createKnowledgeRelationship,
   createInvalidPkaReadbackFixtures,
+  createManufacturingWorkOrderTrace,
   createMission,
   createSource,
   createReviewDecision,
@@ -20,6 +21,7 @@ import {
   getKnowledgeObject,
   getKnowledgeObjectReviewReadinessHints,
   getManufacturingLineRunReport,
+  getManufacturingWorkOrderReport,
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
   getPipelineQualityMetrics,
@@ -1240,6 +1242,33 @@ async function runWorkspaceStoreContractTest() {
       (stage) => stage.id === "runtime_handoff" && stage.status === "ready"
     ),
     "Manufacturing Line report should include runtime handoff readiness"
+  );
+  const workOrderReport = await getManufacturingWorkOrderReport(project.id);
+  expect(
+    workOrderReport.workOrders.length === 5,
+    "Manufacturing work-order report should expose the reusable factory work-order skeleton"
+  );
+  expect(
+    workOrderReport.sourceToKnowledgeObject.status === "complete",
+    "Source-to-KO work order should complete after source ingestion and KO approval"
+  );
+  expect(
+    workOrderReport.knowledgeObjectToPackage.status === "complete",
+    "KO-to-package work order should complete after package publication"
+  );
+  const workOrderTrace = await createManufacturingWorkOrderTrace({
+    projectId: project.id,
+    workOrderId: "source-to-ko",
+    actor: "knowledge_engineer",
+    status: "queued"
+  });
+  expect(
+    workOrderTrace.stage === "manufacturing:source-to-ko",
+    "Manufacturing work-order traces should use a stable Mission stage for filtering"
+  );
+  expect(
+    (await getManufacturingWorkOrderReport(project.id)).sourceToKnowledgeObject.openMissionCount > 0,
+    "Manufacturing work-order report should count open Mission-backed work-order traces"
   );
   await recordRuntimePkaImportDecision({
     packageId: publishedPackage.packageId,

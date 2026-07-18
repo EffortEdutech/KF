@@ -272,10 +272,18 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 ### Must Finish
 
 - [x] Add a Manufacturing Line dashboard or section that shows the ten factory stages and current readiness for the selected project/package.
-- [ ] Replace pilot-only language in operator-facing surfaces where the concept is generic PKA manufacturing.
+- [x] Replace pilot-only language in operator-facing surfaces where the concept is generic PKA manufacturing.
 - [x] Add a generic Manufacturing Run Report that summarizes source intake, extraction, KO manufacturing, relationship/evidence manufacturing, governance, package assembly, release, handoff, and consumption validation.
 - [x] Ensure QS/RFQ vertical slice validates the generic Manufacturing Run Report without becoming the sprint objective.
-- [ ] Commit and push the completed manufacturing-line planning and first generic execution surface.
+- [x] Commit and push the completed manufacturing-line planning and first generic execution surface.
+
+### Batch 2 Must Finish - Generic Manufacturing Work Orders
+
+- [x] Add manufacturing mission/work-order vocabulary.
+- [x] Add Source-to-KO work-order summary.
+- [x] Add KO-to-package work-order summary.
+- [x] Add reusable run/retry/control links and Mission-backed work-order trace creation.
+- [x] Add clear human approval checkpoints for each work order.
 
 ### Acceptance Demo
 
@@ -336,6 +344,13 @@ Deliverables:
 Done when:
 
 Any PKA project can follow the same work-order skeleton as QS/RFQ.
+
+Implementation status:
+
+- [x] `getManufacturingWorkOrderReport` derives five generic work orders from current project artifacts and Mission traces.
+- [x] `/manufacturing-line` shows the work-order skeleton, source-to-KO summary, KO-to-package summary, owner role, input/output signals, approval checkpoint, run control, and trace creation.
+- [x] Work-order trace creation writes a Mission with a stable `manufacturing:<work-order-id>` stage.
+- [x] QS/RFQ validates the work-order skeleton without becoming the sprint objective.
 
 ### Batch 3 - Component Manufacturing
 
@@ -425,9 +440,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Continue **Batch 1 - Manufacturing Line Visibility** by reviewing operator-facing language and committing the completed planning/status-surface batch.
+Continue **Batch 2 - Generic Manufacturing Work Orders** by verifying the work-order surface, refreshing Graphify, and closing the batch with a capability-level commit.
 
-Do not add more QS/RFQ-specific hardening unless it blocks the generic Manufacturing Line status and run report.
+Do not add more QS/RFQ-specific hardening unless it blocks the generic Manufacturing Work Order skeleton.
 
 ---
 

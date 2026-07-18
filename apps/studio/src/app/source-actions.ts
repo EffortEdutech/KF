@@ -13,6 +13,7 @@ import {
   createInvalidPkaReadbackFixtures,
   createFailedIngestionFixture,
   createKnowledgeObject,
+  createManufacturingWorkOrderTrace,
   createMission,
   createProject,
   createReviewDecision,
@@ -268,6 +269,19 @@ export async function runManufacturingLineValidationAction(formData: FormData) {
 
   revalidateStudioSurfaces();
   redirect(`/manufacturing-line?projectId=${projectId || result.projectId}`);
+}
+
+export async function createManufacturingWorkOrderTraceAction(formData: FormData) {
+  const projectId = readRequired(formData, "projectId");
+  await createManufacturingWorkOrderTrace({
+    projectId,
+    workOrderId: readRequired(formData, "workOrderId"),
+    actor: readOptionalString(formData, "actor"),
+    status: readMissionStatus(readOptionalString(formData, "status") ?? "queued")
+  });
+
+  revalidateStudioSurfaces();
+  redirect(`/manufacturing-line?projectId=${projectId}`);
 }
 
 export async function retrySourceIngestionAction(formData: FormData) {

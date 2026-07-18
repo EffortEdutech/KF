@@ -827,6 +827,7 @@ Apply these checks to every sprint:
 | 2026-07-18 | Runtime handoff feedback review threshold added | Accepted | A single multi-source lifecycle request now creates a `monitor_multi_source_lifecycle_feedback` posture while keeping relationship evidence in provenance for the pilot. Two or more independent multi-source lifecycle requests create `investigate_dedicated_relationship_evidence_table`, at which point a dedicated relationship evidence record design should begin. |
 | 2026-07-18 | KF Manufacturing Line Sprint Plan added | Accepted | Added `docs/implementation/KF Manufacturing Line Sprint Plan and Checklist.md` as the active execution authority. Sprint execution now targets reusable KF factory capabilities for manufacturing PKAs, with QS/RFQ used only as the validation article. |
 | 2026-07-18 | Manufacturing Line status surface added | Accepted | Added `/manufacturing-line` as the generic KF factory status and run-report surface. It shows ten-stage readiness, stage links, current blockers, validation article status, package handoff/import readiness, and a manufacturing validation action that returns to the factory line. |
+| 2026-07-18 | Generic Manufacturing Work Orders added | Accepted | Added a derived work-order report for Source-to-KO, relationship/governance, KO-to-package, runtime validation, and continuous improvement work. `/manufacturing-line` now shows owner roles, input/output signals, approval checkpoints, run controls, and Mission-backed work-order trace creation. |
 
 ---
 
@@ -857,9 +858,9 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Review operator-facing language for remaining pilot-first wording and replace it where the capability is generic manufacturing.
-2. Commit and push the completed Manufacturing Line planning/status-surface batch after verification.
-3. Start Manufacturing Line Batch 2: Generic Manufacturing Work Orders.
+1. Verify and close Manufacturing Line Batch 2: Generic Manufacturing Work Orders.
+2. Start Manufacturing Line Batch 3: Component Manufacturing.
+3. Keep Ollama, broad extraction formats, marketplace, and relationship-evidence table work deferred until the documented gates reopen them.
 
 ---
 

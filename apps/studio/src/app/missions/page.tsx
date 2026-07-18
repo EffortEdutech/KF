@@ -15,7 +15,7 @@ export default async function MissionsPage() {
           <p className="eyebrow">Mission Centre</p>
           <h2>Mission-backed activity</h2>
           <p className="lede">
-            A first operational queue for workspace, source, validation, and packaging work.
+            Operational traces for reusable manufacturing work orders, source preparation, governance, validation, and packaging.
           </p>
         </div>
         <span className="status">{missions.length} missions</span>
@@ -110,17 +110,16 @@ export default async function MissionsPage() {
           <p className="eyebrow">Operational boundary</p>
           <h3>Trace before automation</h3>
           <p>
-            Sprint 1 uses Missions to make project and source actions visible before
-            pipeline jobs, review queues, or PKA packaging are automated.
+            Missions keep work-order ownership, queue state, and human accountability visible before deeper workflow automation.
           </p>
           <dl className="detail-list">
             <div>
               <dt>Automatic traces</dt>
-              <dd>Project creation and source registration</dd>
+              <dd>Project creation, source registration, pipeline jobs, package decisions, and work-order checkpoints</dd>
             </div>
             <div>
               <dt>Manual traces</dt>
-              <dd>Review, validation, preparation, and follow-up work</dd>
+              <dd>Review, validation, preparation, remediation, packaging, and runtime handoff work</dd>
             </div>
             <div>
               <dt>Persistence</dt>
