@@ -325,11 +325,11 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 
 ### Batch 6 Must Finish - PKA Manufacturing Governance Closure
 
-- [ ] Add a generic governance closure report that combines manufacturing stages, work orders, release blockers, product quality, package validation, runtime handoff, and consumption validation into one release disposition.
-- [ ] Surface closure disposition in Studio as `accepted_for_release`, `rework_required`, or `release_blocked`, with human-readable reasons and links to the exact factory stage/work order.
-- [ ] Add rework routing actions or trace creation so closure issues return to Source-to-KO, Relationship/Governance, KO-to-Package, Runtime Validation, or Continuous Improvement work orders.
-- [ ] Validate the closure report with the QS/RFQ Base PKA article while keeping the decision vocabulary generic.
-- [ ] Update tests, docs, and Graphify; commit and push Batch 6 as one governance-closure capability batch.
+- [x] Add a generic governance closure report that combines manufacturing stages, work orders, release blockers, product quality, package validation, runtime handoff, and consumption validation into one release disposition.
+- [x] Surface closure disposition in Studio as `accepted_for_release`, `rework_required`, or `release_blocked`, with human-readable reasons and links to the exact factory stage/work order.
+- [x] Add rework routing actions or trace creation so closure issues return to Source-to-KO, Relationship/Governance, KO-to-Package, Runtime Validation, or Continuous Improvement work orders.
+- [x] Validate the closure report with the QS/RFQ Base PKA article while keeping the decision vocabulary generic.
+- [x] Update tests, docs, and Graphify; commit and push Batch 6 as one governance-closure capability batch.
 
 ### Acceptance Demo
 
@@ -490,7 +490,11 @@ A KF operator can open the Studio and see whether a manufactured PKA is accepted
 
 Implementation status:
 
-- [ ] Not started.
+- [x] `getPkaManufacturingClosureReport` derives a final factory disposition from manufacturing stages, work orders, release blockers, product quality, package validation, runtime handoff, and consumption validation.
+- [x] `/manufacturing-line` shows the closure disposition, closure metrics, closure reasons, route links, and rework trace creation controls.
+- [x] Runtime smoke validates `release_blocked` for missing source extraction and `rework_required` for relationship/evidence manufacturing gaps.
+- [x] QS/RFQ currently validates the closure gate by showing that a published/runtime-ready package can still require relationship-governance rework before full factory acceptance.
+- [x] Graphify refreshed for the closure report symbols; commit/push pending.
 
 ---
 
@@ -529,15 +533,11 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Start **Batch 6 - PKA Manufacturing Governance Closure**.
+Close **Batch 6 - PKA Manufacturing Governance Closure** with commit/push, then decide the next factory batch from the closure signal.
 
-Batch 6 should not create a new pilot workflow. It should add a generic closure layer over the existing manufacturing line so the operator can make one final factory disposition:
+The current QS/RFQ validation article is published and runtime-ready, but the new closure gate reports `rework_required` for Relationship and Evidence Manufacturing when graph edges are not fully release-grade. The next batch should either close that relationship/evidence rework generically or define the next factory capability that depends on it.
 
-- `accepted_for_release` when manufacturing, governance, package, handoff, and consumption checks are clear.
-- `rework_required` when the PKA is manufacturable but must return to a named work order.
-- `release_blocked` when publication or runtime handoff is blocked by governance, package, or consumption risks.
-
-Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure demo.
+Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure or its documented follow-up.
 
 ---
 

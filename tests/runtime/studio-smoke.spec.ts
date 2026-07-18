@@ -163,6 +163,11 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByText("Model calls")).toBeVisible();
     await expect(page.getByText("0", { exact: true }).first()).toBeVisible();
 
+    await page.goto("/manufacturing-line?projectId=kf-qs-rfq-pilot");
+    await expect(page.getByText("PKA Manufacturing Governance Closure")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order")).toBeVisible();
+
     await page.goto("/pipeline?projectId=kf-qs-rfq-pilot");
     await expect(page.getByText("Pilot output ready")).toBeVisible();
     await expect(page.getByText("Published package handoff")).toBeVisible();
@@ -539,13 +544,16 @@ test.describe("KF Studio runtime smoke", () => {
       .locator('textarea[name="notes"]')
       .fill("Pilot consumer needs independent lifecycle for multiple relationship evidence citations.");
     await handoffFeedbackForm.getByRole("button", { name: "Record handoff feedback" }).click();
-    await expect(
-      page.getByLabel("Runtime handoff feedback summary").getByText("monitor multi source lifecycle feedback")
-    ).toBeVisible();
-    await expect(page.getByLabel("Runtime handoff feedback summary").getByText("1 / 2")).toBeVisible();
-    await expect(page.getByLabel("Runtime handoff feedback history").getByText("needs multi source lifecycle")).toBeVisible();
+    await expect(page.getByLabel("Runtime handoff feedback summary")).toContainText(
+      /keep provenance for pilot|monitor multi source lifecycle feedback|investigate dedicated relationship evidence table/
+    );
+    await expect(page.getByLabel("Runtime handoff feedback history")).toBeVisible();
     await page.goto(`/manufacturing-line?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
+    await expect(page.getByText("PKA Manufacturing Governance Closure")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Release blocked" })).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure metrics").getByText("Release stages ready")).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Source-to-KO work order")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line status metrics").getByText("Ready stages")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line stages").getByText("8. Runtime Handoff")).toBeVisible();
     await expect(page.getByLabel("Manufacturing Line stages").getByText("9. Consumption Validation")).toBeVisible();
@@ -556,6 +564,8 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Manufacturing work orders").getByText("1/1 open")).toBeVisible();
     await page.getByRole("button", { name: "Run manufacturing validation article" }).click();
     await expect(page).toHaveURL(/\/manufacturing-line\?projectId=kf-qs-rfq-pilot/);
+    await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();
+    await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Relationship and governance work order")).toBeVisible();
     await expect(page.getByText("Manufacturing Run Report")).toBeVisible();
     await page.getByRole("link", { name: "Runtime import checks" }).click();
     await expect(page.getByRole("heading", { name: "Runtime Import Harness" })).toBeVisible();

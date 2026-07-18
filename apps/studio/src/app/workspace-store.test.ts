@@ -22,6 +22,7 @@ import {
   getKnowledgeObjectReviewReadinessHints,
   getManufacturingLineRunReport,
   getManufacturingWorkOrderReport,
+  getPkaManufacturingClosureReport,
   getPkaComponentManufacturingReport,
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
@@ -285,6 +286,16 @@ async function runWorkspaceStoreContractTest() {
   expect(
     reusedPilotResult.packageId === pilotResult.packageId,
     "QS/RFQ pilot rerun should not create a new package version when the current package is ready"
+  );
+  const manufacturingClosureReport = await getPkaManufacturingClosureReport(pilotSourcePack.projectId);
+  expect(
+    manufacturingClosureReport.disposition !== "release_blocked",
+    "QS/RFQ pilot should validate a non-blocked generic PKA manufacturing closure disposition"
+  );
+  expect(
+    manufacturingClosureReport.reworkRoutes.some((route) => route.workOrderId === "graph-governance") ||
+      manufacturingClosureReport.acceptedSignals.length >= 3,
+    "manufacturing closure should either accept release or route rework into the factory work orders"
   );
 
   const initialProjectCount = (await listProjects()).length;

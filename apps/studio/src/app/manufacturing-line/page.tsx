@@ -6,6 +6,7 @@ import {
 import {
   getManufacturingLineRunReport,
   getManufacturingWorkOrderReport,
+  getPkaManufacturingClosureReport,
   getQsRfqPilotSourcePack,
   listProjects
 } from "../workspace-store";
@@ -28,12 +29,21 @@ function readinessClass(status: string) {
   return status === "blocked" ? "readiness-blocked" : "readiness-info";
 }
 
+function closureClass(disposition: string) {
+  if (disposition === "accepted_for_release") {
+    return "readiness-ready";
+  }
+
+  return disposition === "release_blocked" ? "readiness-blocked" : "readiness-warning";
+}
+
 export default async function ManufacturingLinePage({ searchParams }: ManufacturingLinePageProps) {
   const params = await searchParams;
   const projects = await listProjects();
   const activeProject = projects.find((project) => project.id === params?.projectId) ?? projects[0];
   const report = await getManufacturingLineRunReport(activeProject.id);
   const workOrderReport = await getManufacturingWorkOrderReport(activeProject.id);
+  const closureReport = await getPkaManufacturingClosureReport(activeProject.id);
   const validationSourcePack = getQsRfqPilotSourcePack();
   const canRunValidationArticle = activeProject.id === validationSourcePack.projectId;
 
@@ -78,6 +88,73 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
         <div className="metric">
           <span>Validation article</span>
           <strong>{report.validationArticle}</strong>
+        </div>
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">PKA Manufacturing Governance Closure</p>
+            <h3>{closureReport.dispositionLabel}</h3>
+          </div>
+          <span className={`pill ${closureClass(closureReport.disposition)}`}>
+            {statusLabel(closureReport.disposition)}
+          </span>
+        </div>
+        <p>
+          This is the final factory disposition for the selected Base PKA. It combines stage readiness, work orders,
+          product quality, release blockers, package validation, runtime handoff, and consumption validation.
+        </p>
+        <section className="metrics" aria-label="PKA manufacturing closure metrics">
+          <div className="metric">
+            <span>Release stages ready</span>
+            <strong>{closureReport.summary.readyStageCount}/9</strong>
+          </div>
+          <div className="metric">
+            <span>Closure issues</span>
+            <strong>{closureReport.reasons.length}</strong>
+          </div>
+          <div className="metric">
+            <span>Quality score</span>
+            <strong>{closureReport.summary.qualityScore}</strong>
+          </div>
+          <div className="metric">
+            <span>Package</span>
+            <strong>{closureReport.packageStatus ?? "not started"}</strong>
+          </div>
+        </section>
+        <div className="readiness-list" aria-label="PKA manufacturing closure reasons">
+          {closureReport.disposition === "accepted_for_release" ? (
+            closureReport.acceptedSignals.map((signal) => (
+              <div className="readiness-item readiness-ready" key={signal}>
+                <strong>Accepted signal</strong>
+                <span>{signal}</span>
+              </div>
+            ))
+          ) : (
+            closureReport.reworkRoutes.slice(0, 6).map((reason) => (
+              <article className={`readiness-item ${closureClass(reason.severity === "blocker" ? "release_blocked" : "rework_required")}`} key={reason.id}>
+                <strong>{reason.title}</strong>
+                <span>{reason.detail}</span>
+                <span>
+                  Route: {reason.stageTitle} / {reason.workOrderTitle}
+                </span>
+                <span>{reason.recommendedAction}</span>
+                <div className="action-row">
+                  <Link className="text-link" href={reason.href}>
+                    Open route
+                  </Link>
+                  <form className="inline-form" action={createManufacturingWorkOrderTraceAction}>
+                    <input type="hidden" name="projectId" value={activeProject.id} />
+                    <input type="hidden" name="workOrderId" value={reason.workOrderId} />
+                    <input type="hidden" name="actor" value="knowledge_architect" />
+                    <input type="hidden" name="status" value="queued" />
+                    <button type="submit">Create rework trace</button>
+                  </form>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </section>
 

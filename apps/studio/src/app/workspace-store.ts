@@ -186,6 +186,48 @@ export type ManufacturingLineRunReport = {
   nextActions: string[];
 };
 
+export type PkaManufacturingClosureDisposition =
+  | "accepted_for_release"
+  | "rework_required"
+  | "release_blocked";
+
+export type PkaManufacturingClosureReason = {
+  id: string;
+  severity: "blocker" | "rework" | "ready";
+  title: string;
+  detail: string;
+  stageId: ManufacturingLineStageId;
+  stageTitle: string;
+  workOrderId: string;
+  workOrderTitle: string;
+  href: string;
+  recommendedAction: string;
+};
+
+export type PkaManufacturingClosureReport = {
+  projectId: string;
+  projectName: string;
+  packageId?: string;
+  packageStatus?: LifecycleState;
+  disposition: PkaManufacturingClosureDisposition;
+  dispositionLabel: string;
+  summary: {
+    readyStageCount: number;
+    blockedStageCount: number;
+    completeWorkOrderCount: number;
+    blockedWorkOrderCount: number;
+    qualityScore: number;
+    qualityBand: PkaProductQualityBand;
+    releaseBlockerCount: number;
+    packageValidationWarningCount: number;
+    runtimeImportStatus?: RuntimePkaImportReport["status"];
+    runtimeHandoffDecision?: RuntimeHandoffInstallDecision;
+  };
+  acceptedSignals: string[];
+  reasons: PkaManufacturingClosureReason[];
+  reworkRoutes: PkaManufacturingClosureReason[];
+};
+
 export type ManufacturingWorkOrderPhase =
   | "source_to_ko"
   | "graph_governance"
@@ -4995,6 +5037,224 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     sourceToKnowledgeObject,
     knowledgeObjectToPackage,
     workOrders
+  };
+}
+
+function closureWorkOrderForStage(
+  stageId: ManufacturingLineStageId,
+  workOrders: ManufacturingWorkOrder[]
+): ManufacturingWorkOrder {
+  const workOrderIdByStage: Record<ManufacturingLineStageId, string> = {
+    source_intake: "source-to-ko",
+    preparation_extraction: "source-to-ko",
+    ko_manufacturing: "source-to-ko",
+    relationship_evidence: "graph-governance",
+    human_governance: "graph-governance",
+    pka_assembly: "ko-to-package",
+    release_publication: "ko-to-package",
+    runtime_handoff: "runtime-validation",
+    consumption_validation: "runtime-validation",
+    continuous_improvement: "continuous-improvement"
+  };
+
+  return workOrders.find((workOrder) => workOrder.id === workOrderIdByStage[stageId]) ?? workOrders[0];
+}
+
+function closureReasonFromStage(
+  stage: ManufacturingLineStage,
+  workOrders: ManufacturingWorkOrder[],
+  severity: PkaManufacturingClosureReason["severity"]
+): PkaManufacturingClosureReason {
+  const workOrder = closureWorkOrderForStage(stage.id, workOrders);
+
+  return {
+    id: `stage-${stage.id}`,
+    severity,
+    title: `${stage.title}: ${severity === "blocker" ? "release blocked" : "rework required"}`,
+    detail: stage.detail,
+    stageId: stage.id,
+    stageTitle: stage.title,
+    workOrderId: workOrder.id,
+    workOrderTitle: workOrder.title,
+    href: stage.href,
+    recommendedAction: workOrder.nextAction
+  };
+}
+
+function uniqueClosureReasons(reasons: PkaManufacturingClosureReason[]) {
+  const seen = new Set<string>();
+
+  return reasons.filter((reason) => {
+    if (seen.has(reason.id)) {
+      return false;
+    }
+
+    seen.add(reason.id);
+    return true;
+  });
+}
+
+export async function getPkaManufacturingClosureReport(projectId: string): Promise<PkaManufacturingClosureReport> {
+  const [lineReport, workOrderReport, productQuality, releaseReadinessHints, packageValidation] = await Promise.all([
+    getManufacturingLineRunReport(projectId),
+    getManufacturingWorkOrderReport(projectId),
+    getPkaProductQualityReport(projectId),
+    getPkaReleaseReadinessHints(projectId),
+    getPkaPackageValidationReport(projectId)
+  ]);
+  const latestPackageStatus = lineReport.summary.latestPackageStatus;
+  const packageValidationWarnings = packageValidation.filter((item) => item.level === "warning");
+  const releaseBlockers = releaseReadinessHints.filter((hint) => hint.level === "warning");
+  const releaseClosureStages = lineReport.stages.filter((stage) => stage.id !== "continuous_improvement");
+  const reasons: PkaManufacturingClosureReason[] = [];
+
+  for (const stage of releaseClosureStages) {
+    if (stage.status === "blocked") {
+      reasons.push(closureReasonFromStage(stage, workOrderReport.workOrders, "blocker"));
+    }
+
+    if (stage.status === "building") {
+      reasons.push(closureReasonFromStage(stage, workOrderReport.workOrders, "rework"));
+    }
+  }
+
+  for (const workOrder of workOrderReport.workOrders.filter((item) => item.id !== "continuous-improvement")) {
+    if (workOrder.status === "blocked") {
+      reasons.push({
+        id: `work-order-${workOrder.id}`,
+        severity: "blocker",
+        title: `${workOrder.title}: blocked`,
+        detail: workOrder.outputSignal,
+        stageId:
+          workOrder.id === "source-to-ko"
+            ? "preparation_extraction"
+            : workOrder.id === "graph-governance"
+              ? "human_governance"
+              : workOrder.id === "runtime-validation"
+                ? "runtime_handoff"
+                : "pka_assembly",
+        stageTitle: workOrder.stageRange,
+        workOrderId: workOrder.id,
+        workOrderTitle: workOrder.title,
+        href: workOrder.href,
+        recommendedAction: workOrder.nextAction
+      });
+    }
+
+    if (workOrder.status === "waiting_for_approval") {
+      reasons.push({
+        id: `work-order-${workOrder.id}-approval`,
+        severity: "rework",
+        title: `${workOrder.title}: approval checkpoint open`,
+        detail: workOrder.approvalCheckpoint,
+        stageId:
+          workOrder.id === "graph-governance"
+            ? "human_governance"
+            : workOrder.id === "runtime-validation"
+              ? "runtime_handoff"
+              : "release_publication",
+        stageTitle: workOrder.stageRange,
+        workOrderId: workOrder.id,
+        workOrderTitle: workOrder.title,
+        href: workOrder.href,
+        recommendedAction: workOrder.nextAction
+      });
+    }
+  }
+
+  releaseBlockers.slice(0, 5).forEach((hint) => {
+    const workOrder = closureWorkOrderForStage("human_governance", workOrderReport.workOrders);
+    reasons.push({
+      id: `release-${hint.id}`,
+      severity: "blocker",
+      title: hint.title,
+      detail: hint.detail,
+      stageId: "human_governance",
+      stageTitle: "Human Governance",
+      workOrderId: workOrder.id,
+      workOrderTitle: workOrder.title,
+      href: `/review?projectId=${projectId}&queueStatus=all&blockerType=all`,
+      recommendedAction: "Resolve the release-readiness blocker in Review before closure."
+    });
+  });
+
+  packageValidationWarnings.slice(0, 5).forEach((item) => {
+    const workOrder = closureWorkOrderForStage("pka_assembly", workOrderReport.workOrders);
+    reasons.push({
+      id: `package-${item.id}`,
+      severity: "blocker",
+      title: item.title,
+      detail: item.detail,
+      stageId: "pka_assembly",
+      stageTitle: "PKA Assembly",
+      workOrderId: workOrder.id,
+      workOrderTitle: workOrder.title,
+      href: `/pka-builder?projectId=${projectId}`,
+      recommendedAction: "Repair package validation warnings before final closure."
+    });
+  });
+
+  if (!productQuality.releaseGrade) {
+    const workOrder = closureWorkOrderForStage("human_governance", workOrderReport.workOrders);
+    reasons.push({
+      id: "quality-not-release-grade",
+      severity: latestPackageStatus === "published" ? "rework" : "blocker",
+      title: `Product quality is ${productQuality.band.replaceAll("_", " ")}`,
+      detail: productQuality.topRisks[0] ?? "Improve source, governance, relationship, package, or handoff quality signals.",
+      stageId: "human_governance",
+      stageTitle: "Human Governance",
+      workOrderId: workOrder.id,
+      workOrderTitle: workOrder.title,
+      href: `/pka-builder?projectId=${projectId}`,
+      recommendedAction: "Use the PKA Product Quality report to close the highest-risk quality gaps."
+    });
+  }
+
+  const uniqueReasons = uniqueClosureReasons(reasons);
+  const blockerCount = uniqueReasons.filter((reason) => reason.severity === "blocker").length;
+  const reworkCount = uniqueReasons.filter((reason) => reason.severity === "rework").length;
+  const disposition: PkaManufacturingClosureDisposition =
+    blockerCount > 0 ? "release_blocked" : reworkCount > 0 ? "rework_required" : "accepted_for_release";
+
+  return {
+    projectId,
+    projectName: lineReport.projectName,
+    packageId: lineReport.summary.latestPackageId,
+    packageStatus: latestPackageStatus,
+    disposition,
+    dispositionLabel:
+      disposition === "accepted_for_release"
+        ? "Accepted for release"
+        : disposition === "release_blocked"
+          ? "Release blocked"
+          : "Rework required",
+    summary: {
+      readyStageCount: releaseClosureStages.filter((stage) => stage.status === "ready").length,
+      blockedStageCount: releaseClosureStages.filter((stage) => stage.status === "blocked").length,
+      completeWorkOrderCount: workOrderReport.workOrders.filter(
+        (workOrder) => workOrder.id !== "continuous-improvement" && workOrder.status === "complete"
+      ).length,
+      blockedWorkOrderCount: workOrderReport.workOrders.filter(
+        (workOrder) => workOrder.id !== "continuous-improvement" && workOrder.status === "blocked"
+      ).length,
+      qualityScore: productQuality.score,
+      qualityBand: productQuality.band,
+      releaseBlockerCount: releaseBlockers.length,
+      packageValidationWarningCount: packageValidationWarnings.length,
+      runtimeImportStatus: lineReport.summary.runtimeImportStatus,
+      runtimeHandoffDecision: lineReport.summary.runtimeHandoffDecision
+    },
+    acceptedSignals:
+      disposition === "accepted_for_release"
+        ? [
+            "Manufacturing stages 1-9 are release-ready.",
+            "Work orders through runtime validation are complete.",
+            "Product quality is release-grade.",
+            "Package validation, handoff, import, and deterministic Q&A readiness are clear."
+          ]
+        : [],
+    reasons: uniqueReasons,
+    reworkRoutes: uniqueReasons.filter((reason) => reason.severity !== "ready")
   };
 }
 
