@@ -19,12 +19,18 @@ export function StudioShell({ children }: Readonly<{ children: React.ReactNode }
                 item.href.startsWith("/") ? (
                   <Link key={`${section.title}-${item.label}`} href={item.href}>
                     {"stage" in item ? <span className="nav-stage">{item.stage}</span> : null}
-                    <span>{item.label}</span>
+                    <span className="nav-copy">
+                      <span>{item.label}</span>
+                      {"caption" in item ? <small>{item.caption}</small> : null}
+                    </span>
                   </Link>
                 ) : (
                   <a key={`${section.title}-${item.label}`} href={item.href} aria-disabled="true">
                     {"stage" in item ? <span className="nav-stage">{item.stage}</span> : null}
-                    <span>{item.label}</span>
+                    <span className="nav-copy">
+                      <span>{item.label}</span>
+                      {"caption" in item ? <small>{item.caption}</small> : null}
+                    </span>
                   </a>
                 )
               )}
@@ -33,7 +39,7 @@ export function StudioShell({ children }: Readonly<{ children: React.ReactNode }
         </nav>
 
         <div className="sidebar-footer">
-          <span>Active project</span>
+          <span>Validation article</span>
           <strong>{workspace.activeProjectName}</strong>
         </div>
       </aside>

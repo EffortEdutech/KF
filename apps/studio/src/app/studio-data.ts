@@ -2,41 +2,41 @@ import type { LifecycleState, MissionStatus, MissionType, RelationshipType } fro
 
 export const navigationSections = [
   {
-    title: "Factory Control",
+    title: "Control Tower",
     items: [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Manufacturing Line", href: "/manufacturing-line" },
-      { label: "Mission Centre", href: "/missions" },
-      { label: "Projects", href: "/projects" }
+      { label: "Factory Dashboard", caption: "Portfolio signals", href: "/dashboard" },
+      { label: "Manufacturing Line", caption: "Ten-stage PKA flow", href: "/manufacturing-line" },
+      { label: "Mission Centre", caption: "Work orders and traces", href: "/missions" },
+      { label: "Projects", caption: "PKA product scope", href: "/projects" }
     ]
   },
   {
-    title: "PKA Manufacturing",
+    title: "Manufacture PKA",
     items: [
-      { stage: "01", label: "Source Intake", href: "/sources" },
-      { stage: "02", label: "Preparation & Extraction", href: "/pipeline" },
-      { stage: "03", label: "Knowledge Objects", href: "/knowledge-objects" },
-      { stage: "04", label: "Relationships & Evidence", href: "/ontology" },
-      { stage: "05", label: "Human Governance", href: "/review" },
-      { stage: "06", label: "PKA Assembly", href: "/pka-builder" },
-      { stage: "07", label: "Release Readback", href: "/pka-builder/readback" },
-      { stage: "08", label: "Runtime Handoff", href: "/runtime-handoff" },
-      { stage: "09", label: "Consumption Validation", href: "/runtime-import" },
-      { stage: "10", label: "Continuous Improvement", href: "/manufacturing-line" }
+      { stage: "01", label: "Source Intake", caption: "Trusted inputs", href: "/sources" },
+      { stage: "02", label: "Prepare & Extract", caption: "Chunks and candidates", href: "/pipeline" },
+      { stage: "03", label: "Manufacture KOs", caption: "Governed knowledge units", href: "/knowledge-objects" },
+      { stage: "04", label: "Link Evidence", caption: "Graph and provenance", href: "/ontology" },
+      { stage: "05", label: "Human Governance", caption: "Review and blockers", href: "/review" },
+      { stage: "06", label: "Assemble PKA", caption: "Package components", href: "/pka-builder" },
+      { stage: "07", label: "Release Product", caption: "Approval and readback", href: "/pka-builder/readback" },
+      { stage: "08", label: "Runtime Handoff", caption: "Installer contract", href: "/runtime-handoff" },
+      { stage: "09", label: "Validate Consumption", caption: "Import and context checks", href: "/runtime-import" },
+      { stage: "10", label: "Improve Product", caption: "Feedback to revision", href: "/manufacturing-line" }
     ]
   },
   {
     title: "Validation Article",
     items: [
-      { label: "RFQ Workflow", href: "/rfq-workflow" },
-      { label: "Runtime Q&A Readiness", href: "/runtime-qa" }
+      { label: "RFQ Workflow", caption: "QS/RFQ workpiece", href: "/rfq-workflow" },
+      { label: "Runtime Q&A Readiness", caption: "Grounded context demo", href: "/runtime-qa" }
     ]
   },
   {
     title: "Deferred Tools",
     items: [
-      { label: "AI Workbench", href: "#ai-workbench" },
-      { label: "Settings", href: "#settings" }
+      { label: "AI Workbench", caption: "Ollama integration deferred", href: "#ai-workbench" },
+      { label: "Settings", caption: "Later operating controls", href: "#settings" }
     ]
   }
 ];

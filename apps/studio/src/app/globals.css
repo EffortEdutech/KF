@@ -80,7 +80,7 @@ textarea {
 
 .sidebar nav {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
@@ -101,12 +101,13 @@ textarea {
 }
 
 .sidebar a {
-  align-items: center;
+  align-items: flex-start;
   border-radius: 6px;
   color: var(--muted);
   display: flex;
   gap: 8px;
-  padding: 10px 12px;
+  line-height: 1.25;
+  padding: 8px 10px;
 }
 
 .nav-stage {
@@ -121,12 +122,35 @@ textarea {
   min-height: 20px;
 }
 
+.nav-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nav-copy span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nav-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .sidebar a:hover {
   background: var(--panel);
   color: var(--foreground);
 }
 
 .sidebar a[aria-disabled="true"] {
+  color: #65716b;
+}
+
+.sidebar a[aria-disabled="true"] .nav-copy span,
+.sidebar a[aria-disabled="true"] .nav-copy small {
   color: #65716b;
 }
 
@@ -756,6 +780,12 @@ a.readiness-item:hover {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    height: auto;
+    position: static;
+  }
+
+  .sidebar nav {
+    max-height: 68vh;
   }
 
   .metrics,

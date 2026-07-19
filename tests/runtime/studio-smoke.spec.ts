@@ -10,19 +10,22 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByText("Factory Control")).toBeVisible();
-    await expect(page.getByText("PKA Manufacturing")).toBeVisible();
-    await expect(page.getByText("Validation Article")).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Manufacturing Line" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "05 Human Governance" })).toBeVisible();
+    await expect(page.getByText("Control Tower")).toBeVisible();
+    await expect(page.getByText("Manufacture PKA")).toBeVisible();
+    await expect(page.getByText("Validation Article", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /Manufacturing Line/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /05 Human Governance/ })).toBeVisible();
     await expect(
-      page.getByLabel("Studio navigation").getByRole("link", { name: "06 PKA Assembly" })
+      page.getByLabel("Studio navigation").getByRole("link", { name: /06 Assemble PKA/ })
     ).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "02 Preparation & Extraction" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "04 Relationships & Evidence" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "08 Runtime Handoff" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "09 Consumption Validation" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Q&A Readiness" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /02 Prepare & Extract/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /04 Link Evidence/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /08 Runtime Handoff/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /09 Validate Consumption/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /10 Improve Product/ })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: /Runtime Q&A Readiness/ })).toBeVisible();
+    await expect(page.getByText("Ten-stage PKA flow")).toBeVisible();
+    await expect(page.getByText("Feedback to revision")).toBeVisible();
     await expect(page.getByText("Review queue")).toBeVisible();
     await expect(page.getByText("Release blockers")).toBeVisible();
 

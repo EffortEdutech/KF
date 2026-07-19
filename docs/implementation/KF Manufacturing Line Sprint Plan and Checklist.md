@@ -355,6 +355,14 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 - [x] Keep relationship evidence table and app-developer review table decisions threshold-based instead of creating new tables immediately.
 - [x] Validate repeated app-developer feedback can reopen a revision trigger without adding runtime execution or Ollama.
 
+### Operator Navigation Alignment - 2026-07-19
+
+- [x] Reframe the Studio sidebar around KF factory operation instead of isolated route names.
+- [x] Group routes as Control Tower, Manufacture PKA, Validation Article, and Deferred Tools.
+- [x] Show the ten manufacturing stages directly in the sidebar with stage numbers and operator captions.
+- [x] Keep QS/RFQ visible only as the validation article, not the sprint objective.
+- [x] Preserve sticky desktop navigation and mobile-friendly top navigation behavior.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -635,7 +643,7 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Close **Batch 9 - Continuous Improvement Closure** with verification, Graphify refresh, commit, and push.
+Use the workflow-aligned sidebar to review the complete Manufacturing Line in Studio, then decide the next capability batch from the factory closure signals.
 
 The current factory line can now route app-developer feedback, stale package exports, product-quality drift, and new-source signals into a governed future revision without adding runtime execution or new persistence tables.
 
