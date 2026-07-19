@@ -339,6 +339,14 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 - [x] Feed the relationship closure report into `getPkaManufacturingClosureReport` so Stage 4 can reach ready only when package-relevant relationships are release-grade or intentionally excluded.
 - [x] Validate QS/RFQ can move from `rework_required` to `accepted_for_release` without adding Ollama, runtime execution, or a dedicated relationship evidence table.
 
+### Batch 8 Must Finish - Package Re-assembly and Readback Closure
+
+- [x] Add a generic package assembly/readback closure report that compares current factory state with the persisted package export.
+- [x] Surface current-vs-persisted KO, relationship, source, component, and file-delta signals in PKA Builder and Package Readback.
+- [x] Feed package assembly/readback closure into Manufacturing Line Stage 6 and KO-to-package work-order readiness.
+- [x] Preserve immutable published package semantics by requiring a new version or draft replacement instead of silently rewriting published exports.
+- [x] Validate that relationship/evidence closure changes after publication reopen package re-assembly without adding runtime execution or Ollama.
+
 ### Acceptance Demo
 
 1. Open Studio on `http://localhost:4700`.
@@ -530,6 +538,32 @@ Implementation status:
 - [x] Manufacturing Line Stage 4 and product quality use release-grade relationship closure instead of raw approved-edge counts.
 - [x] Store contract validates QS/RFQ can reach `accepted_for_release` after non-release-grade working edges are explicitly excluded; runtime smoke validates the visible remediation path.
 
+### Batch 8 - Package Re-assembly and Readback Closure
+
+Goal:
+
+Close the Stage 6 manufacturing gap after release-grade relationship filtering by proving the persisted PKA export still matches the current factory state.
+
+Deliverables:
+
+- Package assembly/readback closure report.
+- Current-vs-persisted manifest and file-delta signals.
+- PKA Builder and Package Readback closure surfaces.
+- Manufacturing Line and KO-to-package work-order integration.
+- Tests, docs, Graphify refresh, and commit/push.
+
+Done when:
+
+A KF operator can see whether the latest persisted package is current and readable, or whether a draft replacement/new immutable version is required after manufacturing changes.
+
+Implementation status:
+
+- [x] `getPkaPackageAssemblyReadbackClosureReport` compares current package preview counts and files with the persisted package export.
+- [x] `/pka-builder` and `/pka-builder/readback` show package re-assembly/readback closure metrics, issues, and next action.
+- [x] `/manufacturing-line` shows package closure and treats stale persisted exports as KO-to-package rework.
+- [x] Store contract validates a published package starts current/readable and becomes `needs_reassembly` after a post-publication relationship release-exclusion change.
+- [x] Runtime smoke validates the new readback and Manufacturing Line package-closure surfaces.
+
 ---
 
 ## 8. Decision Gates
@@ -567,9 +601,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Close **Batch 7 - Relationship and Evidence Closure** with commit/push, then decide the next factory batch.
+Close **Batch 8 - Package Re-assembly and Readback Closure** with verification, Graphify refresh, commit, and push.
 
-The current QS/RFQ validation article can reach `accepted_for_release` through the store contract once non-release-grade working graph edges are explicitly excluded from release. The browser path validates the operator can inspect relationship closure and update release posture from `/ontology`.
+The current factory line can now distinguish a readable persisted package from a stale persisted export after relationship/evidence closure changes. Published exports remain immutable; operators must create a new version after post-publication manufacturing changes.
 
 Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure or its documented follow-up.
 

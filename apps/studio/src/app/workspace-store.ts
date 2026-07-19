@@ -490,6 +490,42 @@ export type PkaPackageReplacementSummary = {
   unchangedFiles: string[];
 };
 
+export type PkaPackageAssemblyReadbackClosureStatus =
+  | "current_and_readable"
+  | "needs_reassembly"
+  | "missing_package";
+
+export type PkaPackageAssemblyReadbackClosureReport = {
+  projectId: string;
+  packageId?: string;
+  packageStatus?: LifecycleState;
+  status: PkaPackageAssemblyReadbackClosureStatus;
+  statusLabel: string;
+  ready: boolean;
+  currentManifest?: {
+    knowledgeObjectCount: number;
+    relationshipCount: number;
+    sourceReferenceCount: number;
+    componentCount: number;
+  };
+  persistedManifest?: {
+    knowledgeObjectCount: number;
+    relationshipCount: number;
+    sourceReferenceCount: number;
+    componentCount: number;
+  };
+  fileDelta: {
+    changedFiles: string[];
+    addedFiles: string[];
+    removedFiles: string[];
+    unchangedFiles: string[];
+  };
+  readbackItems: PackageValidationItem[];
+  issues: PackageValidationItem[];
+  nextAction: string;
+  href: string;
+};
+
 export type PackageValidationItem = {
   id: string;
   level: "ready" | "warning" | "info";
@@ -4671,6 +4707,7 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     relationshipClosure,
     releaseReadinessHints,
     packageValidation,
+    packageAssemblyClosure,
     runtimeQaReadiness,
     fixtureEvaluation
   ] = await Promise.all([
@@ -4683,6 +4720,7 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     getRelationshipEvidenceClosureReport(projectId),
     getPkaReleaseReadinessHints(projectId),
     getPkaPackageValidationReport(projectId),
+    getPkaPackageAssemblyReadbackClosureReport(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
     getRuntimeQaFixtureEvaluationReport(projectId)
   ]);
@@ -4780,15 +4818,19 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     {
       id: "pka_assembly" as const,
       title: "PKA Assembly",
-      ready: Boolean(packageRecord) && packageValidationBlockerCount === 0,
+      ready: Boolean(packageRecord) && packageValidationBlockerCount === 0 && packageAssemblyClosure.ready,
       blocked: approvedKnowledgeObjects.length > 0 && !packageRecord,
       capability: "Assemble approved components into a structured Base PKA package.",
       genericRequirement: "Package structure is generic, inspectable, versioned, and runtime-boundary aware.",
-      metric: packageRecord ? `${packageRecord.packageId} / ${packageRecord.status}` : "no package",
+      metric: packageRecord
+        ? `${packageRecord.packageId} / ${packageAssemblyClosure.statusLabel}`
+        : "no package",
       detail:
-        packageRecord && packageValidationBlockerCount === 0
-          ? "The selected PKA project has an assembled package with passing local validation."
-          : "Assemble and validate a package after governance blockers are clear.",
+        packageRecord && packageValidationBlockerCount === 0 && packageAssemblyClosure.ready
+          ? "The selected PKA project has a current persisted package with passing archive and ZIP readback."
+          : packageRecord
+            ? "Re-assemble or replace the package export so persisted files match the current factory state."
+            : "Assemble and validate a package after governance blockers are clear.",
       href: `/pka-builder?projectId=${projectId}`
     },
     {
@@ -4988,6 +5030,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     packages,
     pipelineMetrics,
     relationshipClosure,
+    packageAssemblyClosure,
     releaseReadinessHints,
     runtimeQaReadiness,
     fixtureEvaluation,
@@ -5000,6 +5043,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     listPkaPackages(projectId),
     getPipelineQualityMetrics({ projectId }),
     getRelationshipEvidenceClosureReport(projectId),
+    getPkaPackageAssemblyReadbackClosureReport(projectId),
     getPkaReleaseReadinessHints(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
     getRuntimeQaFixtureEvaluationReport(projectId),
@@ -5093,9 +5137,10 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     phase: "ko_to_package",
     title: "KO-to-package work order",
     status: manufacturingWorkOrderStatus({
-      complete: Boolean(publishedPackage),
+      complete: Boolean(publishedPackage) && packageAssemblyClosure.ready,
       blocked: approvedKnowledgeObjects.length === 0,
-      waitingForApproval: Boolean(packageRecord) && packageRecord?.status !== "published",
+      waitingForApproval:
+        Boolean(packageRecord) && (packageRecord?.status !== "published" || !packageAssemblyClosure.ready),
       running: koToPackageMission.running,
       ready: approvedKnowledgeObjects.length > 0
     }),
@@ -5103,18 +5148,22 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     ownerRole: "publisher",
     stageRange: "PKA Assembly -> Release and Publication",
     inputSignal: `${approvedKnowledgeObjects.length} release-grade KO(s), ${approvedRelationships.length} approved relationship(s)`,
-    outputSignal: packageRecord ? `${packageRecord.packageId} / ${packageRecord.status}` : "no package assembled",
+    outputSignal: packageRecord
+      ? `${packageRecord.packageId} / ${packageRecord.status} / ${packageAssemblyClosure.statusLabel}`
+      : "no package assembled",
     approvalCheckpoint: "Draft package assembly is separate from release approval and immutable publication.",
     runControlLabel: "Open PKA Builder",
     href: `/pka-builder?projectId=${projectId}`,
     missionStage: "manufacturing:ko-to-package",
     missionCount: koToPackageMission.missionCount,
     openMissionCount: koToPackageMission.openMissionCount,
-    nextAction: publishedPackage
-      ? "Validate runtime handoff and consumption."
-      : packageRecord
-        ? "Complete package release review and publish when approved."
-        : "Assemble the first package draft."
+    nextAction: packageRecord && !packageAssemblyClosure.ready
+      ? packageAssemblyClosure.nextAction
+      : publishedPackage
+        ? "Validate runtime handoff and consumption."
+        : packageRecord
+          ? "Complete package release review and publish when approved."
+          : "Assemble the first package draft."
   };
   const runtimeValidation: ManufacturingWorkOrder = {
     id: "runtime-validation",
@@ -5250,15 +5299,25 @@ function uniqueClosureReasons(reasons: PkaManufacturingClosureReason[]) {
 }
 
 export async function getPkaManufacturingClosureReport(projectId: string): Promise<PkaManufacturingClosureReport> {
-  const [lineReport, workOrderReport, productQuality, releaseReadinessHints, packageValidation] = await Promise.all([
+  const [
+    lineReport,
+    workOrderReport,
+    productQuality,
+    releaseReadinessHints,
+    packageValidation,
+    packageAssemblyClosure
+  ] = await Promise.all([
     getManufacturingLineRunReport(projectId),
     getManufacturingWorkOrderReport(projectId),
     getPkaProductQualityReport(projectId),
     getPkaReleaseReadinessHints(projectId),
-    getPkaPackageValidationReport(projectId)
+    getPkaPackageValidationReport(projectId),
+    getPkaPackageAssemblyReadbackClosureReport(projectId)
   ]);
   const latestPackageStatus = lineReport.summary.latestPackageStatus;
-  const packageValidationWarnings = packageValidation.filter((item) => item.level === "warning");
+  const packageValidationWarnings = packageValidation.filter(
+    (item) => item.level === "warning" && item.id !== "package-assembly-readback-closure"
+  );
   const releaseBlockers = releaseReadinessHints.filter((hint) => hint.level === "warning");
   const releaseClosureStages = lineReport.stages.filter((stage) => stage.id !== "continuous_improvement");
   const reasons: PkaManufacturingClosureReason[] = [];
@@ -5348,6 +5407,25 @@ export async function getPkaManufacturingClosureReport(projectId: string): Promi
       recommendedAction: "Repair package validation warnings before final closure."
     });
   });
+
+  packageAssemblyClosure.issues
+    .filter((item) => item.level === "warning")
+    .slice(0, 3)
+    .forEach((item) => {
+      const workOrder = closureWorkOrderForStage("pka_assembly", workOrderReport.workOrders);
+      reasons.push({
+        id: `package-closure-${item.id}`,
+        severity: packageAssemblyClosure.packageStatus === "published" ? "rework" : "blocker",
+        title: item.title,
+        detail: item.detail,
+        stageId: "pka_assembly",
+        stageTitle: "PKA Assembly",
+        workOrderId: workOrder.id,
+        workOrderTitle: workOrder.title,
+        href: packageAssemblyClosure.href,
+        recommendedAction: packageAssemblyClosure.nextAction
+      });
+    });
 
   if (!productQuality.releaseGrade) {
     const workOrder = closureWorkOrderForStage("human_governance", workOrderReport.workOrders);
@@ -7747,6 +7825,183 @@ export async function getPkaPackageReplacementSummary(input: {
   };
 }
 
+function packageManifestCounts(manifest: Record<string, unknown> | undefined) {
+  if (!manifest) {
+    return undefined;
+  }
+
+  return {
+    knowledgeObjectCount:
+      typeof manifest.knowledgeObjectCount === "number" ? manifest.knowledgeObjectCount : 0,
+    relationshipCount: typeof manifest.relationshipCount === "number" ? manifest.relationshipCount : 0,
+    sourceReferenceCount:
+      typeof manifest.sourceReferenceCount === "number" ? manifest.sourceReferenceCount : 0,
+    componentCount: Array.isArray(manifest.componentIndex) ? manifest.componentIndex.length : 0
+  };
+}
+
+function packageClosureStatusLabel(status: PkaPackageAssemblyReadbackClosureStatus) {
+  return status === "current_and_readable"
+    ? "Current and readable"
+    : status === "needs_reassembly"
+      ? "Needs re-assembly"
+      : "Missing package";
+}
+
+function packageClosureIssue(
+  id: string,
+  level: PackageValidationItem["level"],
+  title: string,
+  detail: string
+): PackageValidationItem {
+  return {
+    id,
+    level,
+    title,
+    detail
+  };
+}
+
+export async function getPkaPackageAssemblyReadbackClosureReport(
+  projectId: string
+): Promise<PkaPackageAssemblyReadbackClosureReport> {
+  const packages = await listPkaPackages(projectId);
+  const latestPackage = latestPublishedPackage(packages) ?? packages[0];
+  const currentPreview = latestPackage
+    ? await buildPkaPackageExportPreview({
+        projectId,
+        name: latestPackage.name,
+        version: latestPackage.version,
+        publisher: "publisher"
+      })
+    : await buildPkaPackageExportPreview({ projectId });
+  const currentManifest = currentPreview?.files.find((file) => file.path === "manifest.json")
+    ?.contents as Record<string, unknown> | undefined;
+  const persistedManifest = latestPackage?.manifest;
+
+  if (!latestPackage || !currentPreview) {
+    const issue = packageClosureIssue(
+      "package-assembly-missing",
+      "warning",
+      "Package assembly missing",
+      "Assemble a draft package before persisted readback closure can run."
+    );
+
+    return {
+      projectId,
+      status: "missing_package",
+      statusLabel: packageClosureStatusLabel("missing_package"),
+      ready: false,
+      currentManifest: packageManifestCounts(currentManifest),
+      persistedManifest: undefined,
+      fileDelta: {
+        changedFiles: [],
+        addedFiles: currentPreview?.files.map((file) => file.path) ?? [],
+        removedFiles: [],
+        unchangedFiles: []
+      },
+      readbackItems: [],
+      issues: [issue],
+      nextAction: "Assemble a draft Base PKA package after release blockers clear.",
+      href: `/pka-builder?projectId=${projectId}`
+    };
+  }
+
+  const replacementSummary = await getPkaPackageReplacementSummary({
+    projectId,
+    name: latestPackage.name,
+    version: latestPackage.version,
+    publisher: "publisher"
+  });
+  const readbackItems = await validatePersistedPkaPackageReadback(latestPackage.packageId);
+  const readbackWarnings = readbackItems.filter((item) => item.level === "warning");
+  const currentCounts = packageManifestCounts(currentManifest);
+  const persistedCounts = packageManifestCounts(persistedManifest);
+  const manifestCountChanged = Boolean(
+    currentCounts &&
+      persistedCounts &&
+      (currentCounts.knowledgeObjectCount !== persistedCounts.knowledgeObjectCount ||
+        currentCounts.relationshipCount !== persistedCounts.relationshipCount ||
+        currentCounts.sourceReferenceCount !== persistedCounts.sourceReferenceCount ||
+        currentCounts.componentCount !== persistedCounts.componentCount)
+  );
+  const changedFiles = replacementSummary?.changedFiles ?? [];
+  const addedFiles = replacementSummary?.addedFiles ?? [];
+  const removedFiles = replacementSummary?.removedFiles ?? [];
+  const unchangedFiles = replacementSummary?.unchangedFiles ?? [];
+  const needsReassembly =
+    manifestCountChanged || changedFiles.length > 0 || addedFiles.length > 0 || readbackWarnings.length > 0;
+  const issues: PackageValidationItem[] = [];
+
+  issues.push(
+    packageClosureIssue(
+      "package-current-vs-persisted",
+      needsReassembly ? "warning" : "ready",
+      "Current factory state vs persisted package",
+      needsReassembly
+        ? "The current assembly preview differs from the persisted package export. Replace the draft package or create a new version when the latest export is published."
+        : "The persisted package files match the current assembly preview."
+    )
+  );
+
+  if (manifestCountChanged && currentCounts && persistedCounts) {
+    issues.push(
+      packageClosureIssue(
+        "package-manifest-counts-stale",
+        "warning",
+        "Manifest counts changed",
+        `Current preview has ${currentCounts.knowledgeObjectCount} KO(s), ${currentCounts.relationshipCount} relationship(s), and ${currentCounts.sourceReferenceCount} source(s); persisted package has ${persistedCounts.knowledgeObjectCount} KO(s), ${persistedCounts.relationshipCount} relationship(s), and ${persistedCounts.sourceReferenceCount} source(s).`
+      )
+    );
+  }
+
+  if (changedFiles.length > 0 || addedFiles.length > 0 || removedFiles.length > 0) {
+    issues.push(
+      packageClosureIssue(
+        "package-file-delta",
+        changedFiles.length > 0 || addedFiles.length > 0 ? "warning" : "info",
+        "Package file delta",
+        `${changedFiles.length} changed, ${addedFiles.length} added, ${removedFiles.length} extra persisted file(s), ${unchangedFiles.length} unchanged.`
+      )
+    );
+  }
+
+  issues.push(...readbackItems);
+
+  const status: PkaPackageAssemblyReadbackClosureStatus = needsReassembly
+    ? "needs_reassembly"
+    : "current_and_readable";
+
+  return {
+    projectId,
+    packageId: latestPackage.packageId,
+    packageStatus: latestPackage.status,
+    status,
+    statusLabel: packageClosureStatusLabel(status),
+    ready: status === "current_and_readable",
+    currentManifest: currentCounts,
+    persistedManifest: persistedCounts,
+    fileDelta: {
+      changedFiles,
+      addedFiles,
+      removedFiles,
+      unchangedFiles
+    },
+    readbackItems,
+    issues,
+    nextAction:
+      status === "current_and_readable"
+        ? "Package assembly, persisted files, archive, and ZIP readback are current."
+        : latestPackage.status === "published"
+          ? "Create the next package version so the immutable published export is not overwritten."
+          : "Replace the current draft package export after reviewing the file delta.",
+    href:
+      status === "current_and_readable"
+        ? `/pka-builder/readback?projectId=${projectId}`
+        : `/pka-builder?projectId=${projectId}`
+  };
+}
+
 export function validatePkaManifest(manifest: Partial<PkaManifestPreview> | undefined): PackageValidationItem[] {
   if (!manifest) {
     return [
@@ -7892,6 +8147,7 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
   const manifestPreview = await getPkaManifestPreview(projectId);
   const exportPreview = await getPkaPackageExportPreview(projectId);
   const componentManufacturingReport = await getPkaComponentManufacturingReport(projectId);
+  const packageAssemblyClosure = await getPkaPackageAssemblyReadbackClosureReport(projectId);
   const releasableObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
   );
@@ -7899,6 +8155,14 @@ export async function getPkaPackageValidationReport(projectId: string): Promise<
 
   items.push(...validatePkaManifest(manifestPreview));
   items.push(...validatePkaPackageReadback(exportPreview));
+  items.push({
+    id: "package-assembly-readback-closure",
+    level: packageAssemblyClosure.ready ? "ready" : "warning",
+    title: "Package assembly readback closure",
+    detail: packageAssemblyClosure.ready
+      ? "Persisted package files match the current factory state and read back cleanly."
+      : packageAssemblyClosure.nextAction
+  });
   items.push({
     id: "component-manufacturing-readiness",
     level: componentManufacturingReport.ready ? "ready" : "warning",

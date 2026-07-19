@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createInvalidPkaReadbackFixturesAction } from "../../source-actions";
 import {
+  getPkaPackageAssemblyReadbackClosureReport,
   listPersistedPkaExportFiles,
   listPkaPackages,
   listProjects,
@@ -20,6 +21,9 @@ export default async function PkaReadbackPage({ searchParams }: PkaReadbackPageP
   const activeProject = requestedProject ?? projects[0];
   const packages = activeProject ? await listPkaPackages(activeProject.id) : [];
   const latestPackage = packages[0];
+  const closureReport = activeProject
+    ? await getPkaPackageAssemblyReadbackClosureReport(activeProject.id)
+    : undefined;
   const persistedFiles = latestPackage ? await listPersistedPkaExportFiles(latestPackage.packageId) : [];
   const currentReport = latestPackage
     ? await validatePersistedPkaPackageReadback(latestPackage.packageId)
@@ -60,6 +64,64 @@ export default async function PkaReadbackPage({ searchParams }: PkaReadbackPageP
             {project.name}
           </Link>
         ))}
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Package Re-assembly Closure</p>
+            <h3>{closureReport?.statusLabel ?? "No package closure"}</h3>
+          </div>
+          <span className={`pill ${closureReport?.ready ? "readiness-ready" : "readiness-warning"}`}>
+            {closureReport?.packageStatus ?? "not assembled"}
+          </span>
+        </div>
+        {closureReport ? (
+          <>
+            <section className="metrics" aria-label="Package re-assembly closure metrics">
+              <div className="metric">
+                <span>Persisted KOs</span>
+                <strong>{closureReport.persistedManifest?.knowledgeObjectCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <span>Current KOs</span>
+                <strong>{closureReport.currentManifest?.knowledgeObjectCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <span>Persisted edges</span>
+                <strong>{closureReport.persistedManifest?.relationshipCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <span>Current edges</span>
+                <strong>{closureReport.currentManifest?.relationshipCount ?? 0}</strong>
+              </div>
+            </section>
+            <div className="readiness-list" aria-label="Package re-assembly closure report">
+              <div className={`readiness-item ${closureReport.ready ? "readiness-ready" : "readiness-warning"}`}>
+                <strong>Closure decision</strong>
+                <span>{closureReport.nextAction}</span>
+              </div>
+              <div className="readiness-item readiness-info">
+                <strong>File delta</strong>
+                <span>
+                  {closureReport.fileDelta.changedFiles.length} changed, {closureReport.fileDelta.addedFiles.length} added,{" "}
+                  {closureReport.fileDelta.removedFiles.length} extra persisted, {closureReport.fileDelta.unchangedFiles.length} unchanged
+                </span>
+              </div>
+              {closureReport.issues.slice(0, 6).map((item) => (
+                <div className={`readiness-item readiness-${item.level}`} key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="empty-state compact-empty">
+            <strong>No package closure report</strong>
+            <span>Select a project before inspecting package re-assembly closure.</span>
+          </div>
+        )}
       </section>
 
       <section className="board board-two">

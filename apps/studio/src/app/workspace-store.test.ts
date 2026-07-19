@@ -24,6 +24,7 @@ import {
   getManufacturingWorkOrderReport,
   getPkaManufacturingClosureReport,
   getPkaComponentManufacturingReport,
+  getPkaPackageAssemblyReadbackClosureReport,
   getPkaReleaseReadinessHints,
   getPkaPackageExportPreview,
   getPipelineQualityMetrics,
@@ -1162,6 +1163,11 @@ async function runWorkspaceStoreContractTest() {
     (await validatePersistedPkaPackageReadback(publishedPackage.packageId)).every((item) => item.level === "ready"),
     "persisted package readback validation should pass for valid archives"
   );
+  const currentAssemblyClosure = await getPkaPackageAssemblyReadbackClosureReport(project.id);
+  expect(
+    currentAssemblyClosure.ready && currentAssemblyClosure.status === "current_and_readable",
+    "published package should initially be current against persisted readback closure"
+  );
   const invalidReadbackFixtures = await createInvalidPkaReadbackFixtures(publishedPackage.packageId);
   expect(
     (await validatePersistedPkaPackageReadback(publishedPackage.packageId, invalidReadbackFixtures)).every(
@@ -1346,6 +1352,24 @@ async function runWorkspaceStoreContractTest() {
   expect(
     workOrderReport.knowledgeObjectToPackage.status === "complete",
     "KO-to-package work order should complete after package publication"
+  );
+  await updateKnowledgeRelationshipReleaseExclusion({
+    relationshipId: relationship.id,
+    excluded: true,
+    reason: "Contract test excludes a relationship after publication to prove package re-assembly closure.",
+    actor: "reviewer"
+  });
+  const staleAssemblyClosure = await getPkaPackageAssemblyReadbackClosureReport(project.id);
+  expect(
+    !staleAssemblyClosure.ready &&
+      staleAssemblyClosure.status === "needs_reassembly" &&
+      staleAssemblyClosure.issues.some((item) => item.id === "package-manifest-counts-stale"),
+    "relationship release changes after publication should require package re-assembly instead of mutating the immutable export"
+  );
+  const staleWorkOrderReport = await getManufacturingWorkOrderReport(project.id);
+  expect(
+    staleWorkOrderReport.knowledgeObjectToPackage.status === "waiting_for_approval",
+    "KO-to-package work order should reopen when persisted package files are stale against factory state"
   );
   const workOrderTrace = await createManufacturingWorkOrderTrace({
     projectId: project.id,

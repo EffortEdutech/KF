@@ -8,6 +8,7 @@ import {
   filterReleaseReadinessHints,
   getPkaManifestPreview,
   getPkaComponentManufacturingReport,
+  getPkaPackageAssemblyReadbackClosureReport,
   getPkaPackageExportPreview,
   getPkaPackageReplacementSummary,
   getPkaPackageValidationReport,
@@ -76,6 +77,9 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
       })
     : undefined;
   const validationReport = activeProject ? await getPkaPackageValidationReport(activeProject.id) : [];
+  const packageAssemblyClosureReport = activeProject
+    ? await getPkaPackageAssemblyReadbackClosureReport(activeProject.id)
+    : undefined;
   const componentManufacturingReport = activeProject
     ? await getPkaComponentManufacturingReport(activeProject.id)
     : undefined;
@@ -222,6 +226,57 @@ export default async function PkaBuilderPage({ searchParams }: PkaBuilderPagePro
           <div className="empty-state compact-empty">
             <strong>No quality report</strong>
             <span>Select a project before measuring product quality.</span>
+          </div>
+        )}
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Package Re-assembly and Readback Closure</p>
+            <h3>{packageAssemblyClosureReport?.statusLabel ?? "No package closure"}</h3>
+          </div>
+          <span className={`pill ${packageAssemblyClosureReport?.ready ? "readiness-ready" : "readiness-warning"}`}>
+            {packageAssemblyClosureReport?.packageStatus ?? "not assembled"}
+          </span>
+        </div>
+        {packageAssemblyClosureReport ? (
+          <>
+            <section className="metrics" aria-label="PKA package assembly readback closure metrics">
+              <div className="metric">
+                <span>Current KOs</span>
+                <strong>{packageAssemblyClosureReport.currentManifest?.knowledgeObjectCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <span>Current edges</span>
+                <strong>{packageAssemblyClosureReport.currentManifest?.relationshipCount ?? 0}</strong>
+              </div>
+              <div className="metric">
+                <span>Changed files</span>
+                <strong>{packageAssemblyClosureReport.fileDelta.changedFiles.length}</strong>
+              </div>
+              <div className="metric">
+                <span>Added files</span>
+                <strong>{packageAssemblyClosureReport.fileDelta.addedFiles.length}</strong>
+              </div>
+            </section>
+            <div className="readiness-list" aria-label="PKA package assembly readback closure report">
+              {packageAssemblyClosureReport.issues.slice(0, 6).map((item) => (
+                <div className={`readiness-item readiness-${item.level}`} key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </div>
+              ))}
+              <Link className="readiness-item readiness-info" href={packageAssemblyClosureReport.href}>
+                <strong>Next package action</strong>
+                <span>{packageAssemblyClosureReport.nextAction}</span>
+              </Link>
+            </div>
+          </>
+        ) : (
+          <div className="empty-state compact-empty">
+            <strong>No package closure report</strong>
+            <span>Select a project before inspecting package re-assembly closure.</span>
           </div>
         )}
       </section>

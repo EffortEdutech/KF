@@ -6,6 +6,7 @@ import {
 import {
   getManufacturingLineRunReport,
   getManufacturingWorkOrderReport,
+  getPkaPackageAssemblyReadbackClosureReport,
   getPkaManufacturingClosureReport,
   getQsRfqPilotSourcePack,
   listProjects
@@ -44,6 +45,7 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
   const report = await getManufacturingLineRunReport(activeProject.id);
   const workOrderReport = await getManufacturingWorkOrderReport(activeProject.id);
   const closureReport = await getPkaManufacturingClosureReport(activeProject.id);
+  const packageAssemblyClosureReport = await getPkaPackageAssemblyReadbackClosureReport(activeProject.id);
   const validationSourcePack = getQsRfqPilotSourcePack();
   const canRunValidationArticle = activeProject.id === validationSourcePack.projectId;
 
@@ -155,6 +157,51 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
               </article>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Package Re-assembly and Readback Closure</p>
+            <h3>{packageAssemblyClosureReport.statusLabel}</h3>
+          </div>
+          <span className={`pill ${packageAssemblyClosureReport.ready ? "readiness-ready" : "readiness-warning"}`}>
+            {packageAssemblyClosureReport.packageStatus ?? "not assembled"}
+          </span>
+        </div>
+        <section className="metrics" aria-label="Manufacturing package re-assembly closure metrics">
+          <div className="metric">
+            <span>Current KOs</span>
+            <strong>{packageAssemblyClosureReport.currentManifest?.knowledgeObjectCount ?? 0}</strong>
+          </div>
+          <div className="metric">
+            <span>Persisted KOs</span>
+            <strong>{packageAssemblyClosureReport.persistedManifest?.knowledgeObjectCount ?? 0}</strong>
+          </div>
+          <div className="metric">
+            <span>Current edges</span>
+            <strong>{packageAssemblyClosureReport.currentManifest?.relationshipCount ?? 0}</strong>
+          </div>
+          <div className="metric">
+            <span>Persisted edges</span>
+            <strong>{packageAssemblyClosureReport.persistedManifest?.relationshipCount ?? 0}</strong>
+          </div>
+        </section>
+        <div className="readiness-list" aria-label="Manufacturing package re-assembly closure report">
+          <Link
+            className={`readiness-item ${packageAssemblyClosureReport.ready ? "readiness-ready" : "readiness-warning"}`}
+            href={packageAssemblyClosureReport.href}
+          >
+            <strong>{packageAssemblyClosureReport.ready ? "Package closure clear" : "Package closure rework"}</strong>
+            <span>{packageAssemblyClosureReport.nextAction}</span>
+          </Link>
+          {packageAssemblyClosureReport.issues.slice(0, 4).map((item) => (
+            <div className={`readiness-item readiness-${item.level}`} key={item.id}>
+              <strong>{item.title}</strong>
+              <span>{item.detail}</span>
+            </div>
+          ))}
         </div>
       </section>
 

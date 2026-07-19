@@ -486,6 +486,8 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Persisted PKA export file preview")).toBeVisible();
     await page.getByRole("link", { name: "Open readback report" }).click();
     await expect(page.getByRole("heading", { name: "Package Readback Report" })).toBeVisible();
+    await expect(page.getByText("Package Re-assembly Closure")).toBeVisible();
+    await expect(page.getByLabel("Package re-assembly closure report").getByText("Closure decision")).toBeVisible();
     await expect(page.getByLabel("Current package readback report").getByText("Persisted JSON archive readback")).toBeVisible();
     await expect(page.getByLabel("Current package readback report").getByText("Persisted ZIP readback")).toBeVisible();
     await page.getByRole("button", { name: "Create invalid readback fixtures" }).click();
@@ -551,6 +553,8 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto(`/manufacturing-line?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
     await expect(page.getByText("PKA Manufacturing Governance Closure")).toBeVisible();
+    await expect(page.getByText("Package Re-assembly and Readback Closure")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing package re-assembly closure report")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Release blocked" })).toBeVisible();
     await expect(page.getByLabel("PKA manufacturing closure metrics").getByText("Release stages ready")).toBeVisible();
     await expect(page.getByLabel("PKA manufacturing closure reasons").getByText("Source-to-KO work order")).toBeVisible();
