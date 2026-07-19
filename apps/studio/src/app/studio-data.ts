@@ -1,24 +1,47 @@
 import type { LifecycleState, MissionStatus, MissionType, RelationshipType } from "@kf/core";
 
-export const navigationItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Manufacturing Line", href: "/manufacturing-line" },
-  { label: "Mission Centre", href: "/missions" },
-  { label: "Projects", href: "/projects" },
-  { label: "Sources", href: "/sources" },
-  { label: "Knowledge Objects", href: "/knowledge-objects" },
-  { label: "Review", href: "/review" },
-  { label: "Ontology", href: "/ontology" },
-  { label: "Graph", href: "/ontology#graph-quality" },
-  { label: "Pipeline", href: "/pipeline" },
-  { label: "RFQ Workflow", href: "/rfq-workflow" },
-  { label: "PKA Builder", href: "/pka-builder" },
-  { label: "Runtime Import", href: "/runtime-import" },
-  { label: "Runtime Handoff", href: "/runtime-handoff" },
-  { label: "Runtime Q&A", href: "/runtime-qa" },
-  { label: "AI Workbench", href: "#ai-workbench" },
-  { label: "Settings", href: "#settings" }
+export const navigationSections = [
+  {
+    title: "Factory Control",
+    items: [
+      { label: "Dashboard", href: "/dashboard" },
+      { label: "Manufacturing Line", href: "/manufacturing-line" },
+      { label: "Mission Centre", href: "/missions" },
+      { label: "Projects", href: "/projects" }
+    ]
+  },
+  {
+    title: "PKA Manufacturing",
+    items: [
+      { stage: "01", label: "Source Intake", href: "/sources" },
+      { stage: "02", label: "Preparation & Extraction", href: "/pipeline" },
+      { stage: "03", label: "Knowledge Objects", href: "/knowledge-objects" },
+      { stage: "04", label: "Relationships & Evidence", href: "/ontology" },
+      { stage: "05", label: "Human Governance", href: "/review" },
+      { stage: "06", label: "PKA Assembly", href: "/pka-builder" },
+      { stage: "07", label: "Release Readback", href: "/pka-builder/readback" },
+      { stage: "08", label: "Runtime Handoff", href: "/runtime-handoff" },
+      { stage: "09", label: "Consumption Validation", href: "/runtime-import" },
+      { stage: "10", label: "Continuous Improvement", href: "/manufacturing-line" }
+    ]
+  },
+  {
+    title: "Validation Article",
+    items: [
+      { label: "RFQ Workflow", href: "/rfq-workflow" },
+      { label: "Runtime Q&A Readiness", href: "/runtime-qa" }
+    ]
+  },
+  {
+    title: "Deferred Tools",
+    items: [
+      { label: "AI Workbench", href: "#ai-workbench" },
+      { label: "Settings", href: "#settings" }
+    ]
+  }
 ];
+
+export const navigationItems = navigationSections.flatMap((section) => section.items);
 
 export const workspace = {
   organisation: "KF Local Organisation",

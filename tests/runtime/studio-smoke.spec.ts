@@ -10,16 +10,19 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByText("Factory Control")).toBeVisible();
+    await expect(page.getByText("PKA Manufacturing")).toBeVisible();
+    await expect(page.getByText("Validation Article")).toBeVisible();
     await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Manufacturing Line" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Review", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "05 Human Governance" })).toBeVisible();
     await expect(
-      page.getByLabel("Studio navigation").getByRole("link", { name: "PKA Builder", exact: true })
+      page.getByLabel("Studio navigation").getByRole("link", { name: "06 PKA Assembly" })
     ).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Ontology" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Pipeline" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Import" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Handoff" })).toBeVisible();
-    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Q&A" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "02 Preparation & Extraction" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "04 Relationships & Evidence" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "08 Runtime Handoff" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "09 Consumption Validation" })).toBeVisible();
+    await expect(page.getByLabel("Studio navigation").getByRole("link", { name: "Runtime Q&A Readiness" })).toBeVisible();
     await expect(page.getByText("Review queue")).toBeVisible();
     await expect(page.getByText("Release blockers")).toBeVisible();
 

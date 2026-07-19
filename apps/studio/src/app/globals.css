@@ -76,14 +76,43 @@ textarea {
 
 .sidebar nav {
   display: grid;
-  gap: 6px;
+  gap: 16px;
   overflow: auto;
 }
 
+.nav-section {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-section-title {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  padding: 0 12px 4px;
+  text-transform: uppercase;
+}
+
 .sidebar a {
+  align-items: center;
   border-radius: 6px;
   color: var(--muted);
+  display: flex;
+  gap: 8px;
   padding: 10px 12px;
+}
+
+.nav-stage {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--accent-strong);
+  display: inline-flex;
+  flex: 0 0 28px;
+  font-size: 11px;
+  justify-content: center;
+  min-height: 20px;
 }
 
 .sidebar a:hover {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { navigationItems, workspace } from "./studio-data";
+import { navigationSections, workspace } from "./studio-data";
 
 export function StudioShell({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -12,17 +12,24 @@ export function StudioShell({ children }: Readonly<{ children: React.ReactNode }
         </div>
 
         <nav>
-          {navigationItems.map((item) =>
-            item.href.startsWith("/") ? (
-              <Link key={item.label} href={item.href}>
-                {item.label}
-              </Link>
-            ) : (
-              <a key={item.label} href={item.href} aria-disabled="true">
-                {item.label}
-              </a>
-            )
-          )}
+          {navigationSections.map((section) => (
+            <div className="nav-section" key={section.title}>
+              <span className="nav-section-title">{section.title}</span>
+              {section.items.map((item) =>
+                item.href.startsWith("/") ? (
+                  <Link key={`${section.title}-${item.label}`} href={item.href}>
+                    {"stage" in item ? <span className="nav-stage">{item.stage}</span> : null}
+                    <span>{item.label}</span>
+                  </Link>
+                ) : (
+                  <a key={`${section.title}-${item.label}`} href={item.href} aria-disabled="true">
+                    {"stage" in item ? <span className="nav-stage">{item.stage}</span> : null}
+                    <span>{item.label}</span>
+                  </a>
+                )
+              )}
+            </div>
+          ))}
         </nav>
 
         <div className="sidebar-footer">
@@ -35,4 +42,3 @@ export function StudioShell({ children }: Readonly<{ children: React.ReactNode }
     </main>
   );
 }
-
