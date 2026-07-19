@@ -749,6 +749,47 @@ export type RuntimeHandoffFeedbackSummary = {
   items: RuntimeHandoffFeedbackRecord[];
 };
 
+export type ContinuousImprovementClosureStatus =
+  | "stable"
+  | "monitoring"
+  | "revision_required";
+
+export type ContinuousImprovementTriggerType =
+  | "runtime_feedback"
+  | "package_readback"
+  | "product_quality"
+  | "source_refresh";
+
+export type ContinuousImprovementTrigger = {
+  id: string;
+  type: ContinuousImprovementTriggerType;
+  level: PackageValidationItem["level"];
+  title: string;
+  detail: string;
+  recommendedAction: string;
+  href: string;
+};
+
+export type ContinuousImprovementClosureReport = {
+  projectId: string;
+  packageId?: string;
+  packageStatus?: LifecycleState;
+  status: ContinuousImprovementClosureStatus;
+  statusLabel: string;
+  ready: boolean;
+  summary: {
+    feedbackCount: number;
+    multiSourceLifecycleRequestCount: number;
+    installationReviewRecordRequestCount: number;
+    productQualityScore: number;
+    productQualityBand: PkaProductQualityBand;
+    packageReadbackIssueCount: number;
+    sourceRefreshSignalCount: number;
+  };
+  triggers: ContinuousImprovementTrigger[];
+  nextAction: string;
+};
+
 export type RuntimeConsumerProfileId = "generic_runtime" | "aifa" | "lados";
 
 export type RuntimeConsumptionDecision = RuntimeHandoffInstallDecision;
@@ -4709,7 +4750,8 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     packageValidation,
     packageAssemblyClosure,
     runtimeQaReadiness,
-    fixtureEvaluation
+    fixtureEvaluation,
+    continuousImprovementClosure
   ] = await Promise.all([
     listSourcesByProject(projectId),
     listSourceChunks({ projectId }),
@@ -4722,7 +4764,8 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     getPkaPackageValidationReport(projectId),
     getPkaPackageAssemblyReadbackClosureReport(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
-    getRuntimeQaFixtureEvaluationReport(projectId)
+    getRuntimeQaFixtureEvaluationReport(projectId),
+    getContinuousImprovementClosureReport(projectId)
   ]);
   const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
     approvedKnowledgeObject(knowledgeObject.status)
@@ -4735,9 +4778,6 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     : undefined;
   const runtimeHandoff = publishedPackage
     ? await validateRuntimeAppDeveloperHandoff(publishedPackage.packageId)
-    : undefined;
-  const handoffFeedback = publishedPackage
-    ? await listRuntimeHandoffFeedback(publishedPackage.packageId)
     : undefined;
   const releaseBlockerCount = releaseReadinessHints.filter((hint) => hint.level === "warning").length;
   const packageValidationBlockerCount = packageValidation.filter((item) => item.level === "warning").length;
@@ -4877,15 +4917,15 @@ export async function getManufacturingLineRunReport(projectId: string): Promise<
     {
       id: "continuous_improvement" as const,
       title: "Continuous Improvement",
-      ready: Boolean(handoffFeedback && handoffFeedback.totalFeedbackCount > 0),
+      ready: continuousImprovementClosure.ready,
       blocked: false,
       capability: "Route feedback and quality signals into future manufacturing revisions.",
       genericRequirement: "PKA improvements return through KF governance instead of mutating runtime/client state.",
-      metric: `${handoffFeedback?.totalFeedbackCount ?? 0} handoff feedback record(s)`,
+      metric: `${continuousImprovementClosure.statusLabel} / ${continuousImprovementClosure.summary.feedbackCount} feedback record(s)`,
       detail:
-        handoffFeedback && handoffFeedback.totalFeedbackCount > 0
-          ? `${handoffFeedback.relationshipEvidenceDecision.replaceAll("_", " ")}.`
-          : "Record runtime/app-developer feedback after handoff inspection.",
+        continuousImprovementClosure.status === "revision_required"
+          ? continuousImprovementClosure.nextAction
+          : continuousImprovementClosure.triggers[0]?.detail ?? "Monitor runtime/app-developer feedback after handoff inspection.",
       href: `/runtime-handoff?projectId=${projectId}`
     }
   ];
@@ -5034,6 +5074,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     releaseReadinessHints,
     runtimeQaReadiness,
     fixtureEvaluation,
+    continuousImprovementClosure,
     missions
   ] = await Promise.all([
     listSourcesByProject(projectId),
@@ -5047,6 +5088,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     getPkaReleaseReadinessHints(projectId),
     getRuntimeQaAnswerReadinessReport(projectId),
     getRuntimeQaFixtureEvaluationReport(projectId),
+    getContinuousImprovementClosureReport(projectId),
     listMissions()
   ]);
   const approvedKnowledgeObjects = knowledgeObjects.filter((knowledgeObject) =>
@@ -5198,17 +5240,17 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     phase: "continuous_improvement",
     title: "Continuous improvement work order",
     status: manufacturingWorkOrderStatus({
-      complete: Boolean(handoffFeedback && handoffFeedback.totalFeedbackCount > 0),
+      complete: continuousImprovementClosure.ready,
       blocked: false,
-      waitingForApproval: Boolean(handoffFeedback?.repeatedMultiSourceLifecycleFeedback),
+      waitingForApproval: continuousImprovementClosure.status === "revision_required",
       running: continuousImprovementMission.running,
       ready: Boolean(publishedPackage)
     }),
     objective: "Capture feedback and route future revisions back through the manufacturing line.",
     ownerRole: "knowledge_architect",
     stageRange: "Continuous Improvement",
-    inputSignal: `${handoffFeedback?.totalFeedbackCount ?? 0} handoff feedback record(s)`,
-    outputSignal: handoffFeedback?.relationshipEvidenceDecision.replaceAll("_", " ") ?? "no feedback decision",
+    inputSignal: `${continuousImprovementClosure.summary.feedbackCount} handoff feedback record(s), ${continuousImprovementClosure.triggers.length} trigger(s)`,
+    outputSignal: continuousImprovementClosure.statusLabel,
     approvalCheckpoint: "Schema or component changes wait for documented feedback triggers and architecture review.",
     runControlLabel: "Open Runtime Handoff",
     href: `/runtime-handoff?projectId=${projectId}`,
@@ -5216,7 +5258,7 @@ export async function getManufacturingWorkOrderReport(projectId: string): Promis
     missionCount: continuousImprovementMission.missionCount,
     openMissionCount: continuousImprovementMission.openMissionCount,
     nextAction: publishedPackage
-      ? "Record and review app-developer feedback after package handoff."
+      ? continuousImprovementClosure.nextAction
       : "Finish publication before continuous-improvement feedback is meaningful."
   };
   const workOrders = [
@@ -7351,6 +7393,184 @@ export async function listRuntimeHandoffFeedback(packageId: string): Promise<Run
         ? "promote_to_dedicated_app_developer_review_table_later"
         : "audit_backed_records_for_pilot",
     items
+  };
+}
+
+function continuousImprovementStatusLabel(status: ContinuousImprovementClosureStatus) {
+  return status === "revision_required"
+    ? "Revision required"
+    : status === "monitoring"
+      ? "Monitoring"
+      : "Stable";
+}
+
+function continuousImprovementTrigger(input: ContinuousImprovementTrigger): ContinuousImprovementTrigger {
+  return input;
+}
+
+export async function getContinuousImprovementClosureReport(
+  projectId: string
+): Promise<ContinuousImprovementClosureReport> {
+  const [packages, sources, productQuality, packageAssemblyClosure] = await Promise.all([
+    listPkaPackages(projectId),
+    listSourcesByProject(projectId),
+    getPkaProductQualityReport(projectId),
+    getPkaPackageAssemblyReadbackClosureReport(projectId)
+  ]);
+  const latestPackage = latestPublishedPackage(packages) ?? packages[0];
+  const feedback = latestPackage
+    ? await listRuntimeHandoffFeedback(latestPackage.packageId)
+    : undefined;
+  const publishedAt = parseDateOnly(latestPackage?.publishedAt);
+  const sourceRefreshSignals = publishedAt
+    ? sources.filter((source) => {
+        const createdAt = parseDateOnly(source.createdAt);
+        return Boolean(createdAt && createdAt > publishedAt);
+      })
+    : [];
+  const packageReadbackIssues = packageAssemblyClosure.issues.filter((item) => item.level === "warning");
+  const triggers: ContinuousImprovementTrigger[] = [];
+
+  if (!latestPackage) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-missing-package",
+        type: "package_readback",
+        level: "warning",
+        title: "No package baseline",
+        detail: "Publish a Base PKA before continuous-improvement closure can compare future feedback and source changes.",
+        recommendedAction: "Complete package assembly, release, handoff, and consumption validation first.",
+        href: `/pka-builder?projectId=${projectId}`
+      })
+    );
+  }
+
+  if (feedback?.repeatedMultiSourceLifecycleFeedback) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-relationship-evidence-table",
+        type: "runtime_feedback",
+        level: "warning",
+        title: "Relationship evidence lifecycle trigger",
+        detail: `${feedback.multiSourceLifecycleRequestCount} runtime/app-developer feedback record(s) request multi-source relationship evidence lifecycle.`,
+        recommendedAction: "Open an architecture/rework batch for dedicated relationship evidence records before expanding runtime behavior.",
+        href: `/runtime-handoff?projectId=${projectId}`
+      })
+    );
+  } else if ((feedback?.multiSourceLifecycleRequestCount ?? 0) > 0) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-monitor-relationship-evidence",
+        type: "runtime_feedback",
+        level: "info",
+        title: "Monitor relationship evidence feedback",
+        detail: `${feedback?.multiSourceLifecycleRequestCount ?? 0} feedback record requests multi-source relationship evidence; threshold is ${feedback?.multiSourceLifecycleThreshold ?? runtimeHandoffMultiSourceLifecycleThreshold}.`,
+        recommendedAction: "Keep relationship evidence in provenance while monitoring the next independent app-developer review.",
+        href: `/runtime-handoff?projectId=${projectId}`
+      })
+    );
+  }
+
+  if ((feedback?.installationReviewRecordRequestCount ?? 0) > 0) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-installation-review-records",
+        type: "runtime_feedback",
+        level: "info",
+        title: "Installation review record feedback",
+        detail: `${feedback?.installationReviewRecordRequestCount ?? 0} feedback record(s) ask for stronger app-developer installation review records.`,
+        recommendedAction: "Keep audit-backed handoff feedback for now; promote to a dedicated app-developer review table only after repeated real reviews prove the need.",
+        href: `/runtime-handoff?projectId=${projectId}`
+      })
+    );
+  }
+
+  if (!packageAssemblyClosure.ready) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-package-reassembly",
+        type: "package_readback",
+        level: "warning",
+        title: "Package re-assembly trigger",
+        detail: packageAssemblyClosure.nextAction,
+        recommendedAction: "Route the package through KO-to-package rework before treating the current revision as closed.",
+        href: packageAssemblyClosure.href
+      })
+    );
+  }
+
+  if (!productQuality.releaseGrade) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-product-quality",
+        type: "product_quality",
+        level: productQuality.band === "blocked" ? "warning" : "info",
+        title: `Product quality is ${productQuality.band.replaceAll("_", " ")}`,
+        detail: productQuality.topRisks[0] ?? "Product quality is below release-grade threshold.",
+        recommendedAction: "Use PKA Product Quality to decide whether this is immediate rework or a monitored improvement item.",
+        href: `/pka-builder?projectId=${projectId}`
+      })
+    );
+  }
+
+  if (sourceRefreshSignals.length > 0) {
+    triggers.push(
+      continuousImprovementTrigger({
+        id: "continuous-improvement-source-refresh",
+        type: "source_refresh",
+        level: "warning",
+        title: "New source after publication",
+        detail: `${sourceRefreshSignals.length} source record(s) were registered after the latest publication date.`,
+        recommendedAction: "Route new source material through Source-to-KO manufacturing before creating the next package revision.",
+        href: `/sources?projectId=${projectId}`
+      })
+    );
+  }
+
+  const revisionRequired = triggers.some((trigger) => trigger.level === "warning");
+  const monitoring = !revisionRequired && triggers.some((trigger) => trigger.level === "info");
+  const status: ContinuousImprovementClosureStatus = revisionRequired
+    ? "revision_required"
+    : monitoring
+      ? "monitoring"
+      : "stable";
+
+  return {
+    projectId,
+    packageId: latestPackage?.packageId,
+    packageStatus: latestPackage?.status,
+    status,
+    statusLabel: continuousImprovementStatusLabel(status),
+    ready: Boolean(latestPackage) && status !== "revision_required",
+    summary: {
+      feedbackCount: feedback?.totalFeedbackCount ?? 0,
+      multiSourceLifecycleRequestCount: feedback?.multiSourceLifecycleRequestCount ?? 0,
+      installationReviewRecordRequestCount: feedback?.installationReviewRecordRequestCount ?? 0,
+      productQualityScore: productQuality.score,
+      productQualityBand: productQuality.band,
+      packageReadbackIssueCount: packageReadbackIssues.length,
+      sourceRefreshSignalCount: sourceRefreshSignals.length
+    },
+    triggers:
+      triggers.length > 0
+        ? triggers
+        : [
+            continuousImprovementTrigger({
+              id: "continuous-improvement-stable",
+              type: "runtime_feedback",
+              level: "ready",
+              title: "No revision trigger",
+              detail: "No feedback threshold, package readback drift, product quality, or source refresh signal currently requires a new manufacturing revision.",
+              recommendedAction: "Keep monitoring app-developer feedback and source changes after handoff.",
+              href: `/runtime-handoff?projectId=${projectId}`
+            })
+          ],
+    nextAction:
+      status === "revision_required"
+        ? "Create a Continuous Improvement work-order trace and route the revision trigger to the linked factory stage."
+        : status === "monitoring"
+          ? "Keep monitoring feedback until a documented threshold reopens architecture or manufacturing work."
+          : "No revision batch is required; continue monitoring runtime feedback and source changes."
   };
 }
 

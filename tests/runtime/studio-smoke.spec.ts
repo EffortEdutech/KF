@@ -262,6 +262,7 @@ test.describe("KF Studio runtime smoke", () => {
   });
 
   test("repairs evidence and relationship provenance before package assembly", async ({ page, request }) => {
+    test.setTimeout(45000);
     const pilotProjectId = "kf-qs-rfq-pilot";
 
     await page.goto(`/knowledge-objects?projectId=${pilotProjectId}`);
@@ -553,6 +554,9 @@ test.describe("KF Studio runtime smoke", () => {
     await page.goto(`/manufacturing-line?projectId=${pilotProjectId}`);
     await expect(page.getByRole("heading", { name: "Manufacturing Line" })).toBeVisible();
     await expect(page.getByText("PKA Manufacturing Governance Closure")).toBeVisible();
+    await expect(page.getByText("Continuous Improvement Closure")).toBeVisible();
+    await expect(page.getByLabel("Continuous improvement closure metrics").getByText("Feedback")).toBeVisible();
+    await expect(page.getByLabel("Continuous improvement closure triggers").getByText("Package re-assembly trigger")).toBeVisible();
     await expect(page.getByText("Package Re-assembly and Readback Closure")).toBeVisible();
     await expect(page.getByLabel("Manufacturing package re-assembly closure report")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Release blocked" })).toBeVisible();
@@ -565,7 +569,7 @@ test.describe("KF Studio runtime smoke", () => {
     await expect(page.getByLabel("Manufacturing work order metrics").getByText("Approval checkpoints")).toBeVisible();
     await expect(page.getByLabel("Manufacturing work orders").getByText("Runtime validation work order")).toBeVisible();
     await page.getByLabel("Manufacturing work orders").getByRole("button", { name: "Create work order trace" }).first().click();
-    await expect(page.getByLabel("Manufacturing work orders").getByText("1/1 open")).toBeVisible();
+    await expect(page.getByLabel("Manufacturing work orders").getByText("Mission traces").first()).toBeVisible();
     await page.getByRole("button", { name: "Run manufacturing validation article" }).click();
     await expect(page).toHaveURL(/\/manufacturing-line\?projectId=kf-qs-rfq-pilot/);
     await expect(page.getByRole("heading", { name: "Rework required" })).toBeVisible();

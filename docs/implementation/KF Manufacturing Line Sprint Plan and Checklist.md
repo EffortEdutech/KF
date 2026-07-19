@@ -259,7 +259,7 @@ Feedback is recorded, summarized, thresholded, and routed into the next manufact
 | 7. Release and Publication | `[x]` | Draft/review/approve/publish workflow and immutable published exports exist. |
 | 8. Runtime Handoff | `[~]` | Handoff JSON, negative fixtures, installer mapping, and feedback records exist. Needs generic app-developer handoff polish. |
 | 9. Consumption Validation | `[~]` | Runtime import and deterministic Q&A readiness exist without model calls. True retrieval/runtime engine is later work. |
-| 10. Continuous Improvement | `[ ]` | Feedback exists, but no structured revision planning loop yet. |
+| 10. Continuous Improvement | `[x]` | Continuous-improvement closure now routes app-developer feedback, package drift, product quality, and source refresh signals into monitored or revision-required future manufacturing work. |
 
 ---
 
@@ -346,6 +346,14 @@ The factory can now show where a Base PKA is in the line, assemble and publish a
 - [x] Feed package assembly/readback closure into Manufacturing Line Stage 6 and KO-to-package work-order readiness.
 - [x] Preserve immutable published package semantics by requiring a new version or draft replacement instead of silently rewriting published exports.
 - [x] Validate that relationship/evidence closure changes after publication reopen package re-assembly without adding runtime execution or Ollama.
+
+### Batch 9 Must Finish - Continuous Improvement Closure
+
+- [x] Add a generic continuous-improvement closure report that combines app-developer feedback, package readback drift, product quality, and source refresh signals.
+- [x] Surface continuous-improvement closure in Manufacturing Line Stage 10 with trigger counts, route links, and next action.
+- [x] Feed continuous-improvement closure into the Continuous Improvement work order instead of treating feedback as passive history.
+- [x] Keep relationship evidence table and app-developer review table decisions threshold-based instead of creating new tables immediately.
+- [x] Validate repeated app-developer feedback can reopen a revision trigger without adding runtime execution or Ollama.
 
 ### Acceptance Demo
 
@@ -564,6 +572,32 @@ Implementation status:
 - [x] Store contract validates a published package starts current/readable and becomes `needs_reassembly` after a post-publication relationship release-exclusion change.
 - [x] Runtime smoke validates the new readback and Manufacturing Line package-closure surfaces.
 
+### Batch 9 - Continuous Improvement Closure
+
+Goal:
+
+Close Stage 10 so KF can decide when a manufactured PKA should remain stable, be monitored, or start a governed revision batch.
+
+Deliverables:
+
+- Continuous-improvement closure report.
+- Feedback/readback/quality/source-refresh revision triggers.
+- Manufacturing Line Stage 10 closure surface.
+- Continuous Improvement work-order integration.
+- Tests, docs, Graphify refresh, and commit/push.
+
+Done when:
+
+A KF operator can see whether the current PKA product has no revision trigger, requires monitoring, or must enter a new manufacturing revision route.
+
+Implementation status:
+
+- [x] `getContinuousImprovementClosureReport` classifies Stage 10 as `stable`, `monitoring`, or `revision_required`.
+- [x] Revision triggers cover runtime/app-developer feedback thresholds, package re-assembly/readback closure, product quality, and new sources after publication.
+- [x] `/manufacturing-line` shows Continuous Improvement Closure metrics and linked trigger routes.
+- [x] Continuous Improvement work order now uses the closure report for status, output signal, and next action.
+- [x] Store and runtime smoke tests validate repeated app-developer feedback routes into a revision trigger.
+
 ---
 
 ## 8. Decision Gates
@@ -601,9 +635,9 @@ For each sprint batch:
 
 ## 10. Current Next Action
 
-Close **Batch 8 - Package Re-assembly and Readback Closure** with verification, Graphify refresh, commit, and push.
+Close **Batch 9 - Continuous Improvement Closure** with verification, Graphify refresh, commit, and push.
 
-The current factory line can now distinguish a readable persisted package from a stale persisted export after relationship/evidence closure changes. Published exports remain immutable; operators must create a new version after post-publication manufacturing changes.
+The current factory line can now route app-developer feedback, stale package exports, product-quality drift, and new-source signals into a governed future revision without adding runtime execution or new persistence tables.
 
 Do not add runtime workflow execution, component database tables, Ollama, broad extraction formats, marketplace distribution, or a dedicated relationship evidence table unless they block the governance closure or its documented follow-up.
 

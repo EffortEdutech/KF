@@ -832,6 +832,7 @@ Apply these checks to every sprint:
 | 2026-07-18 | PKA Product Quality report added | Accepted | Added `getPkaProductQualityReport` and a PKA Builder product-quality panel with weighted score, quality band, source diversity/freshness, governance coverage, relationship evidence, package completeness, runtime handoff readiness, and top quality risks. |
 | 2026-07-18 | Runtime Consumption Contract profiles added | Accepted | Added `getRuntimeConsumptionContractReport` and a Runtime Handoff profile surface for Generic Runtime, AIFA, and LADOS. The report maps package handoff/import checks into installable, blocked, or installation-review-required decisions without adding runtime execution. |
 | 2026-07-19 | Package re-assembly/readback closure added | Accepted | Added `getPkaPackageAssemblyReadbackClosureReport` to compare the current factory package preview against persisted package files and readback checks. PKA Builder, Package Readback, Manufacturing Line Stage 6, and the KO-to-package work order now show when a persisted export is current or must be re-assembled as a draft replacement/new immutable version. |
+| 2026-07-19 | Continuous Improvement closure added | Accepted | Added `getContinuousImprovementClosureReport` to classify Stage 10 as stable, monitoring, or revision-required from runtime/app-developer feedback, package readback drift, product quality, and source refresh signals. Manufacturing Line and the Continuous Improvement work order now route revision triggers without adding runtime execution, Ollama, or new tables. |
 
 ---
 
@@ -862,9 +863,9 @@ Apply these checks to every sprint:
 
 ## 11. Current Next Actions
 
-1. Verify and close Manufacturing Line Batch 8: Package Re-assembly and Readback Closure.
-2. Decide Batch 9 direction after package closure: likely Continuous Improvement closure, focused on revision triggers and app-developer feedback routing.
-3. Keep stale package issues routed through PKA Builder, Package Readback, and the KO-to-package work order instead of mutating published exports.
+1. Verify and close Manufacturing Line Batch 9: Continuous Improvement Closure.
+2. Decide the next factory direction after Stage 10 closure: likely integrated end-to-end acceptance demo cleanup, or return to source/extraction depth only if it improves generic PKA manufacturing.
+3. Keep revision triggers routed through existing manufacturing work orders unless a documented threshold reopens a table/component decision.
 4. Keep Ollama, broad extraction formats, marketplace, runtime workflow execution, component database tables, and dedicated relationship-evidence table work deferred until the documented gates reopen them.
 
 ---

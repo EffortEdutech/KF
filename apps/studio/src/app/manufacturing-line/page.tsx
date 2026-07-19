@@ -4,6 +4,7 @@ import {
   runManufacturingLineValidationAction
 } from "../source-actions";
 import {
+  getContinuousImprovementClosureReport,
   getManufacturingLineRunReport,
   getManufacturingWorkOrderReport,
   getPkaPackageAssemblyReadbackClosureReport,
@@ -46,6 +47,7 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
   const workOrderReport = await getManufacturingWorkOrderReport(activeProject.id);
   const closureReport = await getPkaManufacturingClosureReport(activeProject.id);
   const packageAssemblyClosureReport = await getPkaPackageAssemblyReadbackClosureReport(activeProject.id);
+  const continuousImprovementClosureReport = await getContinuousImprovementClosureReport(activeProject.id);
   const validationSourcePack = getQsRfqPilotSourcePack();
   const canRunValidationArticle = activeProject.id === validationSourcePack.projectId;
 
@@ -90,6 +92,49 @@ export default async function ManufacturingLinePage({ searchParams }: Manufactur
         <div className="metric">
           <span>Validation article</span>
           <strong>{report.validationArticle}</strong>
+        </div>
+      </section>
+
+      <section className="panel panel-strong">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Continuous Improvement Closure</p>
+            <h3>{continuousImprovementClosureReport.statusLabel}</h3>
+          </div>
+          <span className={`pill ${continuousImprovementClosureReport.ready ? "readiness-ready" : "readiness-warning"}`}>
+            {continuousImprovementClosureReport.packageStatus ?? "no package"}
+          </span>
+        </div>
+        <p>
+          This Stage 10 closure routes feedback, source refreshes, package drift, and quality signals back through the
+          manufacturing line before a new PKA revision starts.
+        </p>
+        <section className="metrics" aria-label="Continuous improvement closure metrics">
+          <div className="metric">
+            <span>Feedback</span>
+            <strong>{continuousImprovementClosureReport.summary.feedbackCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Evidence lifecycle</span>
+            <strong>{continuousImprovementClosureReport.summary.multiSourceLifecycleRequestCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Readback issues</span>
+            <strong>{continuousImprovementClosureReport.summary.packageReadbackIssueCount}</strong>
+          </div>
+          <div className="metric">
+            <span>Quality score</span>
+            <strong>{continuousImprovementClosureReport.summary.productQualityScore}</strong>
+          </div>
+        </section>
+        <div className="readiness-list" aria-label="Continuous improvement closure triggers">
+          {continuousImprovementClosureReport.triggers.slice(0, 6).map((trigger) => (
+            <Link className={`readiness-item readiness-${trigger.level}`} href={trigger.href} key={trigger.id}>
+              <strong>{trigger.title}</strong>
+              <span>{trigger.detail}</span>
+              <span>{trigger.recommendedAction}</span>
+            </Link>
+          ))}
         </div>
       </section>
 

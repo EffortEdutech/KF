@@ -18,6 +18,7 @@ import {
   createRuntimeHandoffReadbackFixtures,
   createRuntimePkaImportFixtures,
   filterReleaseReadinessHints,
+  getContinuousImprovementClosureReport,
   getKnowledgeObject,
   getKnowledgeObjectReviewReadinessHints,
   getManufacturingLineRunReport,
@@ -1168,6 +1169,11 @@ async function runWorkspaceStoreContractTest() {
     currentAssemblyClosure.ready && currentAssemblyClosure.status === "current_and_readable",
     "published package should initially be current against persisted readback closure"
   );
+  const stableContinuousImprovementClosure = await getContinuousImprovementClosureReport(project.id);
+  expect(
+    stableContinuousImprovementClosure.ready && stableContinuousImprovementClosure.status === "stable",
+    "continuous improvement closure should start stable when no revision triggers exist"
+  );
   const invalidReadbackFixtures = await createInvalidPkaReadbackFixtures(publishedPackage.packageId);
   expect(
     (await validatePersistedPkaPackageReadback(publishedPackage.packageId, invalidReadbackFixtures)).every(
@@ -1316,6 +1322,15 @@ async function runWorkspaceStoreContractTest() {
   expect(
     repeatedMultiSourceHandoffFeedback.repeatedMultiSourceLifecycleFeedback,
     "repeated lifecycle feedback should be explicit in the handoff feedback summary"
+  );
+  const revisionContinuousImprovementClosure = await getContinuousImprovementClosureReport(project.id);
+  expect(
+    !revisionContinuousImprovementClosure.ready &&
+      revisionContinuousImprovementClosure.status === "revision_required" &&
+      revisionContinuousImprovementClosure.triggers.some(
+        (trigger) => trigger.id === "continuous-improvement-relationship-evidence-table"
+      ),
+    "continuous improvement closure should route repeated app-developer feedback into a revision trigger"
   );
   expect(
     (await listRuntimeHandoffFeedback(publishedPackage.packageId)).items.some(
