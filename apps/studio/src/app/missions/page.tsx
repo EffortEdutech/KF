@@ -138,8 +138,8 @@ export default async function MissionsPage() {
           <span>Stage</span>
           <span>Control</span>
         </div>
-        {missions.map((mission) => (
-          <div className="table-row mission-row" key={mission.id}>
+        {missions.map((mission, index) => (
+          <div className="table-row mission-row" key={`${mission.id}-${index}`}>
             <strong>{mission.title}</strong>
             <span>{mission.type}</span>
             <span className="pill">{mission.status}</span>

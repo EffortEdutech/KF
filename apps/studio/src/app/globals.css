@@ -51,6 +51,10 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  height: 100vh;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
   border-right: 1px solid var(--border);
   background: #0c0f0d;
   padding: 28px 22px;
@@ -77,7 +81,9 @@ textarea {
 .sidebar nav {
   display: grid;
   gap: 16px;
+  min-height: 0;
   overflow: auto;
+  padding-right: 4px;
 }
 
 .nav-section {
